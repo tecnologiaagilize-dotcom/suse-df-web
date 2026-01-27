@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2 } from 'lucide-react';
+import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2, Upload, Paperclip, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrackingMap from '../components/map/TrackingMap'; 
 import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
@@ -23,6 +23,12 @@ export default function Dashboard() {
   const [generatedLinks, setGeneratedLinks] = useState([]); // Array de { name, phone, link }
   const [agents, setAgents] = useState([]);
   const [loadingShare, setLoadingShare] = useState(false);
+
+  // Estados para Relatório Final
+  const [showReportModal, setShowReportModal] = useState(null); // Alert object
+  const [reportData, setReportData] = useState({ qto: '', description: '' });
+  const [reportFiles, setReportFiles] = useState([]); // Array de Files
+  const [savingReport, setSavingReport] = useState(false);
 
   // Estado para Modal de Chefe de Viatura
   const [showAgentModal, setShowAgentModal] = useState(false);
@@ -118,6 +124,129 @@ export default function Dashboard() {
 
   const closeWindow = (alertId) => {
       setActiveWindows(prev => prev.filter(w => w.id !== alertId));
+  };
+
+  const handleResolve = async (alert) => {
+      // Abrir modal de relatório em vez de finalizar direto
+      setShowReportModal(alert);
+      setReportData({ qto: '', description: '' });
+      setReportFiles([]);
+  };
+
+  const submitReport = async (e) => {
+      e.preventDefault();
+
+      // Validação Obrigatória Manual
+      if (!reportData.qto || !reportData.qto.trim()) {
+          alert("O campo 'Número da QTO' é obrigatório.");
+          return;
+      }
+      if (!reportData.description || !reportData.description.trim()) {
+          alert("O campo 'Relatório do Atendimento' é obrigatório.");
+          return;
+      }
+
+      setSavingReport(true);
+
+      try {
+          // 1. Verificar se já existe relatório para este alerta (upsert logic)
+          // Tenta selecionar primeiro
+          const { data: existingReport } = await supabase
+              .from('incident_reports')
+              .select('id')
+              .eq('alert_id', showReportModal.id)
+              .single();
+
+          let reportId = existingReport?.id;
+
+          if (reportId) {
+              // Atualizar existente
+              const { error: updateError } = await supabase
+                  .from('incident_reports')
+                  .update({
+                      qto_number: reportData.qto,
+                      description: reportData.description,
+                      updated_at: new Date().toISOString()
+                  })
+                  .eq('id', reportId);
+              
+              if (updateError) throw updateError;
+          } else {
+              // Criar novo
+              const { data: newReport, error: insertError } = await supabase
+                  .from('incident_reports')
+                  .insert([{
+                      alert_id: showReportModal.id,
+                      qto_number: reportData.qto,
+                      description: reportData.description,
+                      created_by: user?.id
+                  }])
+                  .select()
+                  .single();
+              
+              if (insertError) throw insertError;
+              reportId = newReport.id;
+          }
+
+          // 2. Upload de Arquivos (Simulado ou Real se bucket existir)
+          if (reportFiles.length > 0) {
+              for (const file of reportFiles) {
+                  const fileName = `${reportId}/${Date.now()}_${file.name}`;
+                  const { error: uploadError } = await supabase.storage
+                      .from('report-files')
+                      .upload(fileName, file);
+
+                  if (uploadError) {
+                      console.warn('Erro ao subir arquivo:', uploadError);
+                      continue; 
+                  }
+
+                  const { data: { publicUrl } } = supabase.storage
+                      .from('report-files')
+                      .getPublicUrl(fileName);
+
+                  await supabase.from('report_attachments').insert([{
+                      report_id: reportId,
+                      file_name: file.name,
+                      file_url: publicUrl,
+                      file_type: file.type
+                  }]);
+              }
+          }
+
+          // 3. Finalizar Alerta
+          const { error: updateError } = await supabase
+              .from('emergency_alerts')
+              .update({ 
+                  status: 'resolved',
+                  resolved_at: new Date().toISOString()
+              })
+              .eq('id', showReportModal.id);
+
+          if (updateError) throw updateError;
+
+          // Sucesso
+          alert("Ocorrência finalizada e relatório salvo com sucesso!");
+          closeWindow(showReportModal.id);
+          setShowReportModal(null);
+          fetchAlerts();
+
+      } catch (err) {
+          console.error("Erro ao salvar relatório:", err);
+          alert("Erro: " + err.message);
+      } finally {
+          setSavingReport(false);
+      }
+  };
+
+  const handleFileChange = (e) => {
+      if (e.target.files) {
+          setReportFiles(prev => [...prev, ...Array.from(e.target.files)]);
+      }
+  };
+
+  const removeFile = (index) => {
+      setReportFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const fetchAgents = async () => {
@@ -340,6 +469,14 @@ export default function Dashboard() {
                                       title="Compartilhar Localização"
                                   >
                                       <Share2 size={14} /> Compartilhar
+                                  </button>
+
+                                  <button 
+                                      onClick={() => handleResolve(window)}
+                                      className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white text-xs px-2 py-1 rounded transition-colors ml-2"
+                                      title="Finalizar Ocorrência"
+                                  >
+                                      <CheckCircle size={14} /> Finalizar
                                   </button>
                               </div>
                               <button onClick={() => closeWindow(window.id)} className="text-gray-400 hover:text-white">
@@ -736,6 +873,116 @@ export default function Dashboard() {
                   </div>
               </div>
           </div>
+      )}
+
+      {/* Modal de Chefe de Viatura */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border border-gray-200 flex flex-col max-h-[90vh]">
+                <div className="bg-green-700 text-white p-4 flex justify-between items-center shrink-0">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <CheckCircle size={20} /> Finalizar Atendimento
+                    </h3>
+                    <button onClick={() => setShowReportModal(null)} className="text-green-200 hover:text-white transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+                
+                <form onSubmit={submitReport} className="flex-1 overflow-y-auto p-6 space-y-4">
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-yellow-700">
+                                    Ao salvar este relatório, a ocorrência será finalizada e removida da tela de monitoramento.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Número da QTO <span className="text-red-600">*</span></label>
+                        <input 
+                            type="text" 
+                            required
+                            placeholder="Ex: QTO-2024/001"
+                            value={reportData.qto}
+                            onChange={(e) => setReportData({...reportData, qto: e.target.value})}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 border p-2"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Relatório do Atendimento <span className="text-red-600">*</span></label>
+                        <textarea 
+                            required
+                            placeholder="Descreva detalhadamente as ações tomadas..."
+                            rows={5}
+                            value={reportData.description}
+                            onChange={(e) => setReportData({...reportData, description: e.target.value})}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 border p-2"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Anexos (Fotos e Documentos)</label>
+                        
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                            <input 
+                                type="file" 
+                                multiple
+                                onChange={handleFileChange}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <Upload className="mx-auto h-10 w-10 text-gray-400" />
+                            <p className="mt-2 text-sm text-gray-600">Clique para selecionar arquivos</p>
+                            <p className="text-xs text-gray-500">Imagens, PDF, DOCX</p>
+                        </div>
+
+                        {reportFiles.length > 0 && (
+                            <ul className="mt-4 space-y-2">
+                                {reportFiles.map((file, index) => (
+                                    <li key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200 text-sm">
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Paperclip size={16} className="text-gray-400" />
+                                            <span className="truncate max-w-[200px]">{file.name}</span>
+                                            <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(0)} KB)</span>
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={() => removeFile(index)}
+                                            className="text-red-500 hover:text-red-700 p-1"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </form>
+
+                <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 shrink-0">
+                    <button 
+                        type="button"
+                        onClick={() => setShowReportModal(null)} 
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={submitReport}
+                        disabled={savingReport}
+                        className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                        <Save size={18} />
+                        {savingReport ? 'Salvando...' : 'Finalizar e Salvar'}
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
 
       {/* Modal de Chefe de Viatura */}
