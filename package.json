@@ -2,8 +2,9 @@
   "name": "suse-df-root",
   "private": true,
   "scripts": {
-    "postinstall": "cd apps/web && npm install",
+    "postinstall": "npm install --workspaces",
     "build": "cd apps/web && npm run build",
+    "build:veritas": "cd apps/veritas-web && npm run build",
     "vercel-build": "cd apps/web && npm install && npm run build"
   },
   "engines": {
