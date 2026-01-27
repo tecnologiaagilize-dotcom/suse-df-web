@@ -1,0 +1,15 @@
+{
+  "name": "suse-df-root",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd apps/web && npm install",
+    "build": "cd apps/web && npm run build",
+    "vercel-build": "cd apps/web && npm install && npm run build"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
+}
