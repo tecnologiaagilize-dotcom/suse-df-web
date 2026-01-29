@@ -45,18 +45,45 @@ export default function Dashboard() {
   });
 
   const [showValidationModal, setShowValidationModal] = useState(null); // Alert object para validar
+  const [validationToken, setValidationToken] = useState('');
+  const [officerId, setOfficerId] = useState('');
+  const [officerBattalion, setOfficerBattalion] = useState('');
 
   const handleValidationAction = async (alert, action) => {
       try {
           if (action === 'approve') {
-              // Finalizar Ocorrência (Validação PM)
-              // Abre modal de relatório final mas já sabendo que é validação
-              setShowValidationModal(null);
-              setShowReportModal(alert);
-              setReportData({ 
-                  qto: 'VALIDACAO-PM', 
-                  description: `Encerrado após validação policial presencial.\nMotivo do Usuário: ${alert.termination_reason}` 
-              });
+              if (!validationToken || !officerId) {
+                  alert("Por favor, informe o Token de Segurança e a Identificação do Oficial.");
+                  return;
+              }
+
+              // Chamar RPC para validar token
+              const { data, error } = await supabase
+                  .rpc('validate_termination_token', {
+                      p_alert_id: alert.id,
+                      p_token_input: validationToken,
+                      p_police_officer: officerId
+                  });
+
+              if (error) throw error;
+
+              if (data && data.success) {
+                  // Finalizar Ocorrência (Validação PM)
+                  // Abre modal de relatório final mas já sabendo que é validação
+                  setShowValidationModal(null);
+                  setShowReportModal(alert);
+                  setReportData({ 
+                      qto: 'VALIDACAO-PM', 
+                      description: `Encerrado após validação policial presencial.\nOficial Responsável: ${officerId}\nMotivo do Usuário: ${alert.termination_reason}` 
+                  });
+                  
+                  // Limpar campos
+                  setValidationToken('');
+                  setOfficerId('');
+                  alert(data.message);
+              } else {
+                  alert("Falha na validação: " + (data?.message || "Token inválido."));
+              }
           } else {
               // Rejeitar (Manter Monitoramento)
               const { error } = await supabase
@@ -67,6 +94,9 @@ export default function Dashboard() {
               if (error) throw error;
               alert("Monitoramento mantido. Status retornado para Ativo.");
               setShowValidationModal(null);
+              setValidationToken('');
+              setOfficerId('');
+              setOfficerBattalion('');
               fetchAlerts();
           }
       } catch (error) {
@@ -471,7 +501,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento
+            Central de Monitoramento (v2.0)
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
@@ -1413,8 +1443,42 @@ export default function Dashboard() {
                                   <li>Verifique se a foto corresponde ao usuário.</li>
                                   <li>Analise se a expressão facial indica coação.</li>
                                   <li>Confirme se o usuário está em local seguro (Delegacia/Posto PM).</li>
-                                  <li><strong>Somente encerre após contato oficial.</strong></li>
+                                  <li><strong>Solicite o TOKEN DE SEGURANÇA ao motorista.</strong></li>
                               </ul>
+                          </div>
+
+                          <div className="space-y-3 pt-2">
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Identificação do Oficial (PM/Autoridade)</label>
+                                  <input 
+                                      type="text" 
+                                      placeholder="Nome / Patente / Matrícula"
+                                      value={officerId}
+                                      onChange={(e) => setOfficerId(e.target.value)}
+                                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 mb-2"
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Batalhão / Unidade</label>
+                                  <input 
+                                      type="text" 
+                                      placeholder="Ex: 5º BPM, 1ª DP"
+                                      value={officerBattalion}
+                                      onChange={(e) => setOfficerBattalion(e.target.value)}
+                                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2"
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Token de Segurança (Fornecido pelo Motorista)</label>
+                                  <input 
+                                      type="text" 
+                                      placeholder="Informe o token de 8 dígitos"
+                                      maxLength={8}
+                                      value={validationToken}
+                                      onChange={(e) => setValidationToken(e.target.value.toUpperCase())}
+                                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 font-mono text-lg tracking-widest text-center uppercase"
+                                  />
+                              </div>
                           </div>
 
                           <div className="mt-auto grid grid-cols-1 gap-3">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, FileText, ShieldAlert, X, Upload } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, FileText, ShieldAlert, X, Upload, Clock } from 'lucide-react';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import { supabase } from '../../lib/supabase';
 
@@ -17,6 +17,7 @@ export default function DriverDashboard() {
   const [terminationData, setTerminationData] = React.useState({ photo: null, reason: '' });
   const [isTerminating, setIsTerminating] = React.useState(false);
   const [terminationStatus, setTerminationStatus] = React.useState('idle'); // idle, pending_validation
+  const [securityToken, setSecurityToken] = React.useState(null); // Token para validação policial
 
   // Carregar frase atualizada do banco
   React.useEffect(() => {
@@ -232,27 +233,21 @@ export default function DriverDashboard() {
 
           console.log("Foto enviada. URL:", photoUrl);
 
-          // 2. Atualizar Alerta
-          const { error: updateError } = await supabase
-              .from('emergency_alerts')
-              .update({
-                  status: 'waiting_police_validation',
-                  termination_photo_url: photoUrl,
-                  termination_reason: terminationData.reason,
-                  termination_requested_at: new Date().toISOString()
-              })
-              .eq('id', activeAlertId)
-              .select(); // Retorna dados para confirmar
+          // 3. Gerar Token de Segurança (RPC)
+          const { data: token, error: tokenError } = await supabase
+              .rpc('generate_termination_token', { p_alert_id: activeAlertId });
 
-          if (updateError) {
-              console.error("Erro update banco:", updateError);
-              throw updateError;
+          if (tokenError) {
+              console.error("Erro ao gerar token:", tokenError);
+              // Fallback visual se RPC falhar (não deveria, mas garante UX)
+              throw new Error("Erro ao gerar token de segurança: " + tokenError.message);
           }
 
-          console.log("Status atualizado com sucesso!");
+          console.log("Token gerado com sucesso!");
+          setSecurityToken(token);
           setTerminationStatus('pending_validation');
           setShowTerminationModal(false);
-          alert("Solicitação enviada. Dirija-se a uma unidade policial para validação final.");
+          // alert("Solicitação enviada. Dirija-se a uma unidade policial para validação final.");
 
       } catch (error) {
           console.error("Erro crítico ao solicitar encerramento:", error);
@@ -268,7 +263,7 @@ export default function DriverDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">SUSE-DF</h1>
+              <h1 className="text-xl font-bold text-gray-900">SUSE-DF (v2.0)</h1>
             </div>
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -289,17 +284,45 @@ export default function DriverDashboard() {
           {isEmergencyActive ? (
              <div className="flex flex-col items-center justify-center space-y-8 h-[60vh]">
                 {/* Modo Discreto / Camuflado */}
-                <div className="text-center text-gray-400">
+                <div className="text-center text-gray-400 w-full max-w-md mx-auto">
                     <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                     <p className="text-sm mt-2">Sistema em Standby</p>
                     
                     {terminationStatus === 'pending_validation' ? (
-                        <div className="mt-8 bg-yellow-900/50 p-4 rounded border border-yellow-700 animate-pulse">
-                            <ShieldAlert className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
-                            <p className="text-yellow-500 font-bold uppercase">Aguardando Validação Policial</p>
-                            <p className="text-xs text-yellow-400 mt-2 max-w-xs mx-auto">
-                                O monitoramento continua ativo. Dirija-se a um posto policial para finalizar a ocorrência.
-                            </p>
+                        <div className="mt-8 bg-yellow-900/40 p-6 rounded-xl border-2 border-yellow-600/50 animate-pulse">
+                            <ShieldAlert className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                            <p className="text-yellow-500 font-bold uppercase text-xl tracking-wide">Aguardando Validação</p>
+                            
+                            {securityToken ? (
+                                <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent animate-shimmer"></div>
+                                    <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Token de Segurança</p>
+                                    <p className="text-5xl font-mono font-bold text-white tracking-widest select-all">{securityToken}</p>
+                                    <p className="text-xs text-yellow-500 mt-3 flex items-center justify-center gap-1">
+                                        <Clock size={12} /> Válido por 60 minutos
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="bg-red-900/50 p-4 rounded-lg my-6 border border-red-500 text-center">
+                                    <p className="text-white font-bold mb-2">Token não encontrado</p>
+                                    <p className="text-xs text-red-200 mb-4">Você recarregou a página e o token de segurança temporário foi perdido.</p>
+                                    <button 
+                                        onClick={() => setShowTerminationModal(true)}
+                                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold"
+                                    >
+                                        Gerar Novo Token
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="text-left bg-yellow-900/30 p-4 rounded text-sm text-yellow-100 space-y-2 border border-yellow-800">
+                                <p className="font-bold flex items-center gap-2"><MapPin size={16}/> Instruções:</p>
+                                <ol className="list-decimal pl-5 space-y-1">
+                                    <li>Dirija-se a um posto policial ou delegacia.</li>
+                                    <li>Solicite ao agente que contate a Central.</li>
+                                    <li>Informe o <strong>Token</strong> acima para validação.</li>
+                                </ol>
+                            </div>
                         </div>
                     ) : (
                         <p className="text-xs mt-8 opacity-50">Toque duas vezes para desbloquear</p>
