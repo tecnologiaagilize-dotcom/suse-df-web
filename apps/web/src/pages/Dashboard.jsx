@@ -52,8 +52,8 @@ export default function Dashboard() {
   const handleValidationAction = async (alert, action) => {
       try {
           if (action === 'approve') {
-              if (!validationToken || !officerId) {
-                  alert("Por favor, informe o Token de Segurança e a Identificação do Oficial.");
+              if (!validationToken || !officerId || !officerBattalion) {
+                  alert("Por favor, informe o Token de Segurança, a Identificação do Oficial e o Batalhão.");
                   return;
               }
 
@@ -62,7 +62,8 @@ export default function Dashboard() {
                   .rpc('validate_termination_token', {
                       p_alert_id: alert.id,
                       p_token_input: validationToken,
-                      p_police_officer: officerId
+                      p_police_officer: officerId,
+                      p_battalion: officerBattalion
                   });
 
               if (error) throw error;
@@ -1460,13 +1461,61 @@ export default function Dashboard() {
                               </div>
                               <div>
                                   <label className="block text-sm font-bold text-gray-700 mb-1">Batalhão / Unidade</label>
-                                  <input 
-                                      type="text" 
-                                      placeholder="Ex: 5º BPM, 1ª DP"
+                                  <select 
                                       value={officerBattalion}
                                       onChange={(e) => setOfficerBattalion(e.target.value)}
                                       className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2"
-                                  />
+                                  >
+                                      <option value="">Selecione o Batalhão...</option>
+                                      <optgroup label="Batalhões de Policiamento de Área (BPM)">
+                                          <option value="1º BPM – Asa Sul">1º BPM – Asa Sul</option>
+                                          <option value="2º BPM – Taguatinga">2º BPM – Taguatinga</option>
+                                          <option value="3º BPM – Ceilândia">3º BPM – Ceilândia</option>
+                                          <option value="4º BPM – Guará">4º BPM – Guará</option>
+                                          <option value="5º BPM – Asa Norte">5º BPM – Asa Norte</option>
+                                          <option value="6º BPM – Esplanada dos Ministérios">6º BPM – Esplanada dos Ministérios</option>
+                                          <option value="7º BPM – Lago Sul">7º BPM – Lago Sul</option>
+                                          <option value="8º BPM – Ceilândia">8º BPM – Ceilândia</option>
+                                          <option value="9º BPM – Gama">9º BPM – Gama</option>
+                                          <option value="10º BPM – Ceilândia">10º BPM – Ceilândia</option>
+                                          <option value="11º BPM – Samambaia">11º BPM – Samambaia</option>
+                                          <option value="12º BPM – Judiciário">12º BPM – Judiciário (Tribunais)</option>
+                                          <option value="13º BPM – Sobradinho">13º BPM – Sobradinho</option>
+                                          <option value="14º BPM – Planaltina">14º BPM – Planaltina</option>
+                                          <option value="15º BPM – Ceilândia">15º BPM – Ceilândia</option>
+                                          <option value="16º BPM – Brazlândia">16º BPM – Brazlândia</option>
+                                          <option value="17º BPM – Águas Claras">17º BPM – Águas Claras</option>
+                                          <option value="18º BPM – Recanto das Emas">18º BPM – Recanto das Emas</option>
+                                          <option value="19º BPM – Ceilândia">19º BPM – Ceilândia</option>
+                                          <option value="20º BPM – Paranoá">20º BPM – Paranoá</option>
+                                          <option value="21º BPM – São Sebastião">21º BPM – São Sebastião</option>
+                                          <option value="22º BPM – Jardim Botânico">22º BPM – Jardim Botânico</option>
+                                          <option value="23º BPM – Ceilândia">23º BPM – Ceilândia</option>
+                                          <option value="24º BPM – Lago Norte">24º BPM – Lago Norte</option>
+                                          <option value="25º BPM – Samambaia">25º BPM – Samambaia</option>
+                                          <option value="26º BPM – Santa Maria">26º BPM – Santa Maria</option>
+                                          <option value="27º BPM – Recanto das Emas">27º BPM – Recanto das Emas</option>
+                                          <option value="28º BPM – Riacho Fundo">28º BPM – Riacho Fundo</option>
+                                          <option value="29º BPM – SIA/SCIA">29º BPM – SIA/SCIA</option>
+                                          <option value="30º BPM – Planaltina">30º BPM – Planaltina</option>
+                                          <option value="31º BPM – Fercal">31º BPM – Fercal (Ambiental)</option>
+                                          <option value="32º BPM – Ceilândia">32º BPM – Ceilândia</option>
+                                          <option value="33º BPM – Sol Nascente/Pôr do Sol">33º BPM – Sol Nascente/Pôr do Sol</option>
+                                      </optgroup>
+                                      <optgroup label="Batalhões Especializados e Operacionais">
+                                          <option value="BOPE">BOPE – Batalhão de Operações Especiais</option>
+                                          <option value="BPCHOQUE">BPCHOQUE – Batalhão de Polícia de Choque</option>
+                                          <option value="BPATAMO">BPATAMO – Batalhão de Polícia de Choque (Tático Motorizado)</option>
+                                          <option value="BPTRAN">BPTRAN – Batalhão de Polícia de Trânsito</option>
+                                          <option value="BPRV">BPRV – Batalhão de Polícia Rodoviária</option>
+                                          <option value="BPMA">BPMA – Batalhão de Polícia Militar Ambiental</option>
+                                          <option value="BPCÃES">BPCÃES – Batalhão de Policiamento com Cães</option>
+                                          <option value="BPGEP">BPGEP – Batalhão de Polícia de Guarda e Escolta</option>
+                                          <option value="BAvOp">BAvOp – Batalhão de Aviação Operacional</option>
+                                          <option value="BPESC">BPESC – Batalhão de Polícia Escolar</option>
+                                          <option value="BPChoque/RPon">BPChoque/RPon – Batalhão de Polícia Montada</option>
+                                      </optgroup>
+                                  </select>
                               </div>
                               <div>
                                   <label className="block text-sm font-bold text-gray-700 mb-1">Token de Segurança (Fornecido pelo Motorista)</label>
