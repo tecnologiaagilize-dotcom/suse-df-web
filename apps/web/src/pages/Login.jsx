@@ -23,7 +23,7 @@ export default function Login() {
       const fakeEmail = `${matricula.toLowerCase().trim()}@suse.sys`;
       console.log("Tentando login com:", fakeEmail); // LOG DE DEBUG
       
-      const { user, error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: fakeEmail,
         password: password
       });
@@ -33,13 +33,14 @@ export default function Login() {
         throw authError;
       }
 
-      console.log("Auth sucesso, User ID:", user?.user?.id);
+      const user = data.user;
+      console.log("Auth sucesso, User ID:", user?.id);
 
       // Verificar perfil na tabela staff
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
         .select('*')
-        .eq('id', user.user.id)
+        .eq('id', user.id)
         .single();
       
       console.log("Dados do Staff:", staffData, "Erro Staff:", staffError);
