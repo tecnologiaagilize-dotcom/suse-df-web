@@ -503,13 +503,23 @@ export default function Dashboard() {
                                       <Share2 size={14} /> Compartilhar
                                   </button>
 
-                                  <button 
-                                      onClick={() => handleResolve(window)}
-                                      className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white text-xs px-2 py-1 rounded transition-colors ml-2"
-                                      title="Finalizar Ocorrência"
-                                  >
-                                      <CheckCircle size={14} /> Finalizar
-                                  </button>
+                                  {window.status === 'waiting_police_validation' ? (
+                                      <button 
+                                          onClick={() => setShowValidationModal(window)}
+                                          className="flex items-center gap-1 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 text-xs px-2 py-1 rounded transition-colors ml-2 animate-pulse font-bold border border-yellow-600 shadow-md"
+                                          title="VALIDAÇÃO POLICIAL REQUERIDA"
+                                      >
+                                          <ShieldAlert size={14} /> VALIDAR
+                                      </button>
+                                  ) : (
+                                      <button 
+                                          onClick={() => handleResolve(window)}
+                                          className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white text-xs px-2 py-1 rounded transition-colors ml-2"
+                                          title="Finalizar Ocorrência"
+                                      >
+                                          <CheckCircle size={14} /> Finalizar
+                                      </button>
+                                  )}
                               </div>
                               <button onClick={() => closeWindow(window.id)} className="text-gray-400 hover:text-white">
                                   <X size={20} />
@@ -588,17 +598,6 @@ export default function Dashboard() {
                                                 </span>
                                             </div>
 
-                                            {/* ALERTA DE VALIDAÇÃO POLICIAL (PISCANTE) */}
-                                            {window.status === 'waiting_police_validation' && (
-                                                <button 
-                                                    onClick={() => setShowValidationModal(window)}
-                                                    className="ml-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold px-3 py-1 rounded animate-pulse flex items-center gap-2 shadow-lg border-2 border-yellow-600 text-xs uppercase"
-                                                >
-                                                    <ShieldAlert size={16} />
-                                                    Validar Encerramento
-                                                </button>
-                                            )}
-                                            
                                             {/* Botão Ver Detalhes (Olho) */}
                                             <button 
                                                 onClick={() => setShowDetailsModal(window)}
