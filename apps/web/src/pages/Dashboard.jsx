@@ -124,6 +124,31 @@ export default function Dashboard() {
     };
   }, [activeWindows.length]); // Recriar subs apenas quando adicionar/remover janelas
 
+  // Sincronizar janelas abertas com dados atualizados dos alertas (Status, Evidências)
+  useEffect(() => {
+      if (activeWindows.length === 0) return;
+
+      setActiveWindows(prevWindows => {
+          return prevWindows.map(window => {
+              const updatedAlert = alerts.find(a => a.id === window.id);
+              if (updatedAlert) {
+                  // Atualizar apenas campos que podem mudar externamente
+                  return {
+                      ...window,
+                      status: updatedAlert.status,
+                      termination_photo_url: updatedAlert.termination_photo_url,
+                      termination_reason: updatedAlert.termination_reason,
+                      termination_requested_at: updatedAlert.termination_requested_at,
+                      // Não sobrescrever localização se o realtime estiver ativo
+                      current_lat: window.current_lat || updatedAlert.current_lat, 
+                      current_lng: window.current_lng || updatedAlert.current_lng
+                  };
+              }
+              return window;
+          });
+      });
+  }, [alerts]);
+
   const handleAccept = async (alert) => {
       // Verificar se já está aberto
       if (activeWindows.find(w => w.id === alert.id)) return;
