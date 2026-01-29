@@ -147,7 +147,7 @@ export default function DriverDashboard() {
 
       // Ativar modo de emergência visual
       setIsEmergencyActive(true);
-      // alert(`SOS (${trigger === 'voice' ? 'VOZ' : 'BOTÃO'}) Enviado com Sucesso! Rastreamento iniciado.`);
+      alert(`SOS (${trigger === 'voice' ? 'VOZ' : 'BOTÃO'}) Enviado com Sucesso! A central foi notificada.`);
       
       // Iniciar Rastreamento Contínuo
       if (data && data.id) {
@@ -208,7 +208,7 @@ export default function DriverDashboard() {
                    onClick={() => setIsEmergencyActive(false)}
                    className="mt-8 px-6 py-3 bg-white text-red-600 rounded-full font-bold shadow-lg hover:bg-gray-100"
                 >
-                   Cancelar Alerta (Simulação)
+                   Encerrar Alerta
                 </button>
              </div>
           ) : (
