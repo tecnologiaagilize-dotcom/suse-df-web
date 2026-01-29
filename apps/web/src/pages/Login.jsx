@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase'; // Importação corrigida
 import { ShieldAlert } from 'lucide-react';
 
 export default function Login() {
@@ -20,20 +21,43 @@ export default function Login() {
       
       // Converter Matrícula para Email Interno
       const fakeEmail = `${matricula.toLowerCase().trim()}@suse.sys`;
+      console.log("Tentando login com:", fakeEmail); // LOG DE DEBUG
       
-      const { user, mustChangePassword } = await signIn(fakeEmail, password);
-      
-      // Verificar se o perfil selecionado bate com o do banco (opcional, mas boa prática de UX/Segurança)
-      // Por enquanto, confiamos no login e redirecionamos
-      
-      if (mustChangePassword) {
-        navigate('/admin/change-password');
-      } else {
-        navigate('/admin/dashboard');
+      const { user, error: authError } = await supabase.auth.signInWithPassword({
+        email: fakeEmail,
+        password: password
+      });
+
+      if (authError) {
+        console.error("Erro no Auth:", authError);
+        throw authError;
       }
+
+      console.log("Auth sucesso, User ID:", user?.user?.id);
+
+      // Verificar perfil na tabela staff
+      const { data: staffData, error: staffError } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('id', user.user.id)
+        .single();
+      
+      console.log("Dados do Staff:", staffData, "Erro Staff:", staffError);
+
+      if (staffError || !staffData) {
+          throw new Error("Usuário autenticado, mas sem perfil na tabela staff.");
+      }
+
+      // Verificar se o perfil selecionado bate com o do banco
+      if (staffData.role !== role) {
+          throw new Error(`Perfil incorreto. Seu cadastro é: ${staffData.role}`);
+      }
+      
+      navigate('/admin/dashboard');
+
     } catch (err) {
-      console.error(err);
-      setError('Falha no login: Verifique matrícula, senha e perfil.');
+      console.error("Erro Final:", err);
+      setError(err.message || 'Falha no login: Verifique matrícula, senha e perfil.');
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { UserPlus, Save, AlertCircle } from 'lucide-react';
+import { UserPlus, Save, AlertCircle, RefreshCw, Trash2, KeyRound } from 'lucide-react';
 
 export default function UserManagement() {
   const { userRole } = useAuth(); // Obter role do contexto
@@ -10,21 +10,65 @@ export default function UserManagement() {
     matricula: '',
     role: 'operator'
   });
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingList, setLoadingList] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
   
+  // Buscar usuários ao carregar
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoadingList(true);
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  const handleResetPassword = async (email) => {
+    if (!window.confirm(`Deseja enviar um email de redefinição de senha para ${email}?`)) return;
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/admin/change-password', // Onde o usuário cai ao clicar no email
+      });
+
+      if (error) throw error;
+
+      setMessage({
+        type: 'success',
+        text: `Email de redefinição enviado com sucesso para ${email}.`
+      });
+    } catch (error) {
+      console.error(error);
+      setMessage({ type: 'error', text: 'Erro ao enviar email: ' + error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Opções de Role baseadas no usuário logado
   const getRoleOptions = () => {
     const options = [];
     
     if (userRole === 'master' || userRole === 'admin') {
-        // Master/Admin pode criar tudo (ou quase tudo, Admin cria Chefe, Master cria Admin)
-        // Simplificando: Master e Admin veem todos para facilitar teste
         options.push({ value: 'operator', label: 'Operador da Mesa' });
         options.push({ value: 'supervisor', label: 'Chefe de Atendimento' });
         options.push({ value: 'admin', label: 'Supervisor do Sistema' });
     } else if (userRole === 'supervisor') {
-        // Chefe só cria Operador
         options.push({ value: 'operator', label: 'Operador da Mesa' });
     }
     
@@ -32,9 +76,6 @@ export default function UserManagement() {
   };
 
   const roleOptions = getRoleOptions();
-
-  // Se não tiver permissão para ver nada (ex: operador acessou via URL), redirecionar ou mostrar erro
-  // (Idealmente o PrivateRoute já barra, mas aqui reforçamos a UI)
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,28 +85,28 @@ export default function UserManagement() {
     try {
       // 1. Inserir na tabela Staff (Banco de Dados)
       const fakeEmail = `${formData.matricula.toLowerCase().trim()}@suse.sys`;
-      const tempPassword = `temp${Math.floor(1000 + Math.random() * 9000)}`; // Senha temporária aleatória ou fixa se preferir
+      const tempPassword = `temp${Math.floor(1000 + Math.random() * 9000)}`;
 
       // Inserção no banco
       const { error: dbError } = await supabase
         .from('staff')
         .insert([{
-          name: formData.name,
+          full_name: formData.name, // Ajustado para full_name conforme banco atualizado
           matricula: formData.matricula,
           email: fakeEmail,
           role: formData.role,
-          must_change_password: true // Obriga troca de senha
+          // must_change_password: true // Removido pois não existe no schema atual
         }]);
 
       if (dbError) throw dbError;
 
-      // 2. Feedback sobre o Auth (Como não temos backend, instruímos o Master)
       setMessage({
         type: 'success',
-        text: `Usuário cadastrado no banco com sucesso! \n\nIMPORTANTE: Como este é um ambiente de demonstração, você precisa ir no painel do Supabase Auth e criar o usuário manualmente com:\nEmail: ${fakeEmail}\nSenha Temporária sugerida: ${tempPassword}`
+        text: `Usuário cadastrado no banco com sucesso! \n\nIMPORTANTE: Crie o usuário no Supabase Auth com:\nEmail: ${fakeEmail}\nSenha: ${tempPassword}`
       });
       
       setFormData({ name: '', matricula: '', role: 'operator' });
+      fetchUsers(); // Atualiza lista
 
     } catch (error) {
       console.error(error);
@@ -77,13 +118,15 @@ export default function UserManagement() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Formulário de Cadastro */}
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-blue-100 p-3 rounded-full">
               <UserPlus className="h-6 w-6 text-blue-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Cadastro de Usuários (Restrito)</h2>
+            <h2 className="text-xl font-bold text-gray-900">Cadastro de Usuários</h2>
           </div>
 
           {message.text && (
@@ -138,26 +181,77 @@ export default function UserManagement() {
                 className="flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Cadastrando...' : 'Cadastrar Usuário'}
+                {loading ? 'Processando...' : 'Cadastrar Usuário'}
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Lista de Usuários */}
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900">Usuários Cadastrados</h3>
+            <button onClick={fetchUsers} className="text-gray-500 hover:text-gray-700">
+              <RefreshCw className="h-5 w-5" />
+            </button>
+          </div>
           
-          <div className="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-yellow-700">
-                  O usuário cadastrado precisará trocar a senha no primeiro acesso.
-                  <br />
-                  Login: Matrícula + Senha Temporária.
-                </p>
-              </div>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matrícula</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perfil</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loadingList ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">Carregando...</td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">Nenhum usuário encontrado.</td>
+                  </tr>
+                ) : (
+                  users.map((staff) => (
+                    <tr key={staff.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{staff.full_name || staff.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{staff.matricula}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${staff.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                            staff.role === 'supervisor' ? 'bg-blue-100 text-blue-800' : 
+                            'bg-green-100 text-green-800'}`}>
+                          {staff.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staff.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {staff.status || 'active'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleResetPassword(staff.email)}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          title="Enviar email de redefinição de senha"
+                        >
+                          <KeyRound className="h-5 w-5" />
+                        </button>
+                        {/* Botão de Excluir (Opcional, futuro) */}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+
       </div>
     </div>
   );
