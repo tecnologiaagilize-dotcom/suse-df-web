@@ -23,6 +23,34 @@ export default function DriverDashboard() {
   React.useEffect(() => {
     const fetchPhrase = async () => {
         if (!user) return;
+        
+        // 1. Recuperar Alerta Ativo (Persistência de Estado)
+        const { data: activeAlert } = await supabase
+            .from('emergency_alerts')
+            .select('id, status')
+            .eq('user_id', user.id)
+            .in('status', ['active', 'investigating', 'waiting_police_validation'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (activeAlert) {
+            console.log("Alerta ativo recuperado:", activeAlert);
+            setActiveAlertId(activeAlert.id);
+            setIsEmergencyActive(true);
+            
+            // Se já tiver em validação, restaura o token
+            if (activeAlert.status === 'waiting_police_validation') {
+                 setTerminationStatus('pending_validation');
+                 // Token não é persistido por segurança. UI mostrará botão para gerar novo.
+            }
+
+            // Reiniciar tracking
+            const interval = setInterval(() => sendLocationUpdate(activeAlert.id), 5000);
+            setTrackingId(interval);
+        }
+
+        // 2. Recuperar Frase de Emergência
         const { data } = await supabase
             .from('users')
             .select('secret_word')
@@ -263,7 +291,7 @@ export default function DriverDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">SUSE-DF (v2.0)</h1>
+              <h1 className="text-xl font-bold text-gray-900">SUSE-DF (v2.1)</h1>
             </div>
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
