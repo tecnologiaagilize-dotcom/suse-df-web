@@ -438,6 +438,7 @@ export default function Dashboard() {
                 car_color
             )
         `)
+        .in('status', ['active', 'investigating', 'waiting_police_validation'])
         .order('created_at', { ascending: false });
 
       if (error) {
