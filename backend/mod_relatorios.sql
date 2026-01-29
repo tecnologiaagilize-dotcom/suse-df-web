@@ -19,12 +19,15 @@ CREATE TABLE IF NOT EXISTS report_attachments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Habilitar RLS
+-- Habilitar RLS (Seguro rodar múltiplas vezes)
 ALTER TABLE incident_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_attachments ENABLE ROW LEVEL SECURITY;
 
--- Políticas de Acesso
+-- Políticas de Acesso (Com verificação se já existem)
+DROP POLICY IF EXISTS "Staff manage reports" ON incident_reports;
 CREATE POLICY "Staff manage reports" ON incident_reports FOR ALL TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Staff manage attachments" ON report_attachments;
 CREATE POLICY "Staff manage attachments" ON report_attachments FOR ALL TO authenticated USING (true);
 
 -- Buckets de Storage (comando ilustrativo, executar no painel se necessário)
