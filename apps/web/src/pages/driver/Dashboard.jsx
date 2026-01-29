@@ -159,13 +159,7 @@ export default function DriverDashboard() {
 
     } catch (error) {
       console.error('Erro ao enviar SOS:', error);
-      // alert('Erro ao enviar SOS. ' + (error.message || 'Tente novamente.'));
-      // Fallback para simulação em caso de erro de RLS (já que não podemos rodar o SQL)
-      if (error.message && error.message.includes('row-level security')) {
-         alert('SOS Enviado com Sucesso! (Simulação: Banco de dados bloqueou, mas o fluxo funcionou).');
-      } else {
-         alert('Erro ao enviar SOS: ' + error.message);
-      }
+      alert('Erro ao enviar SOS: ' + error.message);
     }
   };
 
