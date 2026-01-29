@@ -386,6 +386,7 @@ export default function Dashboard() {
 
       if (error) {
           console.error("Erro Supabase:", error);
+          alert("Erro ao buscar alertas: " + error.message); // Mostrar erro na tela
           throw error;
       }
       console.log("Alertas encontrados:", data?.length, data);
