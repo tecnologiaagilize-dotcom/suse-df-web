@@ -145,10 +145,14 @@ export default function DriverDashboard() {
 
       if (error) throw error;
 
-      // Ativar modo de emergência visual
-      setIsEmergencyActive(true);
-      alert(`SOS (${trigger === 'voice' ? 'VOZ' : 'BOTÃO'}) Enviado com Sucesso! A central foi notificada.`);
+      // Modo Silencioso: Não mostrar alerta nem mudar a tela para vermelho
+      setIsEmergencyActive(true); 
+      // alert(`SOS (${trigger === 'voice' ? 'VOZ' : 'BOTÃO'}) Enviado com Sucesso! A central foi notificada.`);
+      console.log('SOS Enviado e Rastreamento Iniciado (Silencioso)');
       
+      // Opcional: Feedback tátil (vibração) se disponível
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
       // Iniciar Rastreamento Contínuo
       if (data && data.id) {
           setActiveAlertId(data.id);
@@ -171,7 +175,7 @@ export default function DriverDashboard() {
   }, [trackingId]);
 
   return (
-    <div className={`min-h-screen ${isEmergencyActive ? 'bg-red-600' : 'bg-gray-100'}`}>
+    <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -195,20 +199,19 @@ export default function DriverDashboard() {
         <div className="px-4 py-6 sm:px-0">
           
           {isEmergencyActive ? (
-             <div className="flex flex-col items-center justify-center space-y-8 text-center text-white">
-                <div className="animate-pulse">
-                    <AlertTriangle className="h-48 w-48 text-white mb-4" />
+             <div className="flex flex-col items-center justify-center space-y-8 h-[60vh]">
+                {/* Modo Discreto / Camuflado */}
+                <div className="text-center text-gray-400">
+                    <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    <p className="text-sm mt-2">Sistema em Standby</p>
+                    <p className="text-xs mt-8 opacity-50">Toque duas vezes para desbloquear</p>
                 </div>
-                <h2 className="text-4xl font-bold">SOS ENVIADO!</h2>
-                <p className="text-xl">A Central de Monitoramento foi notificada.</p>
-                <p className="text-lg">Sua localização está sendo rastreada em tempo real.</p>
-                <p className="text-sm opacity-80 mt-8">Mantenha este aplicativo aberto.</p>
                 
                 <button 
                    onClick={() => setIsEmergencyActive(false)}
-                   className="mt-8 px-6 py-3 bg-white text-red-600 rounded-full font-bold shadow-lg hover:bg-gray-100"
+                   className="mt-8 px-4 py-2 bg-gray-200 text-gray-500 rounded text-xs opacity-20 hover:opacity-100 transition-opacity"
                 >
-                   Encerrar Alerta
+                   Encerrar Monitoramento
                 </button>
              </div>
           ) : (
