@@ -235,21 +235,22 @@ export default function DriverDashboard() {
                   termination_reason: terminationData.reason,
                   termination_requested_at: new Date().toISOString()
               })
-              .eq('id', activeAlertId);
+              .eq('id', activeAlertId)
+              .select(); // Retorna dados para confirmar
 
           if (updateError) {
               console.error("Erro update banco:", updateError);
               throw updateError;
           }
 
-          console.log("Status atualizado para waiting_police_validation");
+          console.log("Status atualizado com sucesso!");
           setTerminationStatus('pending_validation');
           setShowTerminationModal(false);
           alert("Solicitação enviada. Dirija-se a uma unidade policial para validação final.");
 
       } catch (error) {
           console.error("Erro crítico ao solicitar encerramento:", error);
-          alert("Erro ao enviar solicitação: " + error.message);
+          alert("Erro ao enviar solicitação: " + (error.message || JSON.stringify(error)));
       } finally {
           setIsTerminating(false);
       }
