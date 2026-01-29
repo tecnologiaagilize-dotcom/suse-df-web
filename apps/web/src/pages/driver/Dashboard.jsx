@@ -188,6 +188,8 @@ export default function DriverDashboard() {
 
   const handleSubmitTermination = async (e) => {
       e.preventDefault();
+      console.log("Iniciando envio de término...", terminationData);
+
       if (!terminationData.photo || !terminationData.reason) {
           alert("Foto e justificativa são obrigatórias.");
           return;
@@ -199,24 +201,30 @@ export default function DriverDashboard() {
           
           // 1. Upload Foto
           const fileName = `termination/${activeAlertId}_${Date.now()}.jpg`;
-          const { error: uploadError } = await supabase.storage
-              .from('termination-evidence') // Certifique-se que esse bucket existe ou use um genérico
+          console.log("Tentando upload para:", fileName);
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('termination-evidence') 
               .upload(fileName, terminationData.photo);
           
-          if (!uploadError) {
-             const { data } = supabase.storage.from('termination-evidence').getPublicUrl(fileName);
-             photoUrl = data.publicUrl;
-          } else {
-             // Fallback se bucket não existir: salvar sem foto ou usar outro bucket
-             console.warn("Erro upload foto:", uploadError);
-             // Tentar bucket 'avatars' como fallback temporário
+          if (uploadError) {
+             console.error("Erro upload principal:", uploadError);
+             // Tentar bucket 'avatars' como fallback
              const backupName = `term_${activeAlertId}_${Date.now()}.jpg`;
              const { error: backupError } = await supabase.storage.from('avatars').upload(backupName, terminationData.photo);
-             if (!backupError) {
+             
+             if (backupError) {
+                 throw new Error("Falha no upload da foto: " + uploadError.message);
+             } else {
                  const { data } = supabase.storage.from('avatars').getPublicUrl(backupName);
                  photoUrl = data.publicUrl;
              }
+          } else {
+             const { data } = supabase.storage.from('termination-evidence').getPublicUrl(fileName);
+             photoUrl = data.publicUrl;
           }
+
+          console.log("Foto enviada. URL:", photoUrl);
 
           // 2. Atualizar Alerta
           const { error: updateError } = await supabase
@@ -229,14 +237,18 @@ export default function DriverDashboard() {
               })
               .eq('id', activeAlertId);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+              console.error("Erro update banco:", updateError);
+              throw updateError;
+          }
 
+          console.log("Status atualizado para waiting_police_validation");
           setTerminationStatus('pending_validation');
           setShowTerminationModal(false);
           alert("Solicitação enviada. Dirija-se a uma unidade policial para validação final.");
 
       } catch (error) {
-          console.error("Erro ao solicitar encerramento:", error);
+          console.error("Erro crítico ao solicitar encerramento:", error);
           alert("Erro ao enviar solicitação: " + error.message);
       } finally {
           setIsTerminating(false);
@@ -384,7 +396,7 @@ export default function DriverDashboard() {
                                   accept="image/*" 
                                   capture="user" // Abre câmera frontal em mobile
                                   onChange={handleTerminationPhoto}
-                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
                               />
                               {terminationData.photo ? (
                                   <div className="flex flex-col items-center">
