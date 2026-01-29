@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2, Upload, Paperclip, Download } from 'lucide-react';
+import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, ShieldAlert, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2, Upload, Paperclip, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrackingMap from '../components/map/TrackingMap'; 
 import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
