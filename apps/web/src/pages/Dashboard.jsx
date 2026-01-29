@@ -44,6 +44,37 @@ export default function Dashboard() {
       observacoes: ''
   });
 
+  const [showValidationModal, setShowValidationModal] = useState(null); // Alert object para validar
+
+  const handleValidationAction = async (alert, action) => {
+      try {
+          if (action === 'approve') {
+              // Finalizar Ocorrência (Validação PM)
+              // Abre modal de relatório final mas já sabendo que é validação
+              setShowValidationModal(null);
+              setShowReportModal(alert);
+              setReportData({ 
+                  qto: 'VALIDACAO-PM', 
+                  description: `Encerrado após validação policial presencial.\nMotivo do Usuário: ${alert.termination_reason}` 
+              });
+          } else {
+              // Rejeitar (Manter Monitoramento)
+              const { error } = await supabase
+                  .from('emergency_alerts')
+                  .update({ status: 'active' }) // Volta para active
+                  .eq('id', alert.id);
+              
+              if (error) throw error;
+              alert("Monitoramento mantido. Status retornado para Ativo.");
+              setShowValidationModal(null);
+              fetchAlerts();
+          }
+      } catch (error) {
+          console.error("Erro na validação:", error);
+          alert("Erro: " + error.message);
+      }
+  };
+
   useEffect(() => {
     fetchAlerts();
     fetchAgents();
@@ -548,19 +579,30 @@ export default function Dashboard() {
                                     />
                                     
                                     {/* Footer do Mapa */}
-                                    <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-2 px-4 border-t border-gray-200 flex justify-between items-center">
+                                    <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-2 px-4 border-t border-gray-200 flex justify-between items-center z-10">
                                         <div className="flex items-center gap-4">
                                             <div className="flex items-center gap-2 text-xs">
-                                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                                <span className={`w-2 h-2 rounded-full animate-pulse ${window.status === 'waiting_police_validation' ? 'bg-yellow-500' : 'bg-red-500'}`}></span>
                                                 <span className="font-mono text-gray-600">
                                                     {window.current_lat?.toFixed(5)}, {window.current_lng?.toFixed(5)}
                                                 </span>
                                             </div>
+
+                                            {/* ALERTA DE VALIDAÇÃO POLICIAL (PISCANTE) */}
+                                            {window.status === 'waiting_police_validation' && (
+                                                <button 
+                                                    onClick={() => setShowValidationModal(window)}
+                                                    className="ml-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold px-3 py-1 rounded animate-pulse flex items-center gap-2 shadow-lg border-2 border-yellow-600 text-xs uppercase"
+                                                >
+                                                    <ShieldAlert size={16} />
+                                                    Validar Encerramento
+                                                </button>
+                                            )}
                                             
                                             {/* Botão Ver Detalhes (Olho) */}
                                             <button 
                                                 onClick={() => setShowDetailsModal(window)}
-                                                className="group flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors relative ml-4"
+                                                className="group flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors relative ml-2"
                                                 title="Ver Detalhes"
                                             >
                                                 <Eye size={18} />
@@ -1295,6 +1337,81 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+      {/* Modal de Validação Policial */}
+      {showValidationModal && (
+          <div className="fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4 backdrop-blur-md">
+              <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border-4 border-yellow-500 flex flex-col max-h-[90vh]">
+                  <div className="bg-yellow-500 text-yellow-900 p-4 flex justify-between items-center shrink-0">
+                      <h3 className="font-bold text-xl flex items-center gap-2 uppercase tracking-wide">
+                          <ShieldAlert size={28} /> Validação de Encerramento
+                      </h3>
+                      <button onClick={() => setShowValidationModal(null)} className="text-yellow-800 hover:text-black transition-colors">
+                          <X size={28} />
+                      </button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-6">
+                      {/* Evidência Visual */}
+                      <div className="w-full md:w-1/2 flex flex-col">
+                          <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><Eye size={18}/> Evidência Visual</h4>
+                          <div className="bg-gray-100 rounded-lg border border-gray-300 flex-1 flex items-center justify-center overflow-hidden min-h-[300px] relative">
+                              {showValidationModal.termination_photo_url ? (
+                                  <img 
+                                      src={showValidationModal.termination_photo_url} 
+                                      alt="Evidência de Encerramento" 
+                                      className="w-full h-full object-contain"
+                                  />
+                              ) : (
+                                  <div className="text-gray-400 flex flex-col items-center">
+                                      <User size={48} />
+                                      <p>Sem foto disponível</p>
+                                  </div>
+                              )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2 text-center">
+                              Foto capturada em: {showValidationModal.termination_requested_at ? new Date(showValidationModal.termination_requested_at).toLocaleString() : '---'}
+                          </p>
+                      </div>
+
+                      {/* Justificativa e Ações */}
+                      <div className="w-full md:w-1/2 flex flex-col space-y-6">
+                          <div>
+                              <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><FileText size={18}/> Justificativa do Usuário</h4>
+                              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-gray-800 italic text-lg leading-relaxed">
+                                  "{showValidationModal.termination_reason || 'Sem justificativa informada.'}"
+                              </div>
+                          </div>
+
+                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-sm text-blue-900 space-y-2">
+                              <h5 className="font-bold flex items-center gap-2"><Shield size={16}/> Protocolo de Validação</h5>
+                              <ul className="list-disc pl-5 space-y-1">
+                                  <li>Verifique se a foto corresponde ao usuário.</li>
+                                  <li>Analise se a expressão facial indica coação.</li>
+                                  <li>Confirme se o usuário está em local seguro (Delegacia/Posto PM).</li>
+                                  <li><strong>Somente encerre após contato oficial.</strong></li>
+                              </ul>
+                          </div>
+
+                          <div className="mt-auto grid grid-cols-1 gap-3">
+                              <button 
+                                  onClick={() => handleValidationAction(showValidationModal, 'reject')}
+                                  className="w-full py-3 bg-red-100 text-red-700 border border-red-200 rounded-lg font-bold hover:bg-red-200 transition-colors flex justify-center items-center gap-2"
+                              >
+                                  <X size={20} /> REJEITAR / MANTER MONITORAMENTO
+                              </button>
+                              
+                              <button 
+                                  onClick={() => handleValidationAction(showValidationModal, 'approve')}
+                                  className="w-full py-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex justify-center items-center gap-2 text-lg"
+                              >
+                                  <CheckCircle size={24} /> CONFIRMAR E ENCERRAR
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 }

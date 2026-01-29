@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, FileText, ShieldAlert, X, Upload } from 'lucide-react';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import { supabase } from '../../lib/supabase';
 
@@ -11,6 +11,12 @@ export default function DriverDashboard() {
   // Estado para armazenar a frase real do banco
   const [emergencyPhrase, setEmergencyPhrase] = React.useState('');
   const [isEmergencyActive, setIsEmergencyActive] = React.useState(false);
+  
+  // Estados para Encerramento Verificado
+  const [showTerminationModal, setShowTerminationModal] = React.useState(false);
+  const [terminationData, setTerminationData] = React.useState({ photo: null, reason: '' });
+  const [isTerminating, setIsTerminating] = React.useState(false);
+  const [terminationStatus, setTerminationStatus] = React.useState('idle'); // idle, pending_validation
 
   // Carregar frase atualizada do banco
   React.useEffect(() => {
@@ -174,6 +180,69 @@ export default function DriverDashboard() {
     };
   }, [trackingId]);
 
+  const handleTerminationPhoto = (e) => {
+    if (e.target.files && e.target.files[0]) {
+        setTerminationData({ ...terminationData, photo: e.target.files[0] });
+    }
+  };
+
+  const handleSubmitTermination = async (e) => {
+      e.preventDefault();
+      if (!terminationData.photo || !terminationData.reason) {
+          alert("Foto e justificativa são obrigatórias.");
+          return;
+      }
+
+      setIsTerminating(true);
+      try {
+          let photoUrl = '';
+          
+          // 1. Upload Foto
+          const fileName = `termination/${activeAlertId}_${Date.now()}.jpg`;
+          const { error: uploadError } = await supabase.storage
+              .from('termination-evidence') // Certifique-se que esse bucket existe ou use um genérico
+              .upload(fileName, terminationData.photo);
+          
+          if (!uploadError) {
+             const { data } = supabase.storage.from('termination-evidence').getPublicUrl(fileName);
+             photoUrl = data.publicUrl;
+          } else {
+             // Fallback se bucket não existir: salvar sem foto ou usar outro bucket
+             console.warn("Erro upload foto:", uploadError);
+             // Tentar bucket 'avatars' como fallback temporário
+             const backupName = `term_${activeAlertId}_${Date.now()}.jpg`;
+             const { error: backupError } = await supabase.storage.from('avatars').upload(backupName, terminationData.photo);
+             if (!backupError) {
+                 const { data } = supabase.storage.from('avatars').getPublicUrl(backupName);
+                 photoUrl = data.publicUrl;
+             }
+          }
+
+          // 2. Atualizar Alerta
+          const { error: updateError } = await supabase
+              .from('emergency_alerts')
+              .update({
+                  status: 'waiting_police_validation',
+                  termination_photo_url: photoUrl,
+                  termination_reason: terminationData.reason,
+                  termination_requested_at: new Date().toISOString()
+              })
+              .eq('id', activeAlertId);
+
+          if (updateError) throw updateError;
+
+          setTerminationStatus('pending_validation');
+          setShowTerminationModal(false);
+          alert("Solicitação enviada. Dirija-se a uma unidade policial para validação final.");
+
+      } catch (error) {
+          console.error("Erro ao solicitar encerramento:", error);
+          alert("Erro ao enviar solicitação: " + error.message);
+      } finally {
+          setIsTerminating(false);
+      }
+  };
+
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
@@ -204,15 +273,28 @@ export default function DriverDashboard() {
                 <div className="text-center text-gray-400">
                     <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                     <p className="text-sm mt-2">Sistema em Standby</p>
-                    <p className="text-xs mt-8 opacity-50">Toque duas vezes para desbloquear</p>
+                    
+                    {terminationStatus === 'pending_validation' ? (
+                        <div className="mt-8 bg-yellow-900/50 p-4 rounded border border-yellow-700 animate-pulse">
+                            <ShieldAlert className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
+                            <p className="text-yellow-500 font-bold uppercase">Aguardando Validação Policial</p>
+                            <p className="text-xs text-yellow-400 mt-2 max-w-xs mx-auto">
+                                O monitoramento continua ativo. Dirija-se a um posto policial para finalizar a ocorrência.
+                            </p>
+                        </div>
+                    ) : (
+                        <p className="text-xs mt-8 opacity-50">Toque duas vezes para desbloquear</p>
+                    )}
                 </div>
                 
-                <button 
-                   onClick={() => setIsEmergencyActive(false)}
-                   className="mt-8 px-4 py-2 bg-gray-200 text-gray-500 rounded text-xs opacity-20 hover:opacity-100 transition-opacity"
-                >
-                   Encerrar Monitoramento
-                </button>
+                {terminationStatus !== 'pending_validation' && (
+                    <button 
+                       onClick={() => setShowTerminationModal(true)}
+                       className="mt-8 px-4 py-2 bg-gray-200 text-gray-500 rounded text-xs opacity-20 hover:opacity-100 transition-opacity"
+                    >
+                       Encerrar Monitoramento
+                    </button>
+                )}
              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
@@ -271,6 +353,95 @@ export default function DriverDashboard() {
 
         </div>
       </main>
+
+      {/* Modal de Encerramento Verificado */}
+      {showTerminationModal && (
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-md rounded-lg overflow-hidden shadow-2xl">
+                  <div className="bg-red-600 text-white p-4 flex justify-between items-center">
+                      <h3 className="font-bold flex items-center gap-2">
+                          <ShieldAlert size={20} /> Encerrar Monitoramento
+                      </h3>
+                      <button onClick={() => setShowTerminationModal(false)} className="text-white/80 hover:text-white">
+                          <X size={24} />
+                      </button>
+                  </div>
+                  
+                  <form onSubmit={handleSubmitTermination} className="p-6 space-y-6">
+                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-sm text-yellow-800">
+                          <p className="font-bold">Protocolo de Segurança Ativo</p>
+                          <p>Para sua segurança, o encerramento definitivo requer validação visual e justificativa.</p>
+                      </div>
+
+                      {/* Passo 1: Foto */}
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                              1. Validação Visual (Obrigatório)
+                          </label>
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50 relative">
+                              <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  capture="user" // Abre câmera frontal em mobile
+                                  onChange={handleTerminationPhoto}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                              {terminationData.photo ? (
+                                  <div className="flex flex-col items-center">
+                                      <p className="text-green-600 font-bold flex items-center gap-2">
+                                          <Camera size={20} /> Foto Capturada
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1">{terminationData.photo.name}</p>
+                                      <button type="button" className="text-xs text-blue-600 underline mt-2">Tirar outra</button>
+                                  </div>
+                              ) : (
+                                  <div className="flex flex-col items-center text-gray-500">
+                                      <Camera size={32} className="mb-2" />
+                                      <p className="font-medium">Toque para tirar uma foto do seu rosto</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Passo 2: Justificativa */}
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                              2. Justificativa (Obrigatório)
+                          </label>
+                          <textarea 
+                              required
+                              rows={3}
+                              placeholder="Por que deseja encerrar o monitoramento?"
+                              value={terminationData.reason}
+                              onChange={(e) => setTerminationData({...terminationData, reason: e.target.value})}
+                              className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 border p-2"
+                          />
+                      </div>
+
+                      <div className="pt-4 flex gap-3">
+                          <button 
+                              type="button"
+                              onClick={() => setShowTerminationModal(false)}
+                              className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300"
+                          >
+                              Cancelar
+                          </button>
+                          <button 
+                              type="submit"
+                              disabled={isTerminating || !terminationData.photo || !terminationData.reason}
+                              className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 disabled:opacity-50 flex justify-center items-center gap-2"
+                          >
+                              {isTerminating ? (
+                                  <>
+                                      <Upload size={18} className="animate-spin" /> Enviando...
+                                  </>
+                              ) : 'Enviar e Validar'}
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
