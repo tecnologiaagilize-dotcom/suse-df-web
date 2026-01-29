@@ -234,6 +234,7 @@ export default function DriverProfile() {
       
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulação
       alert('Perfil atualizado com sucesso!');
+      navigate('/driver/dashboard'); // Redirecionar após salvar
     } catch (error) {
       console.error('Erro ao salvar:', error);
       alert(`Erro ao salvar alterações: ${error.message || JSON.stringify(error)}`);
@@ -271,7 +272,7 @@ export default function DriverProfile() {
             className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
           >
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Salvando...' : 'Salvar Alterações'}
+            {saving ? 'Salvando...' : 'Salvar Alterações e Sair'}
           </button>
         </div>
 
@@ -555,10 +556,20 @@ export default function DriverProfile() {
 
             </div>
 
-            <div className="border-t border-gray-200 pt-6">
-              <h4 className="text-lg font-medium text-gray-900 mb-4">Segurança e Voz</h4>
+            {/* Ações Finais */}
+            <div className="border-t border-gray-200 pt-6 mt-6 space-y-4">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                <Save className="h-5 w-5 mr-2" />
+                {saving ? 'Salvando...' : 'Salvar Alterações e Sair'}
+              </button>
+
+              <h4 className="text-lg font-medium text-gray-900 pt-4">Segurança e Voz</h4>
               
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <Mic className="h-5 w-5 text-yellow-400" aria-hidden="true" />
@@ -574,10 +585,10 @@ export default function DriverProfile() {
 
               <button
                 onClick={handleVoiceConfig}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <Mic className="h-5 w-5 mr-2" />
-                Regravar Frases e Voz
+                <Mic className="h-5 w-5 mr-2 text-gray-500" />
+                Configurar Frases e Voz
               </button>
             </div>
           </div>
