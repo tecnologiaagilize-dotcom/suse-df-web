@@ -515,7 +515,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento (v2.1)
+            Central de Monitoramento (v2.2)
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
@@ -1583,22 +1583,25 @@ export default function Dashboard() {
                                   />
                               </div>
                           </div>
-
-                          <div className="mt-auto grid grid-cols-1 gap-3">
-                              <button 
-                                  onClick={() => handleValidationAction(showValidationModal, 'reject')}
-                                  className="w-full py-3 bg-red-100 text-red-700 border border-red-200 rounded-lg font-bold hover:bg-red-200 transition-colors flex justify-center items-center gap-2"
-                              >
-                                  <X size={20} /> REJEITAR / MANTER MONITORAMENTO
-                              </button>
-                              
-                              <button 
-                                  onClick={() => handleValidationAction(showValidationModal, 'approve')}
-                                  className="w-full py-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex justify-center items-center gap-2 text-lg"
-                              >
-                                  <CheckCircle size={24} /> CONFIRMAR E ENCERRAR
-                              </button>
-                          </div>
+                      </div>
+                  </div>
+                  
+                  {/* Footer com Botões Fixos */}
+                  <div className="p-4 border-t border-yellow-200 bg-yellow-50 shrink-0">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <button 
+                              onClick={() => handleValidationAction(showValidationModal, 'reject')}
+                              className="w-full py-3 bg-red-100 text-red-700 border border-red-200 rounded-lg font-bold hover:bg-red-200 transition-colors flex justify-center items-center gap-2"
+                          >
+                              <X size={20} /> REJEITAR / MANTER MONITORAMENTO
+                          </button>
+                          
+                          <button 
+                              onClick={() => handleValidationAction(showValidationModal, 'approve')}
+                              className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex justify-center items-center gap-2 text-lg"
+                          >
+                              <CheckCircle size={24} /> CONFIRMAR E ENCERRAR
+                          </button>
                       </div>
                   </div>
               </div>
