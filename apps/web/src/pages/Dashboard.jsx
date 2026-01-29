@@ -46,14 +46,17 @@ export default function Dashboard() {
 
   const [showValidationModal, setShowValidationModal] = useState(null); // Alert object para validar
   const [validationToken, setValidationToken] = useState('');
-  const [officerId, setOfficerId] = useState('');
+  const [officerRank, setOfficerRank] = useState('');
+  const [officerName, setOfficerName] = useState('');
+  const [officerMatricula, setOfficerMatricula] = useState('');
+  const [officerPhone, setOfficerPhone] = useState('');
   const [officerBattalion, setOfficerBattalion] = useState('');
 
   const handleValidationAction = async (alert, action) => {
       try {
           if (action === 'approve') {
-              if (!validationToken || !officerId || !officerBattalion) {
-                  alert("Por favor, informe o Token de Segurança, a Identificação do Oficial e o Batalhão.");
+              if (!validationToken || !officerRank || !officerName || !officerMatricula || !officerPhone || !officerBattalion) {
+                  alert("Por favor, preencha todos os campos do oficial e o Token de Segurança.");
                   return;
               }
 
@@ -62,7 +65,10 @@ export default function Dashboard() {
                   .rpc('validate_termination_token', {
                       p_alert_id: alert.id,
                       p_token_input: validationToken,
-                      p_police_officer: officerId,
+                      p_rank: officerRank,
+                      p_name: officerName,
+                      p_matricula: officerMatricula,
+                      p_phone: officerPhone,
                       p_battalion: officerBattalion
                   });
 
@@ -75,12 +81,16 @@ export default function Dashboard() {
                   setShowReportModal(alert);
                   setReportData({ 
                       qto: 'VALIDACAO-PM', 
-                      description: `Encerrado após validação policial presencial.\nOficial Responsável: ${officerId}\nMotivo do Usuário: ${alert.termination_reason}` 
+                      description: `Encerrado após validação policial presencial.\nOficial: ${officerRank} ${officerName} (${officerMatricula})\nBatalhão: ${officerBattalion}\nContato: ${officerPhone}\nMotivo do Usuário: ${alert.termination_reason}` 
                   });
                   
                   // Limpar campos
                   setValidationToken('');
-                  setOfficerId('');
+                  setOfficerRank('');
+                  setOfficerName('');
+                  setOfficerMatricula('');
+                  setOfficerPhone('');
+                  setOfficerBattalion('');
                   alert(data.message);
               } else {
                   alert("Falha na validação: " + (data?.message || "Token inválido."));
@@ -96,7 +106,10 @@ export default function Dashboard() {
               alert("Monitoramento mantido. Status retornado para Ativo.");
               setShowValidationModal(null);
               setValidationToken('');
-              setOfficerId('');
+              setOfficerRank('');
+              setOfficerName('');
+              setOfficerMatricula('');
+              setOfficerPhone('');
               setOfficerBattalion('');
               fetchAlerts();
           }
@@ -1451,13 +1464,54 @@ export default function Dashboard() {
                           <div className="space-y-3 pt-2">
                               <div>
                                   <label className="block text-sm font-bold text-gray-700 mb-1">Identificação do Oficial (PM/Autoridade)</label>
-                                  <input 
-                                      type="text" 
-                                      placeholder="Nome / Patente / Matrícula"
-                                      value={officerId}
-                                      onChange={(e) => setOfficerId(e.target.value)}
-                                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 mb-2"
-                                  />
+                                  <div className="grid grid-cols-2 gap-2 mb-2">
+                                      <select 
+                                          value={officerRank} 
+                                          onChange={e => setOfficerRank(e.target.value)}
+                                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
+                                      >
+                                          <option value="">Posto/Graduação...</option>
+                                          <option value="Soldado">Soldado</option>
+                                          <option value="Cabo">Cabo</option>
+                                          <option value="Sargento">Sargento</option>
+                                          <option value="Subtenente">Subtenente</option>
+                                          <option value="Aspirante">Aspirante</option>
+                                          <option value="Tenente">Tenente</option>
+                                          <option value="Capitão">Capitão</option>
+                                          <option value="Major">Major</option>
+                                          <option value="Tenente-Coronel">Tenente-Coronel</option>
+                                          <option value="Coronel">Coronel</option>
+                                          <option value="Delegado">Delegado</option>
+                                          <option value="Agente">Agente PC</option>
+                                      </select>
+                                      <input 
+                                          type="text" 
+                                          placeholder="Nome de Guerra"
+                                          value={officerName}
+                                          onChange={(e) => setOfficerName(e.target.value)}
+                                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
+                                      />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                      <input 
+                                          type="text" 
+                                          placeholder="Matrícula"
+                                          value={officerMatricula}
+                                          onChange={(e) => setOfficerMatricula(e.target.value)}
+                                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
+                                      />
+                                      <input 
+                                          type="tel" 
+                                          placeholder="Telefone (WhatsApp)"
+                                          value={officerPhone}
+                                          onChange={(e) => {
+                                              let val = e.target.value.replace(/\D/g, '');
+                                              if (val.length > 11) val = val.slice(0, 11);
+                                              setOfficerPhone(val);
+                                          }}
+                                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
+                                      />
+                                  </div>
                               </div>
                               <div>
                                   <label className="block text-sm font-bold text-gray-700 mb-1">Batalhão / Unidade</label>
