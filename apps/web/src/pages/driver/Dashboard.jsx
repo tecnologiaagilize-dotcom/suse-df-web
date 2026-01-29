@@ -108,9 +108,15 @@ export default function DriverDashboard() {
             .insert([{
                 id: user.id,
                 email: user.email,
-                name: user.user_metadata?.name || 'Usuário Sem Nome',
-                phone_number: user.user_metadata?.phone_number || '',
-                secret_word: user.user_metadata?.emergency_phrase || ''
+                name: user.user_metadata?.name || 'Motorista Sem Nome',
+                phone_number: user.user_metadata?.phone_number || '00000000000',
+                secret_word: user.user_metadata?.emergency_phrase || 'socorro',
+                // Campos Dummy para passar em constraints NOT NULL (caso o script SQL não tenha sido rodado)
+                cpf: '000.000.000-00',
+                cnh: '00000000000',
+                matricula: '00000',
+                address: {},
+                emergency_contacts: []
             }]);
         
         if (createProfileError) {
