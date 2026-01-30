@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, FileText, ShieldAlert, X, Upload, Clock } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, FileText, ShieldAlert, X, Upload, Clock, Copy, Check } from 'lucide-react';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import { supabase } from '../../lib/supabase';
 
@@ -18,6 +18,15 @@ export default function DriverDashboard() {
   const [isTerminating, setIsTerminating] = React.useState(false);
   const [terminationStatus, setTerminationStatus] = React.useState('idle'); // idle, pending_validation
   const [securityToken, setSecurityToken] = React.useState(null); // Token para validação policial
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopyToken = () => {
+      if (securityToken) {
+          navigator.clipboard.writeText(securityToken);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+      }
+  };
 
   // Carregar frase atualizada do banco
   React.useEffect(() => {
@@ -261,6 +270,20 @@ export default function DriverDashboard() {
 
           console.log("Foto enviada. URL:", photoUrl);
 
+          // 2. Salvar URL e Justificativa no Banco
+          const { error: updateError } = await supabase
+              .from('emergency_alerts')
+              .update({
+                  termination_photo_url: photoUrl,
+                  termination_reason: terminationData.reason
+              })
+              .eq('id', activeAlertId);
+
+          if (updateError) {
+              console.error("Erro ao salvar dados de encerramento:", updateError);
+              throw new Error("Erro ao salvar justificativa: " + updateError.message);
+          }
+
           // 3. Gerar Token de Segurança (RPC)
           const { data: token, error: tokenError } = await supabase
               .rpc('generate_termination_token', { p_alert_id: activeAlertId });
@@ -322,10 +345,19 @@ export default function DriverDashboard() {
                             <p className="text-yellow-500 font-bold uppercase text-xl tracking-wide">Aguardando Validação</p>
                             
                             {securityToken ? (
-                                <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden">
+                                <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden flex flex-col items-center">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent animate-shimmer"></div>
                                     <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Token de Segurança</p>
-                                    <p className="text-5xl font-mono font-bold text-white tracking-widest select-all">{securityToken}</p>
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-5xl font-mono font-bold text-white tracking-widest select-all">{securityToken}</p>
+                                        <button 
+                                            onClick={handleCopyToken}
+                                            className="bg-yellow-600/20 hover:bg-yellow-600/40 text-yellow-500 p-2 rounded-full transition-colors"
+                                            title="Copiar Token"
+                                        >
+                                            {copied ? <Check size={24} /> : <Copy size={24} />}
+                                        </button>
+                                    </div>
                                     <p className="text-xs text-yellow-500 mt-3 flex items-center justify-center gap-1">
                                         <Clock size={12} /> Válido por 60 minutos
                                     </p>
