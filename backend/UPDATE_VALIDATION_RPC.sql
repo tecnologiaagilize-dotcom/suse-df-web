@@ -1,17 +1,13 @@
--- Atualizar Tabela e RPC para suportar Batalhão na Validação
+-- Atualização da RPC de validação para suportar dados detalhados do oficial
+-- Arquivo: backend/UPDATE_VALIDATION_RPC.sql
 
--- 1. Adicionar coluna para batalhão do oficial validador
-ALTER TABLE public.emergency_alerts 
-ADD COLUMN IF NOT EXISTS validating_police_battalion TEXT;
-
--- 2. Dropar função antiga (assinatura com 3 argumentos)
-DROP FUNCTION IF EXISTS validate_termination_token(UUID, TEXT, TEXT);
-
--- 3. Recriar função com 4 argumentos (incluindo batalhão)
 CREATE OR REPLACE FUNCTION validate_termination_token(
   p_alert_id UUID, 
   p_token_input TEXT, 
-  p_police_officer TEXT,
+  p_rank TEXT,
+  p_name TEXT,
+  p_matricula TEXT,
+  p_phone TEXT,
   p_battalion TEXT
 )
 RETURNS JSONB
@@ -21,6 +17,7 @@ AS $$
 DECLARE
   v_alert RECORD;
   v_input_hash TEXT;
+  v_officer_info TEXT;
 BEGIN
   -- Buscar dados do alerta
   SELECT * INTO v_alert 
@@ -40,23 +37,25 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'Número máximo de tentativas excedido. Bloqueado.');
   END IF;
 
-  -- Calcular Hash do Input (Upper e Trim para garantir match)
+  -- Calcular Hash do Input (Sanitização: Upper e Trim já vêm do front, mas reforçamos)
   v_input_hash := encode(digest(upper(trim(p_token_input)) || v_alert.termination_token_salt, 'sha256'), 'hex');
 
   -- Comparar Hashes
   IF v_input_hash = v_alert.termination_token_hash THEN
     -- SUCESSO: Token Válido
     
+    -- Formatar string do oficial para registro simples
+    v_officer_info := p_rank || ' ' || p_name || ' (Mat: ' || p_matricula || ') - ' || p_battalion || ' - Tel: ' || p_phone;
+
     UPDATE public.emergency_alerts
     SET 
       status = 'resolved',
       resolved_at = NOW(),
-      validating_police_officer = p_police_officer,
-      validating_police_battalion = p_battalion,
-      notes = COALESCE(notes, '') || E'\n[Validação Policial] Encerrado via Token por: ' || p_police_officer || ' (' || p_battalion || ')'
+      validating_police_officer = v_officer_info, -- Salva a string formatada
+      notes = COALESCE(notes, '') || E'\n[Validação Policial] Encerrado via Token por: ' || v_officer_info
     WHERE id = p_alert_id;
 
-    RETURN jsonb_build_object('success', true, 'message', 'Token validado com sucesso.');
+    RETURN jsonb_build_object('success', true, 'message', 'Token validado com sucesso. Ocorrência encerrada.');
   ELSE
     -- FALHA: Token Inválido
     UPDATE public.emergency_alerts
@@ -68,4 +67,5 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION validate_termination_token(UUID, TEXT, TEXT, TEXT) TO authenticated;
+-- Garantir permissões
+GRANT EXECUTE ON FUNCTION validate_termination_token(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
