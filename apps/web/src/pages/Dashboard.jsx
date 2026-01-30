@@ -1,9 +1,9 @@
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, AlertTriangle, MapPin, Camera, FileText, ShieldAlert, X, Upload, Clock, Copy, Check } from 'lucide-react';
-import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
-import { supabase } from '../../lib/supabase';
+import VoiceEmergencyListener from '../components/voice/VoiceEmergencyListener';
+import { supabase } from '../lib/supabase';
 
 export default function DriverDashboard() {
   const { user, signOut } = useAuth();
