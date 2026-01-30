@@ -94,7 +94,7 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
                 const { data, error } = await supabase
                     .rpc('validate_termination_token', {
                         p_alert_id: currentAlert.id,
-                        p_token_input: validationToken,
+                        p_token_input: validationToken.trim().toUpperCase(),
                         p_rank: officerRank,
                         p_name: officerName,
                         p_matricula: officerMatricula,
