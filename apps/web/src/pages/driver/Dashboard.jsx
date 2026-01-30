@@ -5,6 +5,7 @@ import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, C
 import { supabase } from '../../lib/supabase';
 
 export default function DriverDashboard() {
+  console.log("SUSE-DF DriverDashboard v3.1 - Clean Build");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   // Estado para armazenar a frase real do banco
