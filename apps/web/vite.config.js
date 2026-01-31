@@ -9,15 +9,29 @@ export default defineConfig({
     keepNames: true
   },
   build: {
-    chunkSizeWarningLimit: 1000, // Aumenta o limite do aviso para 1MB (opcional, mas ajuda)
+    chunkSizeWarningLimit: 2000, // Aumentado para 2MB para evitar alertas falsos
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-maps': ['leaflet', 'react-leaflet', '@react-google-maps/api'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-face-api': ['face-api.js'],
-          'vendor-ui': ['lucide-react']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('face-api.js')) {
+              return 'vendor-face-api';
+            }
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('leaflet') || id.includes('react-leaflet') || id.includes('@react-google-maps')) {
+              return 'vendor-maps';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-ui';
+            }
+            // Outras dependências menores ficam num chunk genérico ou no index se forem muito pequenas
+            return 'vendor-utils'; 
+          }
         }
       }
     }
