@@ -11,6 +11,7 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
     const [validationToken, setValidationToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [currentAlert, setCurrentAlert] = useState(alertData);
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
     // Sincronizar com dados mais recentes e limpar formulário ao abrir
     useEffect(() => {
@@ -110,17 +111,21 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
                 console.log("RPC Data:", data);
 
                 if (data && data.success) {
-                    alert(data.message);
-                    if (onSuccess) {
-                        onSuccess(currentAlert, {
-                            rank: officerRank,
-                            name: officerName,
-                            matricula: officerMatricula,
-                            battalion: officerBattalion,
-                            phone: officerPhone
-                        });
-                    }
-                    if (onClose) onClose();
+                    setShowSuccessMessage(true);
+                    
+                    // Bloquear por 3 segundos antes de fechar
+                    setTimeout(() => {
+                        if (onSuccess) {
+                            onSuccess({ ...currentAlert, status: 'resolved' }, {
+                                rank: officerRank,
+                                name: officerName,
+                                matricula: officerMatricula,
+                                battalion: officerBattalion,
+                                phone: officerPhone
+                            });
+                        }
+                        setShowSuccessMessage(false);
+                    }, 3000);
                 } else {
                     alert("Falha na validação: " + (data?.message || "Token inválido."));
                 }
@@ -148,7 +153,14 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
 
     return (
         <div className="fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4 backdrop-blur-md">
-            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border-4 border-yellow-500 flex flex-col max-h-[90vh]">
+            {showSuccessMessage && (
+                <div className="absolute inset-0 z-[100] bg-green-600 flex flex-col items-center justify-center text-white animate-fade-in">
+                    <CheckCircle size={100} className="mb-4 animate-bounce" />
+                    <h2 className="text-4xl font-black uppercase tracking-tighter">Ocorrência finalizada com sucesso</h2>
+                    <p className="mt-4 text-green-100">Sincronizando com o motorista...</p>
+                </div>
+            )}
+            <div className={`bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border-4 border-yellow-500 flex flex-col max-h-[90vh] ${showSuccessMessage ? 'pointer-events-none grayscale opacity-50' : ''}`}>
                 <div className="bg-yellow-500 text-yellow-900 p-4 flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-xl flex items-center gap-2 uppercase tracking-wide">
                         <ShieldAlert size={28} /> Validação de Encerramento
