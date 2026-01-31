@@ -5,6 +5,7 @@ import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, T
 import { useNavigate } from 'react-router-dom';
 import TrackingMap from '../components/map/TrackingMap'; 
 import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
+import ValidationModal from '../components/modals/ValidationModal';
 
 export default function Dashboard() {
   const { user, userRole, signOut } = useAuth();
@@ -15,6 +16,7 @@ export default function Dashboard() {
   // Múltiplas janelas ativas
   const [activeWindows, setActiveWindows] = useState([]);
   const [showDetailsModal, setShowDetailsModal] = useState(null);
+  const [validationModalAlert, setValidationModalAlert] = useState(null);
   
   // Estados para Compartilhamento em Lote (SIS_GEO)
   const [showShareSelectionModal, setShowShareSelectionModal] = useState(false);
@@ -58,6 +60,31 @@ export default function Dashboard() {
       clearInterval(intervalId);
     };
   }, []);
+
+  // Sincronizar janelas ativas com os dados mais recentes de alerts (Status, Token, etc)
+  useEffect(() => {
+    if (activeWindows.length === 0) return;
+
+    setActiveWindows(prevWindows => {
+        let hasChanges = false;
+        const newWindows = prevWindows.map(window => {
+            const updatedAlert = alerts.find(a => a.id === window.id);
+            if (updatedAlert && updatedAlert.status !== window.status) {
+                hasChanges = true;
+                return { 
+                    ...window, 
+                    status: updatedAlert.status,
+                    termination_token_attempts: updatedAlert.termination_token_attempts,
+                    termination_reason: updatedAlert.termination_reason,
+                    termination_photo_url: updatedAlert.termination_photo_url,
+                    termination_requested_at: updatedAlert.termination_requested_at
+                };
+            }
+            return window;
+        });
+        return hasChanges ? newWindows : prevWindows;
+    });
+  }, [alerts]);
 
   // Monitoramento de localizações para TODAS as janelas ativas
   useEffect(() => {
@@ -627,6 +654,22 @@ export default function Dashboard() {
                 </div>
             </div>
         </div>
+      )}
+
+      {/* Modal de Validação de Encerramento (Token) */}
+      {validationModalAlert && (
+          <ValidationModal 
+              alert={validationModalAlert}
+              isOpen={true}
+              onClose={() => setValidationModalAlert(null)}
+              onSuccess={(updatedAlert) => {
+                  if (updatedAlert && updatedAlert.status === 'resolved') {
+                      closeWindow(updatedAlert.id);
+                      fetchAlerts();
+                  }
+                  setValidationModalAlert(null);
+              }}
+          />
       )}
 
       {/* Modal de Compartilhamento em Lote */}
