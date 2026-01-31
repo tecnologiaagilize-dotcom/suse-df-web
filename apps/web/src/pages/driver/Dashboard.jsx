@@ -1,24 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import TrackingMap from '../../components/map/TrackingMap';
 
 export default function DriverDashboard() {
   console.log("SUSE-DF DriverDashboard v3.1 - Clean Build");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   // Estado para armazenar a frase real do banco
-  const [emergencyPhrase, setEmergencyPhrase] = React.useState('');
-  const [isEmergencyActive, setIsEmergencyActive] = React.useState(false);
+  const [emergencyPhrase, setEmergencyPhrase] = useState('');
+  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
   
   // Estados para Encerramento Verificado
-  const [showTerminationModal, setShowTerminationModal] = React.useState(false);
-  const [terminationData, setTerminationData] = React.useState({ photo: null, reason: '' });
-  const [isTerminating, setIsTerminating] = React.useState(false);
-  const [terminationStatus, setTerminationStatus] = React.useState('idle'); // idle, pending_validation
-  const [securityToken, setSecurityToken] = React.useState(null); // Token para validação policial
-  const [copied, setCopied] = React.useState(false);
+  const [showTerminationModal, setShowTerminationModal] = useState(false);
+  const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminationStatus, setTerminationStatus] = useState('idle'); // idle, pending_validation
+  const [securityToken, setSecurityToken] = useState(null); // Token para validação policial
+  const [copied, setCopied] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 });
 
   const handleCopyToken = () => {
       if (securityToken) {
@@ -29,7 +31,7 @@ export default function DriverDashboard() {
   };
 
   // Carregar frase atualizada do banco
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchPhrase = async () => {
         if (!user) return;
         
@@ -72,6 +74,14 @@ export default function DriverDashboard() {
         setEmergencyPhrase(phrase);
     };
     fetchPhrase();
+    
+    // Pegar localização inicial
+    navigator.geolocation.getCurrentPosition((pos) => {
+        setCurrentLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+        });
+    }, (err) => console.warn("Erro ao pegar localização inicial:", err), { enableHighAccuracy: true });
   }, [user]);
 
   // TESTE MANUAL DE VOZ (DEBUG)
@@ -218,7 +228,7 @@ export default function DriverDashboard() {
   };
 
   // Limpar intervalo ao sair
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
         if (trackingId) clearInterval(trackingId);
     };

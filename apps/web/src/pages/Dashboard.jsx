@@ -404,13 +404,10 @@ export default function Dashboard() {
 
                               {/* Coluna da Direita: Mapa */}
                               <div className="w-2/3 h-full relative bg-gray-200">
-                                   {/* <TrackingMap 
+                                   <TrackingMap 
                                         lat={activeWindow.current_lat}
                                         lng={activeWindow.current_lng}
-                                    /> */}
-                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                        Mapa em manutenção
-                                    </div>
+                                    />
                                     
                                     {/* Footer do Mapa */}
                                     <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-2 px-4 border-t border-gray-200 flex justify-between items-center">
@@ -922,6 +919,9 @@ export default function Dashboard() {
                                 onChange={(e) => {
                                     // Remove tudo que não for número
                                     let val = e.target.value.replace(/\D/g, '');
+                                    
+                                    // Limite máximo para evitar erros (DDD + 9 + 8 dígitos = 11)
+                                    if (val.length > 11) val = val.slice(0, 11);
                                     
                                     // Limite máximo para evitar erros (DDD + 9 + 8 dígitos = 11)
                                     if (val.length > 11) val = val.slice(0, 11);

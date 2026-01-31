@@ -1,66 +1,72 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import React, { useState, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
-// Fix for default marker icon in React Leaflet
-// Importando imagens diretamente dos node_modules ou public
-// Em Vite, isso pode precisar de ajuste, mas vamos tentar o padrão
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
 
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
+const defaultCenter = {
+  lat: -15.793889,
+  lng: -47.882778
+};
 
-L.Marker.prototype.options.icon = DefaultIcon;
+function TrackingMap({ lat, lng }) {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    // Tenta pegar a chave do ambiente ou usa string vazia (vai dar erro de API Key se não configurar)
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+  });
 
-// Componente auxiliar para atualizar o centro do mapa quando props mudam
-function ChangeView({ center, zoom }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
-}
+  const [map, setMap] = useState(null);
 
-const TrackingMap = ({ lat, lng }) => {
-  // Coordenadas padrão (Brasília) se não fornecidas
-  const hasLocation = lat !== undefined && lng !== undefined && lat !== null && lng !== null;
-  const position = hasLocation ? [Number(lat), Number(lng)] : [-15.793889, -47.882778];
+  const onLoad = useCallback(function callback(map) {
+    // const bounds = new window.google.maps.LatLngBounds(center);
+    // map.fitBounds(bounds);
+    setMap(map);
+  }, []);
+
+  const onUnmount = useCallback(function callback(map) {
+    setMap(null);
+  }, []);
+
+  // Se não houver chave configurada, mostra aviso
+  if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+      return (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-500">
+              <p className="font-bold text-red-500">Google Maps API Key não configurada.</p>
+              <p className="text-sm">Adicione VITE_GOOGLE_MAPS_API_KEY no arquivo .env</p>
+              <p className="text-xs mt-2">Lat: {lat} | Lng: {lng}</p>
+          </div>
+      );
+  }
+
+  if (loadError) {
+    return <div className="w-full h-full flex items-center justify-center bg-red-50 text-red-500">Erro ao carregar o mapa.</div>;
+  }
+
+  if (!isLoaded) {
+    return <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-500">Carregando Mapa...</div>;
+  }
+
+  const center = (lat && lng) ? { lat: Number(lat), lng: Number(lng) } : defaultCenter;
 
   return (
-    <div className="w-full h-full relative z-0">
-      <MapContainer 
-        center={position} 
-        zoom={15} 
-        style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={true}
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={center}
+        zoom={15}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
       >
-        <ChangeView center={position} zoom={15} />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        {/* Marcador da Posição Atual */}
+        <Marker 
+            position={center}
+            title="Motorista"
+            // icon="http://maps.google.com/mapfiles/kml/pal4/icon54.png" // Ícone de alerta opcional
         />
-        {hasLocation && (
-            <Marker position={position}>
-            <Popup>
-                Motorista
-            </Popup>
-            </Marker>
-        )}
-      </MapContainer>
-      
-      {!hasLocation && (
-          <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs z-[1000] shadow">
-              Aguardando localização...
-          </div>
-      )}
-    </div>
+      </GoogleMap>
   );
-};
+}
 
 export default React.memo(TrackingMap);
