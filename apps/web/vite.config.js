@@ -9,9 +9,16 @@ export default defineConfig({
     keepNames: true
   },
   build: {
+    chunkSizeWarningLimit: 1000, // Aumenta o limite do aviso para 1MB (opcional, mas ajuda)
     rollupOptions: {
       output: {
-        // Deixando o Vite gerenciar os chunks automaticamente para evitar erros de referência
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-maps': ['leaflet', 'react-leaflet', '@react-google-maps/api'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-face-api': ['face-api.js'],
+          'vendor-ui': ['lucide-react']
+        }
       }
     }
   }
