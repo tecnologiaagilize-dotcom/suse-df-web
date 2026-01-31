@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v3.1 - Clean Build");
+  console.log("SUSE-DF DriverDashboard v3.2 - Fix useState Reference");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   // Estado para armazenar a frase real do banco
@@ -85,7 +85,7 @@ export default function DriverDashboard() {
   }, [user]);
 
   // TESTE MANUAL DE VOZ (DEBUG)
-  const [debugPhrase, setDebugPhrase] = React.useState('');
+  const [debugPhrase, setDebugPhrase] = useState('');
   const handleDebugVoice = (e) => {
       e.preventDefault();
       if (debugPhrase.toLowerCase().includes(emergencyPhrase.toLowerCase())) {
