@@ -324,7 +324,10 @@ export default function DriverDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">SUSE-DF (v2.1)</h1>
+              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <AlertTriangle className="text-red-600" />
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v2.3</span>
+              </h1>
             </div>
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
