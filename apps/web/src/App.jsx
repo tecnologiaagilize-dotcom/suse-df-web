@@ -10,7 +10,7 @@ import ForgotPassword from './pages/driver/ForgotPassword';
 import VoiceConfig from './pages/driver/VoiceConfig';
 import DriverProfile from './pages/driver/Profile';
 
-import AdminDashboardReal from './pages/Dashboard';
+import AdminDashboardReal from './pages/AdminDashboard';
 
 import AdminLoginReal from './pages/Login';
 import ChangePassword from './pages/admin/ChangePassword';
