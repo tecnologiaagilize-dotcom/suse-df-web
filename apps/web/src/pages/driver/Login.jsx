@@ -18,6 +18,7 @@ export default function DriverLogin() {
     try {
       setError('');
       setLoading(true);
+      console.log('Tentando login motorista com:', email); // Debug
       const { user } = await signIn(email, password);
       // Check if user is driver
       // For now, assume yes and redirect

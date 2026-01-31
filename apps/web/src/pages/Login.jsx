@@ -21,6 +21,8 @@ export default function Login() {
       // Converter Matrícula para Email Interno
       const fakeEmail = `${matricula.toLowerCase().trim()}@suse.sys`;
       
+      console.log('Tentando login com:', fakeEmail); // Debug
+      
       const { user, mustChangePassword } = await signIn(fakeEmail, password);
       
       // Verificar se o perfil selecionado bate com o do banco (opcional, mas boa prática de UX/Segurança)
