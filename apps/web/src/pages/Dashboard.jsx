@@ -373,12 +373,9 @@ export default function Dashboard() {
 
                                   <button 
                                       onClick={() => handleResolveAlert(activeWindow)}
-                                      className={`flex items-center gap-1 text-white text-xs px-2 py-1 rounded transition-colors ml-2 font-bold shadow-sm ${
-                                        activeWindow.status === 'waiting_police_validation' 
-                                            ? 'bg-yellow-500 hover:bg-yellow-600 animate-pulse text-black border border-yellow-600' 
-                                            : 'bg-green-600 hover:bg-green-700'
-                                      }`}
-                                      title={activeWindow.status === 'waiting_police_validation' ? "Usuário solicitou encerramento" : "Finalizar Atendimento"}
+                                      className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 rounded transition-colors ml-2 font-bold shadow-sm"
+                                      title="Finalizar Atendimento"
+                                      style={{ display: 'flex' }}
                                   >
                                       <CheckCircle size={14} /> 
                                       {activeWindow.status === 'waiting_police_validation' ? 'ENCERRAR?' : 'Finalizar'}
