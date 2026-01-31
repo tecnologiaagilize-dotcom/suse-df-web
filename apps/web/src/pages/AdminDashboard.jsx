@@ -144,23 +144,38 @@ export default function Dashboard() {
   };
 
   const handleResolveAlert = async (alert) => {
-      const confirmMessage = alert.status === 'waiting_police_validation' 
-          ? "O usuário solicitou o encerramento. Confirma a finalização deste atendimento?"
-          : "Tem certeza que deseja finalizar este atendimento?";
-          
-      if (!window.confirm(confirmMessage)) return;
-
       try {
+          // Verificar status mais recente no banco antes de decidir o fluxo
+          const { data: freshAlert, error } = await supabase
+            .from('emergency_alerts')
+            .select('*')
+            .eq('id', alert.id)
+            .single();
+
+          if (error) throw error;
+
+          // Se estiver aguardando validação policial (Token), abrir modal específico
+          // Isso previne que um delay na UI permita fechar sem token
+          if (freshAlert.status === 'waiting_police_validation') {
+              setValidationModalAlert(freshAlert);
+              return;
+          }
+
+          const confirmMessage = "Tem certeza que deseja finalizar este atendimento administrativamente? (Sem validação de token)";
+              
+          if (!window.confirm(confirmMessage)) return;
+
           const now = new Date().toISOString();
-          const { error } = await supabase
+          const { error: updateError } = await supabase
               .from('emergency_alerts')
               .update({ 
                   status: 'resolved',
-                  resolved_at: now
+                  resolved_at: now,
+                  notes: (freshAlert.notes || '') + '\n[Encerramento Administrativo] Finalizado pelo operador.'
               })
               .eq('id', alert.id);
 
-          if (error) throw error;
+          if (updateError) throw updateError;
 
           // Fechar janela localmente
           closeWindow(alert.id);
