@@ -11,11 +11,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js'],
-          lucide: ['lucide-react']
-        }
+        // Deixando o Vite gerenciar os chunks automaticamente para evitar erros de referência
       }
     }
   }
