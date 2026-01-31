@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v3.8 - Botão Restaurado e Encerramento Automático");
+  console.log("SUSE-DF DriverDashboard v3.9 - Fluxo de Encerramento Atualizado");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -46,7 +46,7 @@ export default function DriverDashboard() {
             .from('emergency_alerts')
             .select('id, status, termination_token_expires_at')
             .eq('user_id', user.id)
-            .in('status', ['active', 'investigating', 'waiting_police_validation'])
+            .in('status', ['active', 'investigating', 'waiting_police_validation', 'resolved'])
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -65,20 +65,17 @@ export default function DriverDashboard() {
                     }
                  }
                  
-                 // Recuperar o token se estiver em validação
-                 const { data: tokenData } = await supabase
-                    .from('emergency_alerts')
-                    .select('termination_token')
-                    .eq('id', activeAlert.id)
-                    .single();
-                 if (tokenData?.termination_token) {
-                    setSecurityToken(tokenData.termination_token);
-                 }
+                 // Nota: O token real não fica no banco em texto claro. 
+                 // Se o usuário recarregar, ele verá "Aguardando Validação".
+            } else if (activeAlert.status === 'resolved') {
+                setTerminationStatus('resolved_success');
             }
 
-            // Iniciar tracking
-            const interval = setInterval(() => sendLocationUpdate(activeAlert.id), 5000);
-            setTrackingId(interval);
+            if (activeAlert.status !== 'resolved') {
+                // Iniciar tracking
+                const interval = setInterval(() => sendLocationUpdate(activeAlert.id), 5000);
+                setTrackingId(interval);
+            }
         }
 
         // 2. Recuperar Frase de Emergência
@@ -93,8 +90,7 @@ export default function DriverDashboard() {
 
     fetchData();
 
-    // 3. Sincronização em Tempo Real (Requisito 3.7)
-    // Quando o admin valida o token, o status muda para 'resolved'
+    // 3. Sincronização em Tempo Real
     const subscription = supabase
       .channel(`driver_status_sync_${user.id}`)
       .on('postgres_changes', { 
@@ -106,8 +102,6 @@ export default function DriverDashboard() {
         console.log("Mudança de status detectada via Realtime:", payload.new.status);
         
         if (payload.new.status === 'resolved') {
-            // Requisito 3.7: Atualizar status para "Validação concluída com sucesso"
-            // E encerrar automaticamente a tela de exibição do token
             setTerminationStatus('resolved_success');
             
             // Parar rastreamento
@@ -173,6 +167,7 @@ export default function DriverDashboard() {
       if (error) throw error;
       setActiveAlertId(data.id);
       setIsEmergencyActive(true);
+      setTerminationStatus('idle');
       
       // Iniciar Rastreamento Contínuo
       const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
@@ -229,31 +224,16 @@ export default function DriverDashboard() {
               .from('emergency_alerts')
               .update({
                   termination_photo_url: photoUrl,
-                  termination_reason: terminationData.reason
+                  termination_reason: terminationData.reason,
+                  termination_requested_at: new Date().toISOString()
               })
               .eq('id', activeAlertId);
 
           if (updateError) throw new Error("Erro ao salvar justificativa: " + updateError.message);
 
-          const storedEndToken = localStorage.getItem('end_token');
-          let token;
-          if (storedEndToken) {
-              token = storedEndToken;
-              const { error: updateTokenError } = await supabase
-                  .rpc('set_termination_token_manual', { 
-                      p_alert_id: activeAlertId, 
-                      p_token: storedEndToken 
-                  });
-              if (updateTokenError) {
-                   const { data: newToken, error: rpcError } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
-                   if (rpcError) throw rpcError;
-                   token = newToken;
-              }
-          } else {
-              const { data: newToken, error: rpcError } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
-              if (rpcError) throw rpcError;
-              token = newToken;
-          }
+          // Gerar Token de Segurança via RPC
+          const { data: token, error: rpcError } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
+          if (rpcError) throw rpcError;
 
           const { data: alertData } = await supabase.from('emergency_alerts').select('termination_token_expires_at').eq('id', activeAlertId).single();
 
@@ -264,7 +244,7 @@ export default function DriverDashboard() {
           setShowTerminationModal(false);
 
       } catch (error) {
-          console.error("Erro ao solicitar encerramento:", error);
+          console.error("Erro ao enviar solicitação:", error);
           alert("Erro ao enviar solicitação: " + error.message);
       } finally {
           setIsTerminating(false);
@@ -279,7 +259,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v3.8</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v3.9</span>
               </h1>
             </div>
             <div className="flex items-center">
@@ -316,7 +296,7 @@ export default function DriverDashboard() {
                             <p className={`font-bold uppercase text-xl tracking-wide ${
                                 terminationStatus === 'resolved_success' ? 'text-green-500' : 'text-yellow-500'
                             }`}>
-                                {terminationStatus === 'resolved_success' ? 'Validação concluída com sucesso' : 'Aguardando Validação'}
+                                {terminationStatus === 'resolved_success' ? 'Ocorrência finalizada pela central de monitoramento' : 'Aguardando Validação'}
                             </p>
                             
                             {terminationStatus === 'resolved_success' ? (
@@ -329,7 +309,7 @@ export default function DriverDashboard() {
                                         }}
                                         className="w-full py-5 px-6 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3"
                                     >
-                                        <Home size={24} /> Retornar ao menu principal
+                                        <Home size={24} /> Voltar para o painel do motorista
                                     </button>
                                 </div>
                             ) : securityToken ? (
@@ -390,9 +370,9 @@ export default function DriverDashboard() {
                 {terminationStatus === 'idle' && (
                     <button 
                        onClick={() => setShowTerminationModal(true)}
-                       className="mt-8 px-4 py-2 bg-gray-200 text-gray-500 rounded text-xs opacity-20 hover:opacity-100 transition-opacity"
+                       className="mt-8 px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2"
                     >
-                       Encerrar Monitoramento
+                       <CheckCircle size={20} /> Finalizar Ocorrência
                     </button>
                 )}
              </div>
