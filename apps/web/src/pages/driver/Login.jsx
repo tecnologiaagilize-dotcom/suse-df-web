@@ -20,6 +20,16 @@ export default function DriverLogin() {
       setLoading(true);
       console.log('Tentando login motorista com:', email); // Debug
       const { user } = await signIn(email, password);
+      
+      // Armazenar end_token se disponível nos metadados
+      if (user?.user_metadata?.end_token) {
+          console.log("End Token recuperado do login:", user.user_metadata.end_token);
+          localStorage.setItem('end_token', user.user_metadata.end_token);
+      } else {
+          console.warn("Usuário sem end_token configurado nos metadados.");
+          localStorage.removeItem('end_token'); // Limpa para evitar lixo antigo
+      }
+
       // Check if user is driver
       // For now, assume yes and redirect
       navigate('/driver/dashboard');

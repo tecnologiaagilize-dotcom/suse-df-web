@@ -295,16 +295,38 @@ export default function DriverDashboard() {
           }
 
           // 3. Gerar Token de Segurança (RPC)
-          const { data: token, error: tokenError } = await supabase
-              .rpc('generate_termination_token', { p_alert_id: activeAlertId });
-
-          if (tokenError) {
-              console.error("Erro ao gerar token:", tokenError);
-              // Fallback visual se RPC falhar (não deveria, mas garante UX)
-              throw new Error("Erro ao gerar token de segurança: " + tokenError.message);
+          // Se houver um token salvo no localStorage (do login), usa ele. Senão gera um novo.
+          const storedEndToken = localStorage.getItem('end_token');
+          
+          let token;
+          if (storedEndToken) {
+              console.log("Usando token de encerramento do login (end_token)");
+              token = storedEndToken;
+              
+              // Atualizar no banco para que a polícia possa validar ESSE token
+              const { error: updateTokenError } = await supabase
+                  .rpc('set_termination_token_manual', { 
+                      p_alert_id: activeAlertId, 
+                      p_token: storedEndToken 
+                  });
+              
+              if (updateTokenError) {
+                   console.warn("Erro ao definir token manual, gerando novo via RPC padrão:", updateTokenError);
+                   const { data: newToken, error: rpcError } = await supabase
+                      .rpc('generate_termination_token', { p_alert_id: activeAlertId });
+                   if (rpcError) throw rpcError;
+                   token = newToken;
+              }
+          } else {
+              console.log("Nenhum end_token encontrado, gerando novo aleatório");
+              const { data: newToken, error: rpcError } = await supabase
+                  .rpc('generate_termination_token', { p_alert_id: activeAlertId });
+              
+              if (rpcError) throw new Error("Erro ao gerar token de segurança: " + rpcError.message);
+              token = newToken;
           }
 
-          console.log("Token gerado com sucesso!");
+          console.log("Token definido com sucesso:", token);
           setSecurityToken(token);
           setTerminationStatus('pending_validation');
           setShowTerminationModal(false);
