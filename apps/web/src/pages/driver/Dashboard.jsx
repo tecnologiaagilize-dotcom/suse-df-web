@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v3.7 - Implementação de Encerramento Automático");
+  console.log("SUSE-DF DriverDashboard v3.8 - Botão Restaurado e Encerramento Automático");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -17,8 +17,10 @@ export default function DriverDashboard() {
   const [activeAlertId, setActiveAlertId] = useState(null);
   const [trackingId, setTrackingId] = useState(null);
   
-  // Estados para Encerramento Verificado (Seção 3.7)
+  // Estados para Encerramento Verificado
   const [showTerminationModal, setShowTerminationModal] = useState(false);
+  const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
+  const [isTerminating, setIsTerminating] = useState(false);
   const [terminationStatus, setTerminationStatus] = useState('idle'); // idle, pending_validation, resolved_success
   const [securityToken, setSecurityToken] = useState(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
@@ -50,6 +52,7 @@ export default function DriverDashboard() {
             .maybeSingle();
 
         if (activeAlert) {
+            console.log("Alerta ativo recuperado:", activeAlert);
             setActiveAlertId(activeAlert.id);
             setIsEmergencyActive(true);
             
@@ -60,6 +63,16 @@ export default function DriverDashboard() {
                     if (new Date(activeAlert.termination_token_expires_at) < new Date()) {
                         setIsTokenExpired(true);
                     }
+                 }
+                 
+                 // Recuperar o token se estiver em validação
+                 const { data: tokenData } = await supabase
+                    .from('emergency_alerts')
+                    .select('termination_token')
+                    .eq('id', activeAlert.id)
+                    .single();
+                 if (tokenData?.termination_token) {
+                    setSecurityToken(tokenData.termination_token);
                  }
             }
 
@@ -152,13 +165,19 @@ export default function DriverDashboard() {
             status: 'active',
             trigger_type: trigger,
             initial_lat: latitude,
-            initial_lng: longitude
+            initial_lng: longitude,
+            notes: trigger === 'voice' ? 'Acionado por comando de voz' : 'Acionado via botão SOS'
         }])
         .select().single();
 
       if (error) throw error;
       setActiveAlertId(data.id);
       setIsEmergencyActive(true);
+      
+      // Iniciar Rastreamento Contínuo
+      const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
+      setTrackingId(interval);
+      
     } catch (error) {
       console.error("Erro ao acionar SOS:", error);
     }
@@ -169,6 +188,89 @@ export default function DriverDashboard() {
     navigate('/driver/login');
   };
 
+  const handleProfile = () => {
+    navigate('/driver/profile');
+  };
+
+  const handleTerminationPhoto = (e) => {
+    if (e.target.files && e.target.files[0]) {
+        setTerminationData({ ...terminationData, photo: e.target.files[0] });
+    }
+  };
+
+  const handleSubmitTermination = async (e) => {
+      e.preventDefault();
+      if (!terminationData.photo || !terminationData.reason) {
+          alert("Foto e justificativa são obrigatórias.");
+          return;
+      }
+
+      setIsTerminating(true);
+      try {
+          let photoUrl = '';
+          const fileName = `termination/${activeAlertId}_${Date.now()}.jpg`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('termination-evidence') 
+              .upload(fileName, terminationData.photo);
+          
+          if (uploadError) {
+             const backupName = `term_${activeAlertId}_${Date.now()}.jpg`;
+             const { error: backupError } = await supabase.storage.from('avatars').upload(backupName, terminationData.photo);
+             if (backupError) throw new Error("Falha no upload da foto: " + uploadError.message);
+             const { data } = supabase.storage.from('avatars').getPublicUrl(backupName);
+             photoUrl = data.publicUrl;
+          } else {
+             const { data } = supabase.storage.from('termination-evidence').getPublicUrl(fileName);
+             photoUrl = data.publicUrl;
+          }
+
+          const { error: updateError } = await supabase
+              .from('emergency_alerts')
+              .update({
+                  termination_photo_url: photoUrl,
+                  termination_reason: terminationData.reason
+              })
+              .eq('id', activeAlertId);
+
+          if (updateError) throw new Error("Erro ao salvar justificativa: " + updateError.message);
+
+          const storedEndToken = localStorage.getItem('end_token');
+          let token;
+          if (storedEndToken) {
+              token = storedEndToken;
+              const { error: updateTokenError } = await supabase
+                  .rpc('set_termination_token_manual', { 
+                      p_alert_id: activeAlertId, 
+                      p_token: storedEndToken 
+                  });
+              if (updateTokenError) {
+                   const { data: newToken, error: rpcError } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
+                   if (rpcError) throw rpcError;
+                   token = newToken;
+              }
+          } else {
+              const { data: newToken, error: rpcError } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
+              if (rpcError) throw rpcError;
+              token = newToken;
+          }
+
+          const { data: alertData } = await supabase.from('emergency_alerts').select('termination_token_expires_at').eq('id', activeAlertId).single();
+
+          setSecurityToken(token);
+          setTokenExpiresAt(alertData?.termination_token_expires_at);
+          setIsTokenExpired(false);
+          setTerminationStatus('pending_validation');
+          setShowTerminationModal(false);
+
+      } catch (error) {
+          console.error("Erro ao solicitar encerramento:", error);
+          alert("Erro ao enviar solicitação: " + error.message);
+      } finally {
+          setIsTerminating(false);
+      }
+  };
+
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
@@ -177,7 +279,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v3.7</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v3.8</span>
               </h1>
             </div>
             <div className="flex items-center">
@@ -218,7 +320,6 @@ export default function DriverDashboard() {
                             </p>
                             
                             {terminationStatus === 'resolved_success' ? (
-                                /* Requisito 3.7: No local anteriormente ocupado pelo token, passa a ser exibido o botão: “Retornar ao menu principal” */
                                 <div className="my-6">
                                     <button 
                                         onClick={() => {
@@ -232,7 +333,6 @@ export default function DriverDashboard() {
                                     </button>
                                 </div>
                             ) : securityToken ? (
-                                /* Tela de exibição do token */
                                 <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden flex flex-col items-center">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent animate-shimmer"></div>
                                     <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Token de Segurança</p>
@@ -311,6 +411,15 @@ export default function DriverDashboard() {
                   <span className="text-4xl font-bold text-white">SOS</span>
                 </button>
 
+                <div className="w-full max-w-md flex justify-center">
+                  <button 
+                    onClick={handleProfile}
+                    className="text-blue-600 hover:text-blue-800 underline font-medium"
+                  >
+                    Meu Cadastro - Clique Aqui
+                  </button>
+                </div>
+
                 <div className="bg-white p-6 rounded-lg shadow w-full max-w-md">
                   <div className="flex items-center space-x-4 mb-4">
                     <MapPin className="h-6 w-6 text-blue-500" />
@@ -320,11 +429,100 @@ export default function DriverDashboard() {
                       <p className="text-sm text-gray-500">Longitude: {currentLocation.lng.toFixed(6)}</p>
                     </div>
                   </div>
+                  <p className="text-xs text-gray-400 text-center">
+                    Sua localização está sendo monitorada para sua segurança.
+                  </p>
                 </div>
              </div>
           )}
         </div>
       </main>
+
+      {showTerminationModal && (
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-md rounded-lg overflow-hidden shadow-2xl">
+                  <div className="bg-red-600 text-white p-4 flex justify-between items-center">
+                      <h3 className="font-bold flex items-center gap-2">
+                          <ShieldAlert size={20} /> Encerrar Monitoramento
+                      </h3>
+                      <button onClick={() => setShowTerminationModal(false)} className="text-white/80 hover:text-white">
+                          <X size={24} />
+                      </button>
+                  </div>
+                  
+                  <form onSubmit={handleSubmitTermination} className="p-6 space-y-6">
+                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-sm text-yellow-800">
+                          <p className="font-bold">Protocolo de Segurança Ativo</p>
+                          <p>Para sua segurança, o encerramento definitivo requer validação visual e justificativa.</p>
+                      </div>
+
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                              1. Validação Visual (Obrigatório)
+                          </label>
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50 relative">
+                              <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  capture="user"
+                                  onChange={handleTerminationPhoto}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
+                              />
+                              {terminationData.photo ? (
+                                  <div className="flex flex-col items-center">
+                                      <p className="text-green-600 font-bold flex items-center gap-2">
+                                          <Camera size={20} /> Foto Capturada
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1">{terminationData.photo.name}</p>
+                                      <button type="button" className="text-xs text-blue-600 underline mt-2">Tirar outra</button>
+                                  </div>
+                              ) : (
+                                  <div className="flex flex-col items-center text-gray-500">
+                                      <Camera size={32} className="mb-2" />
+                                      <p className="font-medium">Toque para tirar uma foto do seu rosto</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                              2. Justificativa (Obrigatório)
+                          </label>
+                          <textarea 
+                              required
+                              rows={3}
+                              placeholder="Por que deseja encerrar o monitoramento?"
+                              value={terminationData.reason}
+                              onChange={(e) => setTerminationData({...terminationData, reason: e.target.value})}
+                              className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 border p-2"
+                          />
+                      </div>
+
+                      <div className="pt-4 flex gap-3">
+                          <button 
+                              type="button"
+                              onClick={() => setShowTerminationModal(false)}
+                              className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300"
+                          >
+                              Cancelar
+                          </button>
+                          <button 
+                              type="submit"
+                              disabled={isTerminating || !terminationData.photo || !terminationData.reason}
+                              className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 disabled:opacity-50 flex justify-center items-center gap-2"
+                          >
+                              {isTerminating ? (
+                                  <>
+                                      <Upload size={18} className="animate-spin" /> Enviando...
+                                  </>
+                              ) : 'Enviar e Validar'}
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
