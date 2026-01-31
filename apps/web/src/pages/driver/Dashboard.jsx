@@ -108,8 +108,8 @@ export default function DriverDashboard() {
     navigate('/driver/profile');
   };
 
-  const [trackingId, setTrackingId] = React.useState(null);
-  const [activeAlertId, setActiveAlertId] = React.useState(null);
+  const [trackingId, setTrackingId] = useState(null);
+  const [activeAlertId, setActiveAlertId] = useState(null);
 
   // Função para enviar atualização de localização
   const sendLocationUpdate = async (alertId) => {
