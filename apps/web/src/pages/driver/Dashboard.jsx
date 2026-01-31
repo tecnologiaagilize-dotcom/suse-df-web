@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v3.9 - Fluxo de Encerramento Atualizado");
+  console.log("SUSE-DF DriverDashboard v4.0 - Sincronização Realtime Corrigida");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -41,7 +41,7 @@ export default function DriverDashboard() {
     const fetchData = async () => {
         if (!user) return;
         
-        // 1. Recuperar Alerta Ativo
+        // 1. Recuperar Alerta Ativo ou Recém Resolvido
         const { data: activeAlert } = await supabase
             .from('emergency_alerts')
             .select('id, status, termination_token_expires_at')
@@ -52,7 +52,7 @@ export default function DriverDashboard() {
             .maybeSingle();
 
         if (activeAlert) {
-            console.log("Alerta ativo recuperado:", activeAlert);
+            console.log("Alerta recuperado:", activeAlert);
             setActiveAlertId(activeAlert.id);
             setIsEmergencyActive(true);
             
@@ -64,9 +64,6 @@ export default function DriverDashboard() {
                         setIsTokenExpired(true);
                     }
                  }
-                 
-                 // Nota: O token real não fica no banco em texto claro. 
-                 // Se o usuário recarregar, ele verá "Aguardando Validação".
             } else if (activeAlert.status === 'resolved') {
                 setTerminationStatus('resolved_success');
             }
@@ -90,16 +87,16 @@ export default function DriverDashboard() {
 
     fetchData();
 
-    // 3. Sincronização em Tempo Real
+    // 3. Sincronização em Tempo Real (Ouvindo TODAS as mudanças no alerta do usuário)
     const subscription = supabase
       .channel(`driver_status_sync_${user.id}`)
       .on('postgres_changes', { 
-          event: 'UPDATE', 
+          event: '*', 
           schema: 'public', 
           table: 'emergency_alerts',
           filter: `user_id=eq.${user.id}`
       }, (payload) => {
-        console.log("Mudança de status detectada via Realtime:", payload.new.status);
+        console.log("Mudança detectada via Realtime:", payload.new.status);
         
         if (payload.new.status === 'resolved') {
             setTerminationStatus('resolved_success');
@@ -111,9 +108,11 @@ export default function DriverDashboard() {
                 }
                 return null;
             });
-        } else if (payload.new.status === 'active' && terminationStatus === 'pending_validation') {
-            // Se o admin rejeitar, volta para o estado normal
+        } else if (payload.new.status === 'active' || payload.new.status === 'investigating') {
+            // Se o admin rejeitar ou mudar status, volta para o estado normal (esconde o token)
             setTerminationStatus('idle');
+        } else if (payload.new.status === 'waiting_police_validation') {
+            setTerminationStatus('pending_validation');
         }
       })
       .subscribe();
@@ -259,7 +258,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v3.9</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v4.0</span>
               </h1>
             </div>
             <div className="flex items-center">
