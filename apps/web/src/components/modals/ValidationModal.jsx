@@ -111,10 +111,12 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
                 console.log("RPC Data:", data);
 
                 if (data && data.success) {
+                    console.log("Validation success, status is now resolved in DB");
                     setShowSuccessMessage(true);
                     
                     // Bloquear por 3 segundos antes de fechar
                     setTimeout(() => {
+                        console.log("Closing validation modal and calling onSuccess");
                         if (onSuccess) {
                             onSuccess({ ...currentAlert, status: 'resolved' }, {
                                 rank: officerRank,
