@@ -11,7 +11,7 @@ const formatDuration = (ms) => {
 };
 
 // Componente que conta o tempo progressivamente
-export const ProgressiveTimer = ({ startTime, label, icon: Icon, colorClass = "text-gray-700" }) => {
+export const ProgressiveTimer = React.memo(({ startTime, label, icon: Icon, colorClass = "text-gray-700" }) => {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -36,10 +36,10 @@ export const ProgressiveTimer = ({ startTime, label, icon: Icon, colorClass = "t
       <span className="font-bold">{formatDuration(elapsed)}</span>
     </div>
   );
-};
+});
 
 // Componente que mostra um tempo estático (diferença fixa entre inicio e fim)
-export const StaticDuration = ({ start, end, label, icon: Icon, colorClass = "text-gray-700" }) => {
+export const StaticDuration = React.memo(({ start, end, label, icon: Icon, colorClass = "text-gray-700" }) => {
   const diff = new Date(end).getTime() - new Date(start).getTime();
   
   return (
@@ -49,4 +49,4 @@ export const StaticDuration = ({ start, end, label, icon: Icon, colorClass = "te
       <span className="font-bold">{formatDuration(diff)}</span>
     </div>
   );
-};
+});
