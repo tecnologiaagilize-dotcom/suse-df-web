@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home } from 'lucide-react';
+import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 
@@ -19,6 +20,8 @@ export default function DriverDashboard() {
   const [isTerminating, setIsTerminating] = useState(false);
   const [terminationStatus, setTerminationStatus] = useState('idle'); // idle, pending_validation
   const [securityToken, setSecurityToken] = useState(null); // Token para validação policial
+  const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [copied, setCopied] = useState(false);
   const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 });
 
@@ -53,7 +56,25 @@ export default function DriverDashboard() {
             // Se já tiver em validação, restaura o token
             if (activeAlert.status === 'waiting_police_validation') {
                  setTerminationStatus('pending_validation');
-                 // Token não é persistido por segurança. UI mostrará botão para gerar novo.
+                 // Recuperar expiração do token se existir
+                 const { data: alertDetails } = await supabase
+                    .from('emergency_alerts')
+                    .select('termination_token_expires_at')
+                    .eq('id', activeAlert.id)
+                    .single();
+                 
+                 if (alertDetails?.termination_token_expires_at) {
+                    setTokenExpiresAt(alertDetails.termination_token_expires_at);
+                    // Verificar se já expirou
+                    if (new Date(alertDetails.termination_token_expires_at) < new Date()) {
+                        setIsTokenExpired(true);
+                    }
+                 }
+            }
+            
+            // Se já estiver resolvido, mostrar tela de sucesso (caso o usuário recarregue após o admin validar)
+            if (activeAlert.status === 'resolved') {
+                setTerminationStatus('resolved_success');
             }
 
             // Reiniciar tracking
@@ -74,6 +95,22 @@ export default function DriverDashboard() {
         setEmergencyPhrase(phrase);
     };
     fetchPhrase();
+
+    // Sincronização em tempo real para encerramento
+    const subscription = supabase
+      .channel('driver_status_sync')
+      .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'emergency_alerts',
+          filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        if (payload.new.status === 'resolved') {
+            setTerminationStatus('resolved_success');
+            if (trackingId) clearInterval(trackingId);
+        }
+      })
+      .subscribe();
     
     // Pegar localização inicial
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -82,6 +119,9 @@ export default function DriverDashboard() {
             lng: pos.coords.longitude
         });
     }, (err) => console.warn("Erro ao pegar localização inicial:", err), { enableHighAccuracy: true });
+    return () => {
+        subscription.unsubscribe();
+    };
   }, [user]);
 
   // TESTE MANUAL DE VOZ (DEBUG)
@@ -319,15 +359,24 @@ export default function DriverDashboard() {
               }
           } else {
               console.log("Nenhum end_token encontrado, gerando novo aleatório");
-              const { data: newToken, error: rpcError } = await supabase
+          const { data: newToken, error: rpcError } = await supabase
                   .rpc('generate_termination_token', { p_alert_id: activeAlertId });
-              
+
               if (rpcError) throw new Error("Erro ao gerar token de segurança: " + rpcError.message);
               token = newToken;
           }
 
+          // Buscar a data de expiração real do banco para o timer
+          const { data: alertData } = await supabase
+              .from('emergency_alerts')
+              .select('termination_token_expires_at')
+              .eq('id', activeAlertId)
+              .single();
+
           console.log("Token definido com sucesso:", token);
           setSecurityToken(token);
+          setTokenExpiresAt(alertData?.termination_token_expires_at);
+          setIsTokenExpired(false);
           setTerminationStatus('pending_validation');
           setShowTerminationModal(false);
           // alert("Solicitação enviada. Dirija-se a uma unidade policial para validação final.");
@@ -371,56 +420,103 @@ export default function DriverDashboard() {
              <div className="flex flex-col items-center justify-center space-y-8 h-[60vh]">
                 {/* Modo Discreto / Camuflado */}
                 <div className="text-center text-gray-400 w-full max-w-md mx-auto">
-                    <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                    <p className="text-sm mt-2">Sistema em Standby</p>
                     
-                    {terminationStatus === 'pending_validation' ? (
-                        <div className="mt-8 bg-yellow-900/40 p-6 rounded-xl border-2 border-yellow-600/50 animate-pulse">
-                            <ShieldAlert className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                            <p className="text-yellow-500 font-bold uppercase text-xl tracking-wide">Aguardando Validação</p>
-                            
-                            {securityToken ? (
-                                <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden flex flex-col items-center">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent animate-shimmer"></div>
-                                    <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Token de Segurança</p>
-                                    <div className="flex items-center gap-3">
-                                        <p className="text-5xl font-mono font-bold text-white tracking-widest select-all">{securityToken}</p>
-                                        <button 
-                                            onClick={handleCopyToken}
-                                            className="bg-yellow-600/20 hover:bg-yellow-600/40 text-yellow-500 p-2 rounded-full transition-colors"
-                                            title="Copiar Token"
-                                        >
-                                            {copied ? <Check size={24} /> : <Copy size={24} />}
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-yellow-500 mt-3 flex items-center justify-center gap-1">
-                                        <Clock size={12} /> Válido por 60 minutos
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="bg-red-900/50 p-4 rounded-lg my-6 border border-red-500 text-center">
-                                    <p className="text-white font-bold mb-2">Token não encontrado</p>
-                                    <p className="text-xs text-red-200 mb-4">Você recarregou a página e o token de segurança temporário foi perdido.</p>
-                                    <button 
-                                        onClick={() => setShowTerminationModal(true)}
-                                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold"
-                                    >
-                                        Gerar Novo Token
-                                    </button>
-                                </div>
-                            )}
-
-                            <div className="text-left bg-yellow-900/30 p-4 rounded text-sm text-yellow-100 space-y-2 border border-yellow-800">
-                                <p className="font-bold flex items-center gap-2"><MapPin size={16}/> Instruções:</p>
-                                <ol className="list-decimal pl-5 space-y-1">
-                                    <li>Dirija-se a um posto policial ou delegacia.</li>
-                                    <li>Solicite ao agente que contate a Central.</li>
-                                    <li>Informe o <strong>Token</strong> acima para validação.</li>
-                                </ol>
-                            </div>
+                    {terminationStatus === 'resolved_success' ? (
+                        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-green-500 animate-fade-in p-8">
+                            <CheckCircle size={80} className="mx-auto mb-4 text-green-500" />
+                            <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 mb-4">Sucesso</h2>
+                            <p className="text-xl font-bold text-gray-800 mb-8 leading-tight">
+                                Cancelamento da emergência realizado com sucesso
+                            </p>
+                            <button 
+                                onClick={() => {
+                                    setIsEmergencyActive(false);
+                                    setTerminationStatus('idle');
+                                    setActiveAlertId(null);
+                                }}
+                                className="w-full py-5 bg-blue-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-800 transition-all shadow-xl flex items-center justify-center gap-3"
+                            >
+                                <Home size={24} /> Voltar para o Painel
+                            </button>
                         </div>
                     ) : (
-                        <p className="text-xs mt-8 opacity-50">Toque duas vezes para desbloquear</p>
+                        <>
+                            <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                            <p className="text-sm mt-2">Sistema em Standby</p>
+                            
+                            {terminationStatus === 'pending_validation' ? (
+                                <div className="mt-8 bg-yellow-900/40 p-6 rounded-xl border-2 border-yellow-600/50 animate-pulse">
+                                    <ShieldAlert className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                                    <p className="text-yellow-500 font-bold uppercase text-xl tracking-wide">Aguardando Validação</p>
+                                    
+                                    {securityToken ? (
+                                        <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden flex flex-col items-center">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent animate-shimmer"></div>
+                                            <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Token de Segurança</p>
+                                            <div className="flex items-center gap-3">
+                                                <p className={`text-5xl font-mono font-bold tracking-widest select-all ${isTokenExpired ? 'text-gray-500 line-through' : 'text-white'}`}>{securityToken}</p>
+                                                {!isTokenExpired && (
+                                                    <button 
+                                                        onClick={handleCopyToken}
+                                                        className="bg-yellow-600/20 hover:bg-yellow-600/40 text-yellow-500 p-2 rounded-full transition-colors"
+                                                        title="Copiar Token"
+                                                    >
+                                                        {copied ? <Check size={24} /> : <Copy size={24} />}
+                                                    </button>
+                                                )}
+                                            </div>
+                                            
+                                            {tokenExpiresAt && !isTokenExpired && (
+                                                <TokenTimer 
+                                                    expiresAt={tokenExpiresAt} 
+                                                    onExpire={() => setIsTokenExpired(true)} 
+                                                />
+                                            )}
+
+                                            {isTokenExpired && (
+                                                <div className="mt-4 bg-red-600/80 text-white p-2 rounded text-xs font-bold uppercase tracking-wider">
+                                                    Token Expirado
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-red-900/50 p-4 rounded-lg my-6 border border-red-500 text-center">
+                                            <p className="text-white font-bold mb-2">Token não encontrado</p>
+                                            <p className="text-xs text-red-200 mb-4">Você recarregou a página e o token de segurança temporário foi perdido.</p>
+                                            <button 
+                                                onClick={() => setShowTerminationModal(true)}
+                                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold"
+                                            >
+                                                Gerar Novo Token
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="text-left bg-yellow-900/30 p-4 rounded text-sm text-yellow-100 space-y-2 border border-yellow-800">
+                                        <p className="font-bold flex items-center gap-2"><MapPin size={16}/> Instruções:</p>
+                                        <ol className="list-decimal pl-5 space-y-1">
+                                            <li>Dirija-se a um posto policial ou delegacia.</li>
+                                            <li>Solicite ao agente que contate a Central.</li>
+                                            <li>Informe o <strong>Token</strong> acima para validação.</li>
+                                        </ol>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            setTerminationStatus('idle');
+                                            setSecurityToken(null);
+                                            setTokenExpiresAt(null);
+                                            setIsTokenExpired(false);
+                                        }}
+                                        className="mt-6 w-full py-2 bg-yellow-600/20 text-yellow-500 rounded font-bold hover:bg-yellow-600/40 transition-colors text-xs uppercase"
+                                    >
+                                        Voltar / Novo Token
+                                    </button>
+                                </div>
+                            ) : (
+                                <p className="text-xs mt-8 opacity-50">Toque duas vezes para desbloquear</p>
+                            )}
+                        </>
                     )}
                 </div>
                 
