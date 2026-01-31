@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2 } from 'lucide-react';
@@ -340,6 +340,19 @@ export default function Dashboard() {
                                       title="Compartilhar Localização"
                                   >
                                       <Share2 size={14} /> Compartilhar
+                                  </button>
+
+                                  <button 
+                                      onClick={() => handleResolveAlert(activeWindow)}
+                                      className={`flex items-center gap-1 text-white text-xs px-2 py-1 rounded transition-colors ml-2 font-bold shadow-sm ${
+                                        activeWindow.status === 'waiting_police_validation' 
+                                            ? 'bg-yellow-500 hover:bg-yellow-600 animate-pulse text-black border border-yellow-600' 
+                                            : 'bg-green-600 hover:bg-green-700'
+                                      }`}
+                                      title={activeWindow.status === 'waiting_police_validation' ? "Usuário solicitou encerramento" : "Finalizar Atendimento"}
+                                  >
+                                      <CheckCircle size={14} /> 
+                                      {activeWindow.status === 'waiting_police_validation' ? 'ENCERRAR?' : 'Finalizar'}
                                   </button>
                               </div>
                               <button onClick={() => closeWindow(activeWindow.id)} className="text-gray-400 hover:text-white">
