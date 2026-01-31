@@ -116,6 +116,35 @@ export default function Dashboard() {
       }
   };
 
+  const handleResolveAlert = async (alert) => {
+      const confirmMessage = alert.status === 'waiting_police_validation' 
+          ? "O usuário solicitou o encerramento. Confirma a finalização deste atendimento?"
+          : "Tem certeza que deseja finalizar este atendimento?";
+          
+      if (!window.confirm(confirmMessage)) return;
+
+      try {
+          const now = new Date().toISOString();
+          const { error } = await supabase
+              .from('emergency_alerts')
+              .update({ 
+                  status: 'resolved',
+                  resolved_at: now
+              })
+              .eq('id', alert.id);
+
+          if (error) throw error;
+
+          // Fechar janela localmente
+          closeWindow(alert.id);
+          fetchAlerts(); // Atualizar lista geral
+          
+      } catch (error) {
+          console.error('Erro ao finalizar:', error);
+          alert('Erro ao finalizar atendimento: ' + error.message);
+      }
+  };
+
   const closeWindow = (alertId) => {
       setActiveWindows(prev => prev.filter(w => w.id !== alertId));
   };
