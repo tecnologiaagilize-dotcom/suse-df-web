@@ -378,10 +378,10 @@ export default function Dashboard() {
                                             ? 'bg-yellow-500 hover:bg-yellow-600 animate-pulse text-black border border-yellow-600' 
                                             : 'bg-green-600 hover:bg-green-700'
                                       }`}
-                                      title={activeWindow.status === 'waiting_police_validation' ? "Usuário solicitou encerramento" : "Finalizar Atendimento"}
+                                      title={activeWindow.status === 'waiting_police_validation' ? "Usuário solicitou encerramento (Validar Token)" : "Finalizar Atendimento"}
                                   >
                                       <CheckCircle size={14} /> 
-                                      {activeWindow.status === 'waiting_police_validation' ? 'ENCERRAR?' : 'Finalizar'}
+                                      {activeWindow.status === 'waiting_police_validation' ? 'CANCELAMENTO SOLICITADO' : 'Finalizar'}
                                   </button>
                               </div>
                               <button onClick={() => closeWindow(activeWindow.id)} className="text-gray-400 hover:text-white">
