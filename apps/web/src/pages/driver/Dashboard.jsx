@@ -98,19 +98,29 @@ export default function DriverDashboard() {
 
     // Sincronização em tempo real para encerramento
     const subscription = supabase
-      .channel('driver_status_sync')
+      .channel(`driver_status_sync_${user.id}`)
       .on('postgres_changes', { 
           event: 'UPDATE', 
           schema: 'public', 
           table: 'emergency_alerts',
           filter: `user_id=eq.${user.id}`
       }, (payload) => {
+        console.log("Status update received:", payload.new.status);
         if (payload.new.status === 'resolved') {
             setTerminationStatus('resolved_success');
-            if (trackingId) clearInterval(trackingId);
+            // Usar o ID do estado atual para garantir que limpamos o intervalo correto
+            setTrackingId(prevId => {
+                if (prevId) {
+                    console.log("Stopping location tracking due to alert resolution");
+                    clearInterval(prevId);
+                }
+                return null;
+            });
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+          console.log(`Realtime subscription status for user ${user.id}:`, status);
+      });
     
     // Pegar localização inicial
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -421,35 +431,42 @@ export default function DriverDashboard() {
                 {/* Modo Discreto / Camuflado */}
                 <div className="text-center text-gray-400 w-full max-w-md mx-auto">
                     
-                    {terminationStatus === 'resolved_success' ? (
-                        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-green-500 animate-fade-in p-8">
-                            <CheckCircle size={80} className="mx-auto mb-4 text-green-500" />
-                            <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 mb-4">Sucesso</h2>
-                            <p className="text-xl font-bold text-gray-800 mb-8 leading-tight">
-                                Cancelamento da emergência realizado com sucesso
-                            </p>
-                            <button 
-                                onClick={() => {
-                                    setIsEmergencyActive(false);
-                                    setTerminationStatus('idle');
-                                    setActiveAlertId(null);
-                                }}
-                                className="w-full py-5 bg-blue-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-800 transition-all shadow-xl flex items-center justify-center gap-3"
-                            >
-                                <Home size={24} /> Voltar para o Painel
-                            </button>
-                        </div>
-                    ) : (
-                        <>
+                    <>
                             <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                             <p className="text-sm mt-2">Sistema em Standby</p>
                             
-                            {terminationStatus === 'pending_validation' ? (
-                                <div className="mt-8 bg-yellow-900/40 p-6 rounded-xl border-2 border-yellow-600/50 animate-pulse">
-                                    <ShieldAlert className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                                    <p className="text-yellow-500 font-bold uppercase text-xl tracking-wide">Aguardando Validação</p>
+                            {(terminationStatus === 'pending_validation' || terminationStatus === 'resolved_success') ? (
+                                <div className={`mt-8 p-6 rounded-xl border-2 transition-all duration-500 ${
+                                    terminationStatus === 'resolved_success' 
+                                    ? 'bg-green-900/40 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.3)]' 
+                                    : 'bg-yellow-900/40 border-yellow-600/50 animate-pulse'
+                                }`}>
+                                    {terminationStatus === 'resolved_success' ? (
+                                        <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                                    ) : (
+                                        <ShieldAlert className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                                    )}
                                     
-                                    {securityToken ? (
+                                    <p className={`font-bold uppercase text-xl tracking-wide ${
+                                        terminationStatus === 'resolved_success' ? 'text-green-500' : 'text-yellow-500'
+                                    }`}>
+                                        {terminationStatus === 'resolved_success' ? 'Validação concluída com sucesso' : 'Aguardando Validação'}
+                                    </p>
+                                    
+                                    {terminationStatus === 'resolved_success' ? (
+                                        <div className="my-6">
+                                            <button 
+                                                onClick={() => {
+                                                    setIsEmergencyActive(false);
+                                                    setTerminationStatus('idle');
+                                                    setActiveAlertId(null);
+                                                }}
+                                                className="w-full py-5 px-6 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3"
+                                            >
+                                                <Home size={24} /> Retornar ao menu principal
+                                            </button>
+                                        </div>
+                                    ) : securityToken ? (
                                         <div className="bg-black/60 p-6 rounded-lg my-6 border border-yellow-500/30 shadow-lg relative overflow-hidden flex flex-col items-center">
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent animate-shimmer"></div>
                                             <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">Token de Segurança</p>
