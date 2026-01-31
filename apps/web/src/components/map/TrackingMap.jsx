@@ -69,4 +69,4 @@ function TrackingMap({ lat, lng }) {
   );
 }
 
-export default memo(TrackingMap);
+export default React.memo(TrackingMap);
