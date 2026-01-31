@@ -24,6 +24,7 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
             setOfficerBattalion('');
             setValidationToken('');
             setLoading(false);
+            setShowSuccessMessage(false);
             
             // Tentar buscar versão mais fresca do alerta (foto/justificativa)
             fetchFreshAlert(alertData.id);
@@ -82,25 +83,11 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
                 }
 
                 // Chamar RPC para validar token
-                console.log("Enviando validação:", {
-                        p_alert_id: currentAlert.id,
-                        p_token_input: validationToken,
-                        p_rank: officerRank,
-                        p_name: officerName,
-                        p_matricula: officerMatricula,
-                        p_phone: officerPhone,
-                        p_battalion: officerBattalion
-                });
-
                 const { data, error } = await supabase
                     .rpc('validate_termination_token', {
                         p_alert_id: currentAlert.id,
                         p_token_input: validationToken.trim().toUpperCase(),
-                        p_rank: officerRank,
-                        p_name: officerName,
-                        p_matricula: officerMatricula,
-                        p_phone: officerPhone,
-                        p_battalion: officerBattalion
+                        p_police_officer: `${officerRank} ${officerName} (${officerMatricula}) - ${officerBattalion}`
                     });
 
                 if (error) {
@@ -108,15 +95,11 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
                     throw error;
                 }
 
-                console.log("RPC Data:", data);
-
                 if (data && data.success) {
-                    console.log("Validation success, status is now resolved in DB");
                     setShowSuccessMessage(true);
                     
                     // Bloquear por 3 segundos antes de fechar
                     setTimeout(() => {
-                        console.log("Closing validation modal and calling onSuccess");
                         if (onSuccess) {
                             onSuccess({ ...currentAlert, status: 'resolved' }, {
                                 rank: officerRank,
@@ -135,12 +118,12 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
                 // Rejeitar (Manter Monitoramento)
                 const { error } = await supabase
                     .from('emergency_alerts')
-                    .update({ status: 'active' }) // Volta para active
+                    .update({ status: 'active' })
                     .eq('id', currentAlert.id);
                 
                 if (error) throw error;
                 alert("Monitoramento mantido. Status retornado para Ativo.");
-                if (onSuccess) onSuccess(null); // Apenas refresh
+                if (onSuccess) onSuccess(null);
                 if (onClose) onClose();
             }
         } catch (error) {
@@ -158,7 +141,7 @@ export default function ValidationModal({ alert: alertData, isOpen, onClose, onS
             {showSuccessMessage && (
                 <div className="absolute inset-0 z-[100] bg-green-600 flex flex-col items-center justify-center text-white animate-fade-in">
                     <CheckCircle size={100} className="mb-4 animate-bounce" />
-                    <h2 className="text-4xl font-black uppercase tracking-tighter">Ocorrência finalizada com sucesso</h2>
+                    <h2 className="text-4xl font-black uppercase tracking-tighter text-center px-4">Ocorrência finalizada com sucesso</h2>
                     <p className="mt-4 text-green-100">Sincronizando com o motorista...</p>
                 </div>
             )}
