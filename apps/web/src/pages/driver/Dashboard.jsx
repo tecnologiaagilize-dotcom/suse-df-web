@@ -5,9 +5,10 @@ import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, C
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
+import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v4.0 - Sincronização Realtime Corrigida");
+  console.log("SUSE-DF DriverDashboard v4.1 - Merged Features (Voice + Realtime)");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -53,11 +54,19 @@ export default function DriverDashboard() {
 
         if (activeAlert) {
             console.log("Alerta recuperado:", activeAlert);
-            setActiveAlertId(activeAlert.id);
-            setIsEmergencyActive(true);
+            
+            // Só ativa se não estiver resolvido
+            if (activeAlert.status !== 'resolved') {
+                setActiveAlertId(activeAlert.id);
+                setIsEmergencyActive(true);
+            }
             
             if (activeAlert.status === 'waiting_police_validation') {
                  setTerminationStatus('pending_validation');
+                 // Tenta pegar token do banco ou local
+                 const storedToken = localStorage.getItem('end_token');
+                 if (storedToken) setSecurityToken(storedToken);
+
                  if (activeAlert.termination_token_expires_at) {
                     setTokenExpiresAt(activeAlert.termination_token_expires_at);
                     if (new Date(activeAlert.termination_token_expires_at) < new Date()) {
@@ -65,14 +74,25 @@ export default function DriverDashboard() {
                     }
                  }
             } else if (activeAlert.status === 'resolved') {
-                setTerminationStatus('resolved_success');
+                // Se foi resolvido recentemente e o usuário ainda não "saiu" dessa tela, mostra o sucesso
+                // Mas cuidado para não prender o usuário se ele navegar de volta
+                // Vamos assumir que se ele recarregar a página e estiver resolvido, volta ao normal
+                // setTerminationStatus('resolved_success'); 
+                // setIsEmergencyActive(true); // Mantém a UI de emergência para mostrar o card verde
+                
+                // Lógica ajustada: Se resolvido, reseta para idle a menos que tenhamos um flag de sessão
+                setIsEmergencyActive(false);
+                setTerminationStatus('idle');
             }
 
-            if (activeAlert.status !== 'resolved') {
+            if (activeAlert.status === 'active' || activeAlert.status === 'investigating') {
                 // Iniciar tracking
                 const interval = setInterval(() => sendLocationUpdate(activeAlert.id), 5000);
                 setTrackingId(interval);
             }
+        } else {
+             setIsEmergencyActive(false);
+             setTerminationStatus('idle');
         }
 
         // 2. Recuperar Frase de Emergência
@@ -82,7 +102,7 @@ export default function DriverDashboard() {
             .eq('id', user.id)
             .single();
         
-        setEmergencyPhrase(userData?.secret_word || 'socorro');
+        setEmergencyPhrase(userData?.secret_word || user?.user_metadata?.emergency_phrase || 'socorro');
     };
 
     fetchData();
@@ -100,17 +120,17 @@ export default function DriverDashboard() {
         
         if (payload.new.status === 'resolved') {
             setTerminationStatus('resolved_success');
+            setIsEmergencyActive(true); // Garante que mostra o card verde
             
             // Parar rastreamento
             setTrackingId(prevId => {
-                if (prevId) {
-                    clearInterval(prevId);
-                }
+                if (prevId) clearInterval(prevId);
                 return null;
             });
         } else if (payload.new.status === 'active' || payload.new.status === 'investigating') {
             // Se o admin rejeitar ou mudar status, volta para o estado normal (esconde o token)
             setTerminationStatus('idle');
+            setIsEmergencyActive(true);
         } else if (payload.new.status === 'waiting_police_validation') {
             setTerminationStatus('pending_validation');
         }
@@ -124,6 +144,7 @@ export default function DriverDashboard() {
 
     return () => {
         subscription.unsubscribe();
+        if (trackingId) clearInterval(trackingId);
     };
   }, [user]);
 
@@ -144,6 +165,17 @@ export default function DriverDashboard() {
 
   const handleSOS = async (trigger = 'button') => {
     try {
+      // 1. Auto-healing: Garantir perfil
+      const { data: userProfile } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle();
+      if (!userProfile) {
+         await supabase.from('users').insert([{
+             id: user.id, email: user.email, 
+             name: user.user_metadata?.name || 'Motorista', 
+             phone_number: user.user_metadata?.phone_number || '00000000000',
+             secret_word: 'socorro'
+         }]);
+      }
+
       let latitude = -15.793889, longitude = -47.882778;
       try {
         const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
@@ -156,10 +188,10 @@ export default function DriverDashboard() {
         .insert([{
             user_id: user.id,
             status: 'active',
-            trigger_type: trigger,
+            trigger_type: trigger === 'voice' ? 'voice' : 'button',
             initial_lat: latitude,
             initial_lng: longitude,
-            notes: trigger === 'voice' ? 'Acionado por comando de voz' : 'Acionado via botão SOS'
+            notes: trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS'
         }])
         .select().single();
 
@@ -172,18 +204,13 @@ export default function DriverDashboard() {
       const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
       setTrackingId(interval);
       
+      console.log('SOS Enviado (Silencioso)');
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
     } catch (error) {
       console.error("Erro ao acionar SOS:", error);
+      alert('Erro ao enviar SOS: ' + error.message);
     }
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/driver/login');
-  };
-
-  const handleProfile = () => {
-    navigate('/driver/profile');
   };
 
   const handleTerminationPhoto = (e) => {
@@ -209,6 +236,7 @@ export default function DriverDashboard() {
               .upload(fileName, terminationData.photo);
           
           if (uploadError) {
+             // Fallback para avatars se o bucket principal falhar
              const backupName = `term_${activeAlertId}_${Date.now()}.jpg`;
              const { error: backupError } = await supabase.storage.from('avatars').upload(backupName, terminationData.photo);
              if (backupError) throw new Error("Falha no upload da foto: " + uploadError.message);
@@ -231,8 +259,17 @@ export default function DriverDashboard() {
           if (updateError) throw new Error("Erro ao salvar justificativa: " + updateError.message);
 
           // Gerar Token de Segurança via RPC
-          const { data: token, error: rpcError } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
-          if (rpcError) throw rpcError;
+          // Tenta usar token armazenado localmente primeiro para consistência
+          let token;
+          const storedEndToken = localStorage.getItem('end_token');
+          
+          if (storedEndToken) {
+              await supabase.rpc('set_termination_token_manual', { p_alert_id: activeAlertId, p_token: storedEndToken });
+              token = storedEndToken;
+          } else {
+              const { data: newToken } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
+              token = newToken;
+          }
 
           const { data: alertData } = await supabase.from('emergency_alerts').select('termination_token_expires_at').eq('id', activeAlertId).single();
 
@@ -250,6 +287,15 @@ export default function DriverDashboard() {
       }
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/driver/login');
+  };
+
+  const handleProfile = () => {
+    navigate('/driver/profile');
+  };
+
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
@@ -258,7 +304,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v4.0</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v4.1</span>
               </h1>
             </div>
             <div className="flex items-center">
@@ -276,6 +322,7 @@ export default function DriverDashboard() {
           
           {isEmergencyActive ? (
              <div className="flex flex-col items-center justify-center space-y-8 h-[60vh]">
+                {/* Modo Discreto / Camuflado */}
                 <div className="text-center text-gray-400 w-full max-w-md mx-auto">
                     <p className="text-4xl font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                     <p className="text-sm mt-2">Sistema em Standby</p>
@@ -343,6 +390,7 @@ export default function DriverDashboard() {
                             ) : (
                                 <div className="bg-red-900/50 p-4 rounded-lg my-6 border border-red-500 text-center">
                                     <p className="text-white font-bold mb-2">Token não encontrado</p>
+                                    <p className="text-xs text-red-200 mb-4">Você recarregou a página e o token de segurança temporário foi perdido.</p>
                                     <button 
                                         onClick={() => setShowTerminationModal(true)}
                                         className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold"
@@ -380,6 +428,18 @@ export default function DriverDashboard() {
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-gray-900">Painel do Condutor</h2>
                   <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
+
+                  {/* Monitoramento de Voz Ativo */}
+                  <div className="mt-4 flex justify-center">
+                    <VoiceEmergencyListener 
+                      emergencyPhrase={emergencyPhrase}
+                      isActive={!isEmergencyActive} // Só escuta se não estiver em emergência
+                      onEmergencyDetected={() => {
+                        console.log("Emergência por voz detectada!");
+                        handleSOS('voice');
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -417,6 +477,7 @@ export default function DriverDashboard() {
         </div>
       </main>
 
+      {/* Modal de Encerramento Verificado */}
       {showTerminationModal && (
           <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
               <div className="bg-white w-full max-w-md rounded-lg overflow-hidden shadow-2xl">
@@ -435,6 +496,7 @@ export default function DriverDashboard() {
                           <p>Para sua segurança, o encerramento definitivo requer validação visual e justificativa.</p>
                       </div>
 
+                      {/* Passo 1: Foto */}
                       <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                               1. Validação Visual (Obrigatório)
@@ -464,6 +526,7 @@ export default function DriverDashboard() {
                           </div>
                       </div>
 
+                      {/* Passo 2: Justificativa */}
                       <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                               2. Justificativa (Obrigatório)

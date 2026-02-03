@@ -1,85 +1,219 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Mic, AlertCircle, PlayCircle, Square, CheckCircle } from 'lucide-react';
+import { Mic, AlertCircle, PlayCircle, Square, CheckCircle, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function VoiceConfig() {
   const [recordingStep, setRecordingStep] = useState(0); // 0, 1, 2 (Biometria), 3 (Frase Secreta)
   const [isRecording, setIsRecording] = useState(false);
-  const [recordings, setRecordings] = useState([]);
+  const [recordings, setRecordings] = useState([]); // Array de booleanos para UI
+  const [audioBlobs, setAudioBlobs] = useState({}); // Armazena os Blobs reais: { 0: blob, 1: blob, 2: blob, 'emergency': blob }
   const [emergencyPhrase, setEmergencyPhrase] = useState('');
   const [phraseAudioRecorded, setPhraseAudioRecorded] = useState(false);
-  const [phraseConfirmed, setPhraseConfirmed] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [configPhrases, setConfigPhrases] = useState([]);
+  const [loadingPhrases, setLoadingPhrases] = useState(true);
   
-  const navigate = useNavigate();
-  const { user, signUp } = useAuth(); // Precisamos de um método para atualizar o perfil se possível
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    // Simulação de gravação
-    setTimeout(() => {
-      setIsRecording(false);
-      
-      if (recordingStep < 3) {
-        const newRecordings = [...recordings];
-        newRecordings[recordingStep] = true;
-        setRecordings(newRecordings);
-        setRecordingStep(recordingStep + 1);
-      } else {
-        // Gravação da frase secreta
-        setPhraseAudioRecorded(true);
+  const navigate = useNavigate();
+  const { user } = useAuth(); 
+
+  // Carregar frases de configuração do Supabase
+  useEffect(() => {
+    async function fetchPhrases() {
+      try {
+        const { data, error } = await supabase
+          .from('voice_phrases')
+          .select('*')
+          .order('sequence_order', { ascending: true });
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setConfigPhrases(data);
+        } else {
+          setConfigPhrases([
+            { phrase_text: "O sistema de segurança está ativo" },
+            { phrase_text: "Minha voz é minha identidade" },
+            { phrase_text: "Autorização confirmada pelo motorista" }
+          ]);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar frases:", err);
+        setConfigPhrases([
+            { phrase_text: "O sistema de segurança está ativo" },
+            { phrase_text: "Minha voz é minha identidade" },
+            { phrase_text: "Autorização confirmada pelo motorista" }
+        ]);
+      } finally {
+        setLoadingPhrases(false);
       }
-    }, 2000);
+    }
+    
+    fetchPhrases();
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        if (recordingStep < 3) {
+            // Biometria
+            setAudioBlobs(prev => ({ ...prev, [recordingStep]: audioBlob }));
+            
+            // Avançar passo UI
+            const newRecordings = [...recordings];
+            newRecordings[recordingStep] = true;
+            setRecordings(newRecordings);
+            setRecordingStep(recordingStep + 1);
+        } else {
+            // Frase Secreta
+            console.log("Áudio da frase gravado!", audioBlob.size);
+            setAudioBlobs(prev => {
+                const newState = { ...prev, 'emergency': audioBlob };
+                console.log("AudioBlobs state updated:", newState);
+                return newState;
+            });
+            setPhraseAudioRecorded(true);
+        }
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+
+    } catch (err) {
+      console.error("Erro ao acessar microfone:", err);
+      alert("Não foi possível acessar o microfone. Verifique as permissões.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const uploadAudio = async (blob, path) => {
+      if (!blob) return null;
+      try {
+          const { data, error } = await supabase.storage
+              .from('voice-recordings')
+              .upload(path, blob, {
+                  contentType: 'audio/webm',
+                  upsert: true
+              });
+          
+          if (error) {
+             // Fallback para bucket 'avatars' se 'voice-recordings' não existir
+             console.warn("Bucket voice-recordings falhou, tentando avatars:", error.message);
+             const { error: backupError } = await supabase.storage
+                .from('avatars')
+                .upload(path, blob, { contentType: 'audio/webm', upsert: true });
+                
+             if (backupError) throw backupError;
+             
+             const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(path);
+             return publicData.publicUrl;
+          }
+          
+          const { data: publicData } = supabase.storage
+              .from('voice-recordings')
+              .getPublicUrl(path);
+              
+          return publicData.publicUrl;
+      } catch (error) {
+          console.error(`Erro upload ${path}:`, error);
+          return null;
+      }
   };
 
   const handleSavePhrase = async () => {
+    console.log("Botão Salvar clicado. Estado atual:", { emergencyPhrase, phraseAudioRecorded, audioBlobs });
+
+    // Validações
     if (emergencyPhrase.trim().split(' ').length < 2) {
       alert("A frase deve ter pelo menos 2 palavras.");
       return;
     }
-    if (!phraseAudioRecorded) {
+    
+    // Verificação dupla do estado de gravação
+    if (!phraseAudioRecorded && !audioBlobs['emergency']) {
       alert("Você precisa gravar o áudio da frase de emergência.");
       return;
     }
 
-    // Aqui salvaríamos a frase e o áudio no backend (Supabase Storage + Users Table)
-    // Simulação de salvamento
+    setIsSaving(true);
+
     try {
-        // Atualizar o usuário real no Supabase
+        console.log("Iniciando processo de salvamento...");
+        
+        // 1. Upload dos Áudios
+        const biometryUrls = {};
+        for (let i = 0; i < 3; i++) {
+            if (audioBlobs[i]) {
+                const url = await uploadAudio(audioBlobs[i], `${user.id}/biometry_${i+1}.webm`);
+                if (url) biometryUrls[`voice_biometry_${i+1}_url`] = url;
+            }
+        }
+
+        let emergencyAudioUrl = null;
+        if (audioBlobs['emergency']) {
+            emergencyAudioUrl = await uploadAudio(audioBlobs['emergency'], `${user.id}/emergency_phrase.webm`);
+        }
+
+        // 2. Atualizar tabela users
+        // Tentar atualizar apenas campos existentes primeiro para evitar erros de coluna
         const { error } = await supabase
             .from('users')
             .update({ secret_word: emergencyPhrase })
             .eq('id', user.id);
 
         if (error) {
-            // Se falhar o update, tenta o insert (Auto-healing)
-            const { error: insertError } = await supabase
-                .from('users')
-                .upsert({ 
-                    id: user.id, 
-                    email: user.email,
-                    secret_word: emergencyPhrase,
-                    name: user.user_metadata?.name || 'Motorista'
-                });
-            
-            if (insertError) throw insertError;
+            console.warn("Update direto falhou (provavelmente colunas inexistentes), usando metadata:", error.message);
+            // Se falhar o update direto, garantimos que pelo menos o metadata seja salvo
         }
         
-        // Atualizar metadados também para manter sincronia
-        await supabase.auth.updateUser({
-            data: { emergency_phrase: emergencyPhrase }
+        // 3. Salvar TUDO no Auth Metadata (Garantia de funcionamento sem migração de banco)
+        const metadataUpdates = {
+            emergency_phrase: emergencyPhrase,
+            ...biometryUrls,
+            emergency_audio_url: emergencyAudioUrl,
+            voice_config_completed: true
+        };
+
+        const { error: authError } = await supabase.auth.updateUser({
+            data: metadataUpdates
         });
+
+        if (authError) throw authError;
         
-        console.log("Salvando frase:", emergencyPhrase);
-        console.log("Salvando áudio da frase...");
-        
-        setPhraseConfirmed(true);
+        console.log("Configuração salva com sucesso (Metadata)!");
         setSuccess(true);
+
     } catch (error) {
         console.error("Erro ao salvar:", error);
-        alert("Erro ao salvar configurações: " + error.message);
+        alert("Erro ao salvar: " + error.message);
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -115,7 +249,7 @@ export default function VoiceConfig() {
               <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
             <h3 className="text-xl font-medium text-gray-900">Configuração Concluída!</h3>
-            <p className="text-gray-500">Seu perfil biométrico e frase de emergência foram salvos.</p>
+            <p className="text-gray-500">Seu perfil biométrico e frase de emergência foram salvos e os áudios enviados para análise segura.</p>
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm font-medium text-gray-700">Sua frase secreta:</p>
               <p className="text-lg font-bold text-red-600">"{emergencyPhrase}"</p>
@@ -131,16 +265,20 @@ export default function VoiceConfig() {
           <div className="space-y-6">
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-medium text-gray-900 mb-2">Frase {recordingStep + 1} de 3 (Biometria)</h3>
-              <p className="text-gray-600 italic">"O sistema de segurança está ativo"</p>
+              <p className="text-gray-600 italic">
+                "{configPhrases[recordingStep]?.phrase_text || "Carregando frase..."}"
+              </p>
             </div>
 
             <div className="flex justify-center">
               <button
-                onClick={handleStartRecording}
-                disabled={isRecording}
-                className={`p-6 rounded-full transition-all ${
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                className={`p-6 rounded-full transition-all select-none touch-none ${
                   isRecording 
-                    ? 'bg-red-100 text-red-600 animate-pulse' 
+                    ? 'bg-red-100 text-red-600 scale-110 ring-4 ring-red-200' 
                     : 'bg-red-600 text-white hover:bg-red-700 shadow-lg'
                 }`}
               >
@@ -149,7 +287,7 @@ export default function VoiceConfig() {
             </div>
 
             <p className="text-center text-sm text-gray-500">
-              {isRecording ? 'Gravando...' : 'Toque no microfone e leia a frase acima'}
+              {isRecording ? 'Solte para parar de gravar' : 'Segure o botão para gravar a frase'}
             </p>
 
             <div className="flex justify-center space-x-2">
@@ -190,11 +328,14 @@ export default function VoiceConfig() {
 
              <div className="flex justify-center">
               <button
-                onClick={handleStartRecording} // Reusando para simular a gravação da frase de confirmação
-                disabled={isRecording || emergencyPhrase.length < 3}
-                className={`p-4 rounded-full transition-all flex items-center space-x-2 ${
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                disabled={isSaving || emergencyPhrase.length < 3}
+                className={`p-4 rounded-full transition-all flex items-center space-x-2 select-none touch-none ${
                   isRecording 
-                    ? 'bg-red-100 text-red-600' 
+                    ? 'bg-red-100 text-red-600 scale-105' 
                     : phraseAudioRecorded
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -205,18 +346,25 @@ export default function VoiceConfig() {
                   {isRecording 
                     ? 'Gravando...' 
                     : phraseAudioRecorded 
-                      ? 'Áudio gravado (Gravar novamente)' 
-                      : 'Gravar áudio da frase (Obrigatório)'}
+                      ? 'Áudio gravado (Segure para regravar)' 
+                      : 'Segure para gravar áudio (Obrigatório)'}
                 </span>
               </button>
             </div>
 
             <button
               onClick={handleSavePhrase}
-              disabled={emergencyPhrase.trim().split(' ').length < 2 || !phraseAudioRecorded}
+              disabled={emergencyPhrase.trim().split(' ').length < 2 || (!phraseAudioRecorded && !audioBlobs['emergency']) || isSaving}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
             >
-              Salvar e Finalizar
+              {isSaving ? (
+                  <>
+                    <Loader className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                    Salvando e Enviando Áudios...
+                  </>
+              ) : (
+                  'Salvar e Finalizar'
+              )}
             </button>
           </div>
         )}

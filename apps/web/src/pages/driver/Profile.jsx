@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { User, Phone, FileText, Mail, ArrowLeft, Mic, Camera, MapPin, Save, Car, Users, Plus, Trash } from 'lucide-react';
+import { User, Phone, FileText, Mail, ArrowLeft, Mic, Camera, MapPin, Save, Car, Users, Plus, Trash, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function DriverProfile() {
@@ -552,6 +552,92 @@ export default function DriverProfile() {
                   onChange={handleInputChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
+              </div>
+
+              {/* Contatos de Emergência */}
+              <div className="sm:col-span-6 border-t border-gray-200 pt-6 mt-2">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-lg font-medium text-gray-900 flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-gray-500" /> Contatos de Emergência
+                  </h4>
+                  <button
+                    onClick={handleAddContact}
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar
+                  </button>
+                </div>
+                
+                {profile.emergency_contacts.length === 0 && (
+                  <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-md border border-dashed border-gray-300 text-center">
+                    Nenhum contato cadastrado. Adicione pelo menos um contato para sua segurança.
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {profile.emergency_contacts.map((contact, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200 relative group">
+                      <button
+                        onClick={() => handleRemoveContact(index)}
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 opacity-50 group-hover:opacity-100 transition-opacity"
+                        title="Remover contato"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </button>
+                      
+                      <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
+                        <div className="sm:col-span-3">
+                          <label className="block text-xs font-medium text-gray-500">Nome do Contato</label>
+                          <input
+                            type="text"
+                            value={contact.name}
+                            onChange={(e) => handleContactChange(index, 'name', e.target.value)}
+                            placeholder="Ex: Maria Silva"
+                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="block text-xs font-medium text-gray-500">Telefone</label>
+                          <input
+                            type="text"
+                            value={contact.phone}
+                            onChange={(e) => handleContactChange(index, 'phone', e.target.value)}
+                            placeholder="(00) 00000-0000"
+                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="block text-xs font-medium text-gray-500">Grau de Parentesco / Relação</label>
+                          <select
+                            value={contact.relationship}
+                            onChange={(e) => handleContactChange(index, 'relationship', e.target.value)}
+                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="pai">Pai/Mãe</option>
+                            <option value="filho">Filho(a)</option>
+                            <option value="conjuge">Cônjuge/Namorado(a)</option>
+                            <option value="irmao">Irmão/Irmã</option>
+                            <option value="amigo">Amigo(a)</option>
+                            <option value="vizinho">Vizinho(a)</option>
+                            <option value="colega">Colega de Trabalho</option>
+                            <option value="outro">Outro</option>
+                          </select>
+                        </div>
+                        {contact.relationship === 'outro' && (
+                           <div className="sm:col-span-3">
+                              <label className="block text-xs font-medium text-gray-500">Especifique</label>
+                              <input
+                                type="text"
+                                onChange={(e) => handleContactChange(index, 'relationship_custom', e.target.value)}
+                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                              />
+                           </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
             </div>
