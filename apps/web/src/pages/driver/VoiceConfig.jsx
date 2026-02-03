@@ -181,10 +181,21 @@ export default function VoiceConfig() {
         }
 
         // 2. Atualizar tabela users
-        // Tentar atualizar apenas campos existentes primeiro para evitar erros de coluna
+        // Atualiza colunas de URLs e a frase secreta
+        const updateData = {
+            secret_word: emergencyPhrase,
+            updated_at: new Date().toISOString()
+        };
+
+        // Adiciona URLs se existirem
+        if (biometryUrls['voice_biometry_1_url']) updateData.voice_biometry_1_url = biometryUrls['voice_biometry_1_url'];
+        if (biometryUrls['voice_biometry_2_url']) updateData.voice_biometry_2_url = biometryUrls['voice_biometry_2_url'];
+        if (biometryUrls['voice_biometry_3_url']) updateData.voice_biometry_3_url = biometryUrls['voice_biometry_3_url'];
+        if (emergencyAudioUrl) updateData.secret_word_audio_url = emergencyAudioUrl;
+
         const { error } = await supabase
             .from('users')
-            .update({ secret_word: emergencyPhrase })
+            .update(updateData)
             .eq('id', user.id);
 
         if (error) {

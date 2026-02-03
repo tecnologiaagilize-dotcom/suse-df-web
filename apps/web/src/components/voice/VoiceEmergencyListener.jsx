@@ -176,7 +176,10 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
             'Voz Inativa'}
           </span>
           {emergencyPhrase && isListening && (
-              <span className="text-[10px] opacity-60">Frase alvo: "{emergencyPhrase}"</span>
+              <div className="flex flex-col">
+                <span className="text-[10px] opacity-60">Frase alvo: "{emergencyPhrase}"</span>
+                <span className="text-[10px] text-blue-600">Ouvido: "{transcript || '...'}"</span>
+              </div>
           )}
       </div>
       
