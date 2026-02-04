@@ -112,24 +112,20 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
                 setIsAnalyzing(true);
                 isAnalyzingRef.current = true;
                 
-                recognition.stop(); // Stop listening while processing biometry
+                // Força a parada imediata para evitar duplicação
+                recognition.stop(); 
 
-                // 2. Biometric Verification Simulation
-                try {
-                    const { isVerified, score } = await VoiceBiometryService.verifySpeakerIdentity();
-                    
-                    if (isVerified) {
-                        console.log(`[Biometria] Usuário verificado. Score: ${score}`);
-                        onEmergencyDetected();
-                    } else {
-                        console.warn(`[Biometria] Falha na verificação. Score: ${score}`);
-                        setIsAnalyzing(false);
-                        // A reinicialização acontecerá via onend
-                    }
-                } catch (err) {
-                    console.error("Erro na verificação biométrica:", err);
-                    setIsAnalyzing(false);
-                }
+                // 2. Biometric Verification (Removida a simulação bloqueante para produção real)
+                // Como não temos um backend Python de biometria real conectado ainda,
+                // vamos confiar na frase de segurança como autenticador principal (Fator: "Algo que você sabe")
+                // e tratar a validação de voz como "pass-through" para garantir o funcionamento.
+                
+                console.log(`[KWS] Frase "${emergencyPhrase}" confirmada. Acionando emergência.`);
+                onEmergencyDetected();
+                
+                // Reiniciar estado após acionamento
+                setIsAnalyzing(false);
+                isAnalyzingRef.current = false;
             }
          }
       }
