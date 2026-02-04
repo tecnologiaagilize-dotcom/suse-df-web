@@ -9,6 +9,62 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef(null);
   const isAnalyzingRef = useRef(isAnalyzing);
+  
+  // Refs para gravação de áudio (Biometria)
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const streamRef = useRef(null);
+
+  // Gerenciamento do Gravador de Áudio (Rolling Buffer simplificado)
+  useEffect(() => {
+    let intervalId;
+
+    const startAudioCapture = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start();
+
+        // Limpa o buffer a cada 10 segundos para não estourar a memória
+        // Mantém apenas os últimos segundos "vivos" na memória do browser
+        intervalId = setInterval(() => {
+            if (!isAnalyzingRef.current) {
+                // Se não estiver analisando, reseta o buffer
+                // (Estratégia ingênua: perde o histórico a cada 10s. 
+                // Para produção ideal, usaríamos um AudioWorklet com buffer circular real)
+                audioChunksRef.current = [];
+            }
+        }, 10000);
+
+      } catch (err) {
+        console.warn("Erro ao iniciar captura de áudio para biometria:", err);
+      }
+    };
+
+    if (isActive) {
+        startAudioCapture();
+    }
+
+    return () => {
+        clearInterval(intervalId);
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+    };
+  }, [isActive]);
 
   // Sync ref with state
   useEffect(() => {
@@ -114,18 +170,42 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
                 
                 // Força a parada imediata para evitar duplicação
                 recognition.stop(); 
+                
+                // Parar gravação de áudio para capturar o blob
+                let audioBlob = null;
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    mediaRecorderRef.current.stop();
+                    // Pequeno delay para garantir que o ondataavailable disparou
+                    await new Promise(r => setTimeout(r, 200)); 
+                    audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                }
 
-                // 2. Biometric Verification (Removida a simulação bloqueante para produção real)
-                // Como não temos um backend Python de biometria real conectado ainda,
-                // vamos confiar na frase de segurança como autenticador principal (Fator: "Algo que você sabe")
-                // e tratar a validação de voz como "pass-through" para garantir o funcionamento.
-                
-                console.log(`[KWS] Frase "${emergencyPhrase}" confirmada. Acionando emergência.`);
-                onEmergencyDetected();
-                
-                // Reiniciar estado após acionamento
-                setIsAnalyzing(false);
-                isAnalyzingRef.current = false;
+                // 2. Biometric Verification (Agora Real via Backend)
+                if (audioBlob) {
+                    VoiceBiometryService.verifySpeakerIdentity(audioBlob)
+                        .then(({ isVerified, score }) => {
+                            if (isVerified) {
+                                console.log(`[Biometria] Verificado pelo servidor. Score: ${score}`);
+                                onEmergencyDetected();
+                            } else {
+                                console.warn(`[Biometria] Falha na verificação do servidor.`);
+                                setIsAnalyzing(false);
+                                isAnalyzingRef.current = false;
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Erro na validação biométrica:", err);
+                            // Fail-safe: Em emergência real, se o servidor falhar, o que fazemos?
+                            // Por enquanto, bloqueamos.
+                            setIsAnalyzing(false);
+                            isAnalyzingRef.current = false;
+                        });
+                } else {
+                    console.warn("Audio Blob não gerado. Pulando biometria.");
+                    // Fallback se o áudio falhar?
+                    setIsAnalyzing(false);
+                    isAnalyzingRef.current = false;
+                }
             }
          }
       }
