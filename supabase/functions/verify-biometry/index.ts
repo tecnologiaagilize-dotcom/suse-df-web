@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,49 +18,46 @@ serve(async (req) => {
       throw new Error("Áudio não fornecido.");
     }
 
-    // AQUI ENTRA A INTEGRAÇÃO COM MICROSERVIÇO PYTHON PRÓPRIO (OPÇÃO B)
-    // O áudio chega aqui como Base64. Vamos encaminhar para nosso serviço Python.
-    
-    // URL do seu serviço Python (Railway, Render, AWS, ou localhost via ngrok para testes)
-    // Configure esta variável no Supabase: supabase secrets set BIOMETRY_SERVICE_URL="https://..."
-    const BIOMETRY_SERVICE_URL = Deno.env.get('BIOMETRY_SERVICE_URL');
-    
-    // Precisamos também do User ID para buscar as referências no banco
-    // Assumindo que o frontend enviou o user_id no corpo ou extraímos do JWT
-    // Para simplificar, vamos pedir que o frontend envie o user_id no body também,
-    // ou extraímos do header Authorization se disponível (melhor prática).
-    
-    // Pegando user do header de autorização (Supabase Auth)
+    // 1. Validar Usuário (Auth)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
         throw new Error("Usuário não autenticado.");
     }
 
-    // Obter dados do usuário via Supabase Client (usando o token do request)
-    // ... (Lógica de auth omitida para brevidade, vamos assumir que o serviço Python confia ou valida o token)
+    // Criar cliente Supabase com o contexto do usuário (passando o token)
+    const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    
+    if (userError || !user) {
+        throw new Error("Token de usuário inválido.");
+    }
+
+    // AQUI ENTRA A INTEGRAÇÃO COM MICROSERVIÇO PYTHON PRÓPRIO (OPÇÃO B)
+    // URL do seu serviço Python (Railway, Render, AWS)
+    const BIOMETRY_SERVICE_URL = Deno.env.get('BIOMETRY_SERVICE_URL');
     
     // Para o MVP Opção B: Vamos encaminhar o request para o serviço Python
     if (BIOMETRY_SERVICE_URL) {
-        // Converter Base64 de volta para Blob/File para enviar como Multipart Form Data
-        // Deno Edge Functions tem suporte limitado a FormData completo dependendo da versão,
-        // mas vamos tentar construir o request.
+        console.log(`Encaminhando para serviço de biometria: ${BIOMETRY_SERVICE_URL}`);
         
-        // WORKAROUND: Enviar como JSON mesmo e o Python decodifica, é mais seguro entre serviços
-        // O Python (main.py) precisará ser ajustado para aceitar JSON { "audio": "base64...", "user_id": "..." }
-        // OU mantemos o Python esperando Multipart e construímos aqui.
-        
-        // Vamos ajustar para enviar JSON para o serviço Python para evitar complexidade de Multipart no Deno
         const response = await fetch(`${BIOMETRY_SERVICE_URL}/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                audio_base64: audio, // O audio já veio como base64 do frontend
-                user_id: "user_id_placeholder" // Precisamos extrair o ID real do token JWT aqui
+                audio_base64: audio, 
+                user_id: user.id // ID REAL DO USUÁRIO
             })
         });
         
         if (!response.ok) {
-            throw new Error(`Erro no serviço de biometria: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error(`Erro no serviço Python: ${response.status} - ${errorText}`);
+            throw new Error(`Serviço de biometria falhou: ${response.statusText}`);
         }
         
         const result = await response.json();
@@ -89,8 +87,11 @@ serve(async (req) => {
         );
       }
     }
+    
+    throw new Error("Configuração de biometria incompleta.");
 
   } catch (error) {
+    console.error("Erro na Edge Function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
