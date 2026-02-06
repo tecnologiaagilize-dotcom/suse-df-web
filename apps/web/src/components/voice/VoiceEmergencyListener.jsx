@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Mic, MicOff, Activity, ShieldCheck } from 'lucide-react';
-import { VoiceBiometryService } from '../../services/VoiceBiometryService';
+import VoiceBiometryService from '../../services/VoiceBiometryService';
 
 export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDetected, isActive = true }) {
   const [isListening, setIsListening] = useState(false);
