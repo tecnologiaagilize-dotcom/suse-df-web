@@ -165,6 +165,54 @@ export default function DriverDashboard() {
 
   const handleSOS = async (trigger = 'button') => {
     try {
+      let latitude = -15.793889, longitude = -47.882778;
+      try {
+        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout: 3000}));
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } catch (e) {
+        console.warn("GPS timeout/error, using default or last known location");
+      }
+
+      // NOVO: Usar Edge Function para robustez e auditoria
+      const { data: result, error: functionError } = await supabase.functions.invoke('trigger-emergency', {
+        body: {
+            trigger_type: trigger === 'voice' ? 'voice' : 'button',
+            latitude,
+            longitude,
+            notes: trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS'
+        }
+      });
+
+      if (functionError) {
+        console.error("Edge Function Error:", functionError);
+        // Fallback: Se a Edge Function falhar (offline/erro), tenta inserir direto no banco
+        // Isso garante resiliência (Offline First mindset)
+        console.log("Tentando fallback direto no banco...");
+        return await handleSOSFallback(trigger, latitude, longitude);
+      }
+      
+      const data = result.alert;
+
+      setActiveAlertId(data.id);
+      setIsEmergencyActive(true);
+      setTerminationStatus('idle');
+      
+      // Iniciar Rastreamento Contínuo
+      const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
+      setTrackingId(interval);
+      
+      console.log('SOS Enviado via Backend Seguro');
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+    } catch (error) {
+      console.error("Erro ao acionar SOS:", error);
+      alert('Erro ao enviar SOS: ' + error.message);
+    }
+  };
+
+  // Fallback para inserção direta se a Edge Function falhar
+  const handleSOSFallback = async (trigger, latitude, longitude) => {
       // 1. Auto-healing: Garantir perfil
       const { data: userProfile } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle();
       if (!userProfile) {
@@ -176,13 +224,6 @@ export default function DriverDashboard() {
          }]);
       }
 
-      let latitude = -15.793889, longitude = -47.882778;
-      try {
-        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-      } catch (e) {}
-
       const { data, error } = await supabase
         .from('emergency_alerts')
         .insert([{
@@ -191,26 +232,20 @@ export default function DriverDashboard() {
             trigger_type: trigger === 'voice' ? 'voice' : 'button',
             initial_lat: latitude,
             initial_lng: longitude,
-            notes: trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS'
+            notes: (trigger === 'voice' ? 'Acionado por comando de voz' : 'Acionado via botão SOS') + ' (Fallback)'
         }])
         .select().single();
 
       if (error) throw error;
+      
       setActiveAlertId(data.id);
       setIsEmergencyActive(true);
       setTerminationStatus('idle');
       
-      // Iniciar Rastreamento Contínuo
       const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
       setTrackingId(interval);
       
-      console.log('SOS Enviado (Silencioso)');
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
-    } catch (error) {
-      console.error("Erro ao acionar SOS:", error);
-      alert('Erro ao enviar SOS: ' + error.message);
-    }
   };
 
   const handleTerminationPhoto = (e) => {
