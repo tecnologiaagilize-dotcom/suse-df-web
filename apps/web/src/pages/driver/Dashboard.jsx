@@ -174,20 +174,17 @@ export default function DriverDashboard() {
         console.warn("GPS timeout/error, using default or last known location");
       }
 
-      // NOVO: Usar Edge Function para robustez e auditoria
-      const { data: result, error: functionError } = await supabase.functions.invoke('trigger-emergency', {
-        body: {
-            trigger_type: trigger === 'voice' ? 'voice' : 'button',
-            latitude,
-            longitude,
-            notes: trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS'
-        }
+      // NOVO: Usar RPC (Banco de Dados) em vez de Edge Function para não depender de CLI
+      const { data: result, error: rpcError } = await supabase.rpc('trigger_emergency_rpc', {
+        p_trigger_type: trigger === 'voice' ? 'voice' : 'button',
+        p_latitude: latitude,
+        p_longitude: longitude,
+        p_notes: trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS'
       });
 
-      if (functionError) {
-        console.error("Edge Function Error:", functionError);
-        // Fallback: Se a Edge Function falhar (offline/erro), tenta inserir direto no banco
-        // Isso garante resiliência (Offline First mindset)
+      if (rpcError) {
+        console.error("RPC Error:", rpcError);
+        // Fallback: Se a RPC falhar, tenta inserir direto no banco
         console.log("Tentando fallback direto no banco...");
         return await handleSOSFallback(trigger, latitude, longitude);
       }
