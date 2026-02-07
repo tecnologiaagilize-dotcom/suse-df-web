@@ -115,10 +115,9 @@ const VoiceBiometryService = {
 
         } catch (error) {
             console.error("[Biometria] Erro fatal na verificação:", error);
-            // Em caso de erro de conexão, por segurança em emergência, 
-            // podemos optar por falhar ou permitir (Fail-Safe vs Fail-Secure).
-            // Para MVP, retornamos false.
-            return { isVerified: false, score: 0.0, error: error.message };
+            // Relançar o erro para que o componente consumidor (Listener)
+            // possa aplicar a política de Fail-Open (acionar emergência mesmo com erro)
+            throw error;
         }
     },
 
