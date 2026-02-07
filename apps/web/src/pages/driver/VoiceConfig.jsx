@@ -60,18 +60,35 @@ export default function VoiceConfig() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      
+      // Tentar formatos suportados pelo navegador
+      let options = { mimeType: 'audio/webm' };
+      if (!MediaRecorder.isTypeSupported('audio/webm')) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+          else if (MediaRecorder.isTypeSupported('audio/ogg')) options = { mimeType: 'audio/ogg' };
+          else options = undefined; // Deixar o navegador decidir
+      }
+
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Criar blob com o tipo correto
+        const blobType = mediaRecorderRef.current.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+        console.log(`Gravação finalizada. Tamanho: ${audioBlob.size}, Tipo: ${blobType}`);
         
+        if (audioBlob.size < 100) {
+            alert("Áudio muito curto ou vazio. Por favor, tente novamente.");
+            return;
+        }
+
         if (recordingStep < 3) {
             // Biometria
             setAudioBlobs(prev => ({ ...prev, [recordingStep]: audioBlob }));
@@ -83,10 +100,8 @@ export default function VoiceConfig() {
             setRecordingStep(recordingStep + 1);
         } else {
             // Frase Secreta
-            console.log("Áudio da frase gravado!", audioBlob.size);
             setAudioBlobs(prev => {
                 const newState = { ...prev, 'emergency': audioBlob };
-                console.log("AudioBlobs state updated:", newState);
                 return newState;
             });
             setPhraseAudioRecorded(true);
@@ -94,21 +109,27 @@ export default function VoiceConfig() {
         
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false); // Garantir estado
       };
 
-      mediaRecorderRef.current.start();
+      // Gravar em chunks de 100ms para garantir dados mesmo em gravações curtas
+      mediaRecorderRef.current.start(100); 
       setIsRecording(true);
 
     } catch (err) {
       console.error("Erro ao acessar microfone:", err);
-      alert("Não foi possível acessar o microfone. Verifique as permissões.");
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          alert("Permissão de microfone negada. Por favor, permita o acesso nas configurações do navegador.");
+      } else {
+          alert("Erro ao iniciar gravação: " + err.message);
+      }
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
+      // O estado isRecording será atualizado no onstop
     }
   };
 
