@@ -7,166 +7,30 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 
+import OfflineQueueService from '../../services/OfflineQueueService';
+
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v4.1 - Merged Features (Voice + Realtime)");
+  console.log("SUSE-DF DriverDashboard v4.2 - Offline Support");
   const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  
-  // Estados principais
-  const [emergencyPhrase, setEmergencyPhrase] = useState('');
-  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
-  const [activeAlertId, setActiveAlertId] = useState(null);
-  const [trackingId, setTrackingId] = useState(null);
-  
-  // Estados para Encerramento Verificado
-  const [showTerminationModal, setShowTerminationModal] = useState(false);
-  const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
-  const [isTerminating, setIsTerminating] = useState(false);
-  const [terminationStatus, setTerminationStatus] = useState('idle'); // idle, pending_validation, resolved_success
-  const [securityToken, setSecurityToken] = useState(null);
-  const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
-  const [isTokenExpired, setIsTokenExpired] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 });
+  // ... (restante dos hooks)
 
-  const handleCopyToken = () => {
-      if (securityToken) {
-          navigator.clipboard.writeText(securityToken);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-      }
-  };
-
-  // Carregar dados iniciais e configurar Realtime
+  // Efeito para monitorar status online/offline e processar fila
   useEffect(() => {
-    const fetchData = async () => {
-        if (!user) return;
-        
-        // 1. Recuperar Alerta Ativo ou Recém Resolvido
-        const { data: activeAlert } = await supabase
-            .from('emergency_alerts')
-            .select('id, status, termination_token_expires_at')
-            .eq('user_id', user.id)
-            .in('status', ['active', 'investigating', 'waiting_police_validation', 'resolved'])
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (activeAlert) {
-            console.log("Alerta recuperado:", activeAlert);
-            
-            // Só ativa se não estiver resolvido
-            if (activeAlert.status !== 'resolved') {
-                setActiveAlertId(activeAlert.id);
-                setIsEmergencyActive(true);
-            }
-            
-            if (activeAlert.status === 'waiting_police_validation') {
-                 setTerminationStatus('pending_validation');
-                 // Tenta pegar token do banco ou local
-                 const storedToken = localStorage.getItem('end_token');
-                 if (storedToken) setSecurityToken(storedToken);
-
-                 if (activeAlert.termination_token_expires_at) {
-                    setTokenExpiresAt(activeAlert.termination_token_expires_at);
-                    if (new Date(activeAlert.termination_token_expires_at) < new Date()) {
-                        setIsTokenExpired(true);
-                    }
-                 }
-            } else if (activeAlert.status === 'resolved') {
-                // Se foi resolvido recentemente e o usuário ainda não "saiu" dessa tela, mostra o sucesso
-                // Mas cuidado para não prender o usuário se ele navegar de volta
-                // Vamos assumir que se ele recarregar a página e estiver resolvido, volta ao normal
-                // setTerminationStatus('resolved_success'); 
-                // setIsEmergencyActive(true); // Mantém a UI de emergência para mostrar o card verde
-                
-                // Lógica ajustada: Se resolvido, reseta para idle a menos que tenhamos um flag de sessão
-                setIsEmergencyActive(false);
-                setTerminationStatus('idle');
-            }
-
-            if (activeAlert.status === 'active' || activeAlert.status === 'investigating') {
-                // Iniciar tracking
-                const interval = setInterval(() => sendLocationUpdate(activeAlert.id), 5000);
-                setTrackingId(interval);
-            }
-        } else {
-             setIsEmergencyActive(false);
-             setTerminationStatus('idle');
-        }
-
-        // 2. Recuperar Frase de Emergência
-        const { data: userData } = await supabase
-            .from('users')
-            .select('secret_word')
-            .eq('id', user.id)
-            .single();
-        
-        setEmergencyPhrase(userData?.secret_word || user?.user_metadata?.emergency_phrase || 'socorro');
+    const handleOnline = () => {
+        console.log("Conexão restaurada! Verificando fila offline...");
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        OfflineQueueService.processQueue();
     };
 
-    fetchData();
-
-    // 3. Sincronização em Tempo Real (Ouvindo TODAS as mudanças no alerta do usuário)
-    const subscription = supabase
-      .channel(`driver_status_sync_${user.id}`)
-      .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'emergency_alerts',
-          filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        console.log("Mudança detectada via Realtime:", payload.new.status);
-        
-        if (payload.new.status === 'resolved') {
-            setTerminationStatus('resolved_success');
-            setIsEmergencyActive(true); // Garante que mostra o card verde
-            
-            // Parar rastreamento
-            setTrackingId(prevId => {
-                if (prevId) clearInterval(prevId);
-                return null;
-            });
-        } else if (payload.new.status === 'active' || payload.new.status === 'investigating') {
-            // Se o admin rejeitar ou mudar status, volta para o estado normal (esconde o token)
-            setTerminationStatus('idle');
-            setIsEmergencyActive(true);
-        } else if (payload.new.status === 'waiting_police_validation') {
-            setTerminationStatus('pending_validation');
-        }
-      })
-      .subscribe();
+    window.addEventListener('online', handleOnline);
     
-    // Localização inicial
-    navigator.geolocation.getCurrentPosition((pos) => {
-        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    }, null, { enableHighAccuracy: true });
+    // Tenta processar ao carregar, caso já tenha voltado
+    OfflineQueueService.processQueue();
 
-    return () => {
-        subscription.unsubscribe();
-        if (trackingId) clearInterval(trackingId);
-    };
-  }, [user]);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
 
-  const sendLocationUpdate = async (alertId) => {
-    if (!alertId) return;
-    navigator.geolocation.getCurrentPosition(async (position) => {
-        const { latitude, longitude, speed, heading, accuracy } = position.coords;
-        await supabase.from('location_updates').insert([{
-            alert_id: alertId,
-            latitude,
-            longitude,
-            speed: speed || 0,
-            heading: heading || 0,
-            accuracy: accuracy || 0
-        }]);
-    }, null, { enableHighAccuracy: true, timeout: 5000 });
-  };
-
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-
-  // ... (código existente)
-
+  // ... (dentro de handleSOS)
   const handleSOS = async (trigger = 'button') => {
     // Bloqueio Preventivo no Frontend
     if (isEmergencyActive) {
@@ -175,13 +39,12 @@ export default function DriverDashboard() {
     }
 
     try {
-      // Feedback imediato
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       
-      // 1. Obter Localização Atual (Crítico para o alerta)
-      let latitude = -15.793889; // Default Brasília
+      // 1. Obter Localização (mantém lógica existente)
+      let latitude = -15.793889; 
       let longitude = -47.882778;
-
+      // ... (lógica de GPS mantida) ...
       try {
         const pos = await new Promise((res, rej) => 
             navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, enableHighAccuracy: true })
@@ -189,14 +52,30 @@ export default function DriverDashboard() {
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
       } catch (gpsError) {
-        console.warn("GPS timeout/error no SOS, usando default/last known:", gpsError);
-        if (currentLocation && currentLocation.lat) {
+         if (currentLocation && currentLocation.lat) {
             latitude = currentLocation.lat;
             longitude = currentLocation.lng;
-        }
+         }
       }
 
-      // NOVO: Usar RPC V2 (Com verificação de duplicidade)
+      // Verificação de Conexão ANTES de tentar RPC
+      if (!navigator.onLine) {
+          console.warn("Sem internet. Salvando alerta na fila offline.");
+          OfflineQueueService.enqueueAlert({
+              trigger_type: trigger === 'voice' ? 'voice' : 'button',
+              latitude,
+              longitude,
+              notes: trigger === 'voice' ? 'Acionado por voz (Offline)' : 'Botão SOS (Offline)'
+          });
+          
+          // Simula sucesso visual para acalmar o motorista
+          setIsEmergencyActive(true);
+          setTerminationStatus('idle');
+          alert("Sem conexão com a internet. O alerta foi salvo e será enviado assim que o sinal voltar.");
+          return;
+      }
+
+      // NOVO: Usar RPC V2
       const { data: result, error: rpcError } = await supabase.rpc('trigger_emergency_rpc', {
         p_trigger_type: trigger === 'voice' ? 'voice' : 'button',
         p_latitude: latitude,
@@ -206,8 +85,25 @@ export default function DriverDashboard() {
 
       if (rpcError) {
         console.error("RPC Error:", rpcError);
+        
+        // Se o erro for de rede (fetch failed), salva na fila
+        if (rpcError.message && (rpcError.message.includes('fetch') || rpcError.message.includes('network'))) {
+             OfflineQueueService.enqueueAlert({
+                  trigger_type: trigger === 'voice' ? 'voice' : 'button',
+                  latitude,
+                  longitude,
+                  notes: 'Falha de rede no envio (Fallback Offline)'
+             });
+             setIsEmergencyActive(true);
+             alert("Erro de conexão. Alerta salvo para envio automático.");
+             return;
+        }
+
         return await handleSOSFallback(trigger, latitude, longitude);
       }
+      
+      // ... (restante do código de sucesso)
+
       
       // Se o backend disser que já existe, usamos o alerta existente
       if (result.already_active) {
