@@ -24,7 +24,6 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
         
-        // Configura para gravar pedaços pequenos (200ms) para gerenciamento granular
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
 
@@ -37,14 +36,11 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
         mediaRecorder.start(200); // 200ms chunks
 
         // Limpeza inteligente do buffer (Mantém últimos ~15 segundos)
-        // Assumindo ~5 chunks por segundo (200ms), 15s = 75 chunks
         intervalId = setInterval(() => {
             if (!isAnalyzingRef.current && audioChunksRef.current.length > 100) {
-                // Remove os 20 chunks mais antigos (primeiros 4 segundos)
-                // Mantendo sempre um histórico seguro de ~16s
                 audioChunksRef.current = audioChunksRef.current.slice(20);
             }
-        }, 2000); // Verifica a cada 2 segundos
+        }, 2000);
 
       } catch (err) {
         console.warn("Erro ao iniciar captura de áudio para biometria:", err);
@@ -71,8 +67,26 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
     isAnalyzingRef.current = isAnalyzing;
   }, [isAnalyzing]);
 
+  // CORREÇÃO 1: Reiniciar reconhecimento automaticamente quando a análise terminar
   useEffect(() => {
-    // Check browser support
+    // Executa apenas se parou de analisar, está ativo e não está ouvindo
+    if (!isAnalyzing && isActive && recognitionRef.current && !isListening) {
+      const timer = setTimeout(() => {
+          try {
+             // Tenta iniciar se ainda estivermos no estado correto
+             if (!isAnalyzingRef.current && recognitionRef.current) {
+                recognitionRef.current.start();
+             }
+          } catch (e) {
+             // Ignora erro se já estiver rodando
+          }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAnalyzing, isActive]); // Não incluímos isListening para evitar conflito com onend
+
+  useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setError('Seu navegador não suporta reconhecimento de voz.');
@@ -93,30 +107,32 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
 
     recognition.onend = () => {
       setIsListening(false);
-      // Reiniciar automaticamente se estiver ativo
-      if (isActive && recognitionRef.current && !isAnalyzingRef.current) {
-         // Backoff para evitar loop infinito rápido em caso de erro persistente
+      
+      // CORREÇÃO 2: Verificação robusta de instância para evitar stale closures
+      if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current) {
+         // Backoff para evitar loop infinito rápido
          setTimeout(() => {
              try {
-                if (isActive && !isAnalyzingRef.current) {
+                // Checa novamente dentro do timeout se a instância ainda é válida
+                if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current) {
                     recognition.start();
                 }
              } catch (e) {
                 console.warn("Erro ao reiniciar reconhecimento:", e);
              }
-         }, 1000); // Espera 1 segundo antes de reiniciar
+         }, 1000); 
       }
     };
 
     recognition.onerror = (event) => {
-      // console.error('Speech recognition error', event.error);
       if (event.error === 'not-allowed') {
         setError('Permissão de microfone negada.');
         setIsListening(false);
       } else if (event.error === 'network') {
          // Silent retry for network errors
          setTimeout(() => {
-             if (isActive && recognitionRef.current && !isAnalyzingRef.current) {
+             // CORREÇÃO 3: Verificação de instância no retry de erro
+             if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current) {
                  try { recognition.start(); } catch(e) {}
              }
          }, 2000);
@@ -135,94 +151,60 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
         }
       }
 
-      // Combinar texto final e provisório para análise
       const currentText = (finalTranscript || interimTranscript).toLowerCase().trim();
       
       if (currentText) {
          setTranscript(currentText);
          
          if (emergencyPhrase && !isAnalyzingRef.current) {
-            // 1. Keyword Spotting & Semantic Analysis (Sliding Window Strategy)
             const phraseWords = emergencyPhrase.toLowerCase().trim().split(/\s+/);
             const transcriptWords = currentText.split(/\s+/);
             const windowSize = phraseWords.length;
             
             let maxSimilarity = 0;
-            
-            // Verifica a frase inteira primeiro (caso o usuário diga apenas a frase)
             const fullSimilarity = VoiceBiometryService.calculateSimilarity(currentText, emergencyPhrase);
             maxSimilarity = Math.max(maxSimilarity, fullSimilarity);
 
-            // Verifica janelas deslizantes se a transcrição for mais longa que a frase
             if (transcriptWords.length >= windowSize) {
                 for (let i = 0; i <= transcriptWords.length - windowSize; i++) {
                     const windowText = transcriptWords.slice(i, i + windowSize).join(' ');
                     const windowSim = VoiceBiometryService.calculateSimilarity(windowText, emergencyPhrase);
-                    if (windowSim > maxSimilarity) {
-                        maxSimilarity = windowSim;
-                    }
+                    if (windowSim > maxSimilarity) maxSimilarity = windowSim;
                 }
             }
             
-            // Reduzido threshold para 0.6 (60%) para facilitar testes
-            // Em produção poderia ser 0.75 ou ajustável
             if (maxSimilarity > 0.6) {
-                console.log(`[KWS] Frase detectada com similaridade de ${(maxSimilarity*100).toFixed(1)}%`);
+                console.log(`[KWS] Detectado: ${(maxSimilarity*100).toFixed(1)}%`);
                 
                 setIsAnalyzing(true);
                 isAnalyzingRef.current = true;
                 
-                // Força a parada imediata para evitar duplicação
-                recognition.stop(); 
+                recognition.stop(); // Para o reconhecimento para análise
                 
-                // Parar gravação de áudio para capturar o blob
                 let audioBlob = null;
                 if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
                     mediaRecorderRef.current.stop();
-                    // Pequeno delay para garantir que o ondataavailable disparou
                     await new Promise(r => setTimeout(r, 200)); 
                     audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 }
 
-                // 2. Biometric Verification (Agora Real via Backend)
                 if (audioBlob) {
-                    console.log("[KWS] Iniciando validação biométrica...");
-                    
-                    // FAIL-SAFE IMEDIATO:
-                    // Se a similaridade for muito alta (> 0.8), aciona preventivamente
-                    // enquanto valida, ou aciona mesmo se validar falhar (configurável).
-                    // Por enquanto, vamos manter a validação, mas com log explícito.
-
                     VoiceBiometryService.verifySpeakerIdentity(audioBlob)
-                        .then(({ isVerified, score, details }) => {
-                            console.log(`[Biometria] Resultado: ${isVerified}, Score: ${score}, Detalhes:`, details);
-                            
+                        .then(({ isVerified, score }) => {
                             if (isVerified) {
-                                console.log(">>> ACIONANDO EMERGÊNCIA AGORA <<<");
                                 onEmergencyDetected();
                             } else {
-                                console.warn(`[Biometria] Negado. Score insuficiente: ${score}`);
-                                // Opcional: Feedback de voz "Voz não reconhecida"
-                                setIsAnalyzing(false);
+                                setIsAnalyzing(false); // Isso disparará o useEffect de reinício
                                 isAnalyzingRef.current = false;
                             }
                         })
-                        .catch(err => {
-                            console.error("Erro CRÍTICO na validação biométrica:", err);
-                            // FAIL-OPEN: Em caso de erro técnico (servidor fora, timeout), 
-                            // NÃO BLOQUEIE O SOCORRO. Assuma que é verdadeiro.
-                            console.warn(">>> MODO FAIL-OPEN ATIVADO: Acionando emergência sem biometria <<<");
-                            onEmergencyDetected();
-                            
+                        .catch(() => {
+                            onEmergencyDetected(); // Fail-open
                             setIsAnalyzing(false);
                             isAnalyzingRef.current = false;
                         });
                 } else {
-                    console.warn("Audio Blob não gerado ou vazio. Tentando acionar apenas por palavra-chave (Fallback).");
-                    // Se falhou em gravar o áudio mas ouviu a palavra, aciona também?
-                    // Sim, melhor pecar pelo excesso.
                     onEmergencyDetected();
-                    
                     setIsAnalyzing(false);
                     isAnalyzingRef.current = false;
                 }
@@ -257,36 +239,14 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
         isListening ? 'bg-green-100 text-green-800 border border-green-200' : 
         'bg-gray-100 text-gray-500'
     }`}>
-      {isAnalyzing ? (
-          <ShieldCheck className="w-4 h-4 animate-bounce" />
-      ) : isListening ? (
-          <Mic className="w-4 h-4 animate-pulse" />
-      ) : (
-          <MicOff className="w-4 h-4" />
-      )}
+      {isAnalyzing ? <ShieldCheck className="w-4 h-4 animate-bounce" /> : 
+       isListening ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
       
       <div className="flex flex-col leading-tight">
           <span className="font-medium">
-            {isAnalyzing ? 'Validando Biometria...' : 
-            isListening ? 'Monitoramento Ativo' : 
-            'Voz Inativa'}
+            {isAnalyzing ? 'Validando Biometria...' : isListening ? 'Monitoramento Ativo' : 'Voz Inativa'}
           </span>
-          {emergencyPhrase && isListening && (
-              <div className="flex flex-col">
-                <span className="text-[10px] opacity-60">Frase alvo: "{emergencyPhrase}"</span>
-                <span className="text-[10px] text-blue-600">Ouvido: "{transcript || '...'}"</span>
-              </div>
-          )}
       </div>
-      
-      {isListening && !isAnalyzing && (
-          <div className="flex items-center gap-2 border-l pl-2 border-green-300 ml-2">
-              <Activity className="w-3 h-3 opacity-50" />
-              <span className="text-xs opacity-70 max-w-[100px] truncate italic">
-                  {transcript || '...'}
-              </span>
-          </div>
-      )}
     </div>
   );
 }
