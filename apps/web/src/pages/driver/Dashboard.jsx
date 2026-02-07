@@ -163,18 +163,24 @@ export default function DriverDashboard() {
     }, null, { enableHighAccuracy: true, timeout: 5000 });
   };
 
-  const handleSOS = async (trigger = 'button') => {
-    try {
-      let latitude = -15.793889, longitude = -47.882778;
-      try {
-        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout: 3000}));
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-      } catch (e) {
-        console.warn("GPS timeout/error, using default or last known location");
-      }
+  const [voiceTranscript, setVoiceTranscript] = useState('');
 
-      // NOVO: Usar RPC (Banco de Dados) em vez de Edge Function para não depender de CLI
+  // ... (código existente)
+
+  const handleSOS = async (trigger = 'button') => {
+    // Bloqueio Preventivo no Frontend
+    if (isEmergencyActive) {
+        console.warn("SOS já ativo. Bloqueando nova chamada.");
+        return;
+    }
+
+    try {
+      // Feedback imediato
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      
+      // ... (código de geolocalização existente)
+
+      // NOVO: Usar RPC V2 (Com verificação de duplicidade)
       const { data: result, error: rpcError } = await supabase.rpc('trigger_emergency_rpc', {
         p_trigger_type: trigger === 'voice' ? 'voice' : 'button',
         p_latitude: latitude,
@@ -184,9 +190,23 @@ export default function DriverDashboard() {
 
       if (rpcError) {
         console.error("RPC Error:", rpcError);
-        // Fallback: Se a RPC falhar, tenta inserir direto no banco
-        console.log("Tentando fallback direto no banco...");
         return await handleSOSFallback(trigger, latitude, longitude);
+      }
+      
+      // Se o backend disser que já existe, usamos o alerta existente
+      if (result.already_active) {
+          console.log("Alerta já existente recuperado:", result.alert.id);
+          setActiveAlertId(result.alert.id);
+          setIsEmergencyActive(true);
+          setTerminationStatus('idle');
+          
+          // Reinicia rastreamento só para garantir
+          if (trackingId) clearInterval(trackingId);
+          const interval = setInterval(() => sendLocationUpdate(result.alert.id), 5000);
+          setTrackingId(interval);
+          
+          alert("Atenção: Você já possui um chamado de emergência em andamento.");
+          return;
       }
       
       const data = result.alert;
@@ -199,8 +219,7 @@ export default function DriverDashboard() {
       const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
       setTrackingId(interval);
       
-      console.log('SOS Enviado via Backend Seguro');
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      console.log('SOS Enviado com Sucesso');
 
     } catch (error) {
       console.error("Erro ao acionar SOS:", error);
@@ -466,11 +485,21 @@ export default function DriverDashboard() {
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
                       isActive={!isEmergencyActive} // Só escuta se não estiver em emergência
+                      onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onEmergencyDetected={() => {
-                        console.log("Emergência por voz detectada!");
+                        // Feedback imediato antes mesmo de chamar o backend
+                        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                        console.log("Emergência por voz detectada! Iniciando protocolo...");
                         handleSOS('voice');
                       }}
                     />
+                    
+                    {/* Exibir o que está sendo ouvido (Feedback Visual) */}
+                    {voiceTranscript && !isEmergencyActive && (
+                        <div className="mt-2 text-xs text-center text-gray-500 italic animate-pulse">
+                            Ouvindo: "{voiceTranscript}..."
+                        </div>
+                    )}
                   </div>
                 </div>
 

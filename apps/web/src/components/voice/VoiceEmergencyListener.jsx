@@ -2,13 +2,20 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Mic, MicOff, Activity, ShieldCheck } from 'lucide-react';
 import VoiceBiometryService from '../../services/VoiceBiometryService';
 
-export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDetected, isActive = true }) {
+export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDetected, isActive = true, onTranscriptChange }) {
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef(null);
   const isAnalyzingRef = useRef(isAnalyzing);
+  
+  // Efeito para notificar o componente pai sobre mudanças na transcrição
+  useEffect(() => {
+      if (onTranscriptChange && transcript) {
+          onTranscriptChange(transcript);
+      }
+  }, [transcript, onTranscriptChange]);
   
   // Refs para gravação de áudio (Biometria)
   const mediaRecorderRef = useRef(null);
