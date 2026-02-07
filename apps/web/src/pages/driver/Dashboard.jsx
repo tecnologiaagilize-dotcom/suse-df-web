@@ -178,7 +178,23 @@ export default function DriverDashboard() {
       // Feedback imediato
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       
-      // ... (código de geolocalização existente)
+      // 1. Obter Localização Atual (Crítico para o alerta)
+      let latitude = -15.793889; // Default Brasília
+      let longitude = -47.882778;
+
+      try {
+        const pos = await new Promise((res, rej) => 
+            navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, enableHighAccuracy: true })
+        );
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } catch (gpsError) {
+        console.warn("GPS timeout/error no SOS, usando default/last known:", gpsError);
+        if (currentLocation && currentLocation.lat) {
+            latitude = currentLocation.lat;
+            longitude = currentLocation.lng;
+        }
+      }
 
       // NOVO: Usar RPC V2 (Com verificação de duplicidade)
       const { data: result, error: rpcError } = await supabase.rpc('trigger_emergency_rpc', {
