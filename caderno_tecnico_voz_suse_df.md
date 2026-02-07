@@ -84,4 +84,4 @@ Scripts essenciais já rodados:
 ---
 
 **Status Final:** Projeto Entregue e Documentado.
-Versão: 3.1 (Voice + PWA Stable)
+Versão: 1.1 (Voice + PWA Stable Backup)
