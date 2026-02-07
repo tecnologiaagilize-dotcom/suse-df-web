@@ -26,9 +26,15 @@ const PrivateRoute = ({ children, role }) => {
   if (!user) return <Navigate to="/driver/login" replace />;
   
   if (role && userRole !== role && userRole !== 'admin') {
-     // If user role doesn't match required role (and not super admin), redirect
-     // For now, simplify logic:
-     return children; 
+     // Se o papel do usuário não corresponder ao exigido e não for admin
+     console.warn(`Acesso negado. Requer: ${role}, Usuário é: ${userRole}`);
+     
+     // Redireciona para o dashboard correto com base na role real do usuário
+     if (userRole === 'admin' || userRole === 'operator') {
+         return <Navigate to="/admin/dashboard" replace />;
+     } else {
+         return <Navigate to="/driver/dashboard" replace />;
+     }
   }
   
   return children;

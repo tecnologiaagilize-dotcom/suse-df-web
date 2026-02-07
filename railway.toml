@@ -1,6 +1,7 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "backend/biometry_service/Dockerfile"
+# Define o diretório raiz do serviço. O Dockerfile será procurado AQUI.
+rootDirectory = "backend/biometry_service"
 
 [deploy]
 startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
