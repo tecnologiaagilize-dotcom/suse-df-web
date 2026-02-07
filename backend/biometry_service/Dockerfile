@@ -9,12 +9,12 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar requirements e instalar (usando caminho relativo à raiz do repo)
-COPY backend/biometry_service/requirements.txt .
+# Copiar requirements e instalar
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código (usando caminho relativo à raiz do repo)
-COPY backend/biometry_service/main.py .
+# Copiar código
+COPY main.py .
 
 # Expor porta
 EXPOSE 8000
