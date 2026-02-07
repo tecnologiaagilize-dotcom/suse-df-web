@@ -25,15 +25,27 @@ const PrivateRoute = ({ children, role }) => {
   
   if (!user) return <Navigate to="/driver/login" replace />;
   
-  if (role && userRole !== role && userRole !== 'admin') {
-     // Se o papel do usuário não corresponder ao exigido e não for admin
-     console.warn(`Acesso negado. Requer: ${role}, Usuário é: ${userRole}`);
+  // Adicionando 'master' como role permitida para acesso total
+  if (role && userRole !== role && userRole !== 'admin' && userRole !== 'master') {
+     // Se o papel do usuário não corresponder ao exigido e não for admin/master
      
-     // Redireciona para o dashboard correto com base na role real do usuário
-     if (userRole === 'admin' || userRole === 'operator') {
-         return <Navigate to="/admin/dashboard" replace />;
+     // Definição de Staff (Equipe de Gestão)
+     const isStaff = ['admin', 'operator', 'supervisor', 'master'].includes(userRole);
+     const requiredAdminAccess = ['admin', 'operator', 'supervisor', 'master'].includes(role);
+     
+     // Se for staff acessando rota de staff, permite
+     if (isStaff && requiredAdminAccess) {
+         // Permite acesso
      } else {
-         return <Navigate to="/driver/dashboard" replace />;
+        console.warn(`Acesso negado. Requer: ${role}, Usuário é: ${userRole}`);
+        
+        // Redireciona para o dashboard correto
+        if (isStaff) {
+            // Evita loop infinito: Se já está tentando ir para o admin, não redireciona de volta
+            return <Navigate to="/admin/dashboard" replace />;
+        } else {
+            return <Navigate to="/driver/dashboard" replace />;
+        }
      }
   }
   
@@ -86,8 +98,9 @@ function App() {
           } />
 
           {/* Protected Admin Routes */}
+          {/* MUDANÇA: Agora aceita 'operator' como base, permitindo admins e supervisores também */}
           <Route path="/admin/dashboard" element={
-            <PrivateRoute role="admin">
+            <PrivateRoute role="operator">
               <AdminDashboardReal />
             </PrivateRoute>
           } />
