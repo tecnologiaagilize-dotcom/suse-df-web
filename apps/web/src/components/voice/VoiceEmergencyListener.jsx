@@ -186,27 +186,43 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
 
                 // 2. Biometric Verification (Agora Real via Backend)
                 if (audioBlob) {
+                    console.log("[KWS] Iniciando validação biométrica...");
+                    
+                    // FAIL-SAFE IMEDIATO:
+                    // Se a similaridade for muito alta (> 0.8), aciona preventivamente
+                    // enquanto valida, ou aciona mesmo se validar falhar (configurável).
+                    // Por enquanto, vamos manter a validação, mas com log explícito.
+
                     VoiceBiometryService.verifySpeakerIdentity(audioBlob)
-                        .then(({ isVerified, score }) => {
+                        .then(({ isVerified, score, details }) => {
+                            console.log(`[Biometria] Resultado: ${isVerified}, Score: ${score}, Detalhes:`, details);
+                            
                             if (isVerified) {
-                                console.log(`[Biometria] Verificado pelo servidor. Score: ${score}`);
+                                console.log(">>> ACIONANDO EMERGÊNCIA AGORA <<<");
                                 onEmergencyDetected();
                             } else {
-                                console.warn(`[Biometria] Falha na verificação do servidor.`);
+                                console.warn(`[Biometria] Negado. Score insuficiente: ${score}`);
+                                // Opcional: Feedback de voz "Voz não reconhecida"
                                 setIsAnalyzing(false);
                                 isAnalyzingRef.current = false;
                             }
                         })
                         .catch(err => {
-                            console.error("Erro na validação biométrica:", err);
-                            // Fail-safe: Em emergência real, se o servidor falhar, o que fazemos?
-                            // Por enquanto, bloqueamos.
+                            console.error("Erro CRÍTICO na validação biométrica:", err);
+                            // FAIL-OPEN: Em caso de erro técnico (servidor fora, timeout), 
+                            // NÃO BLOQUEIE O SOCORRO. Assuma que é verdadeiro.
+                            console.warn(">>> MODO FAIL-OPEN ATIVADO: Acionando emergência sem biometria <<<");
+                            onEmergencyDetected();
+                            
                             setIsAnalyzing(false);
                             isAnalyzingRef.current = false;
                         });
                 } else {
-                    console.warn("Audio Blob não gerado. Pulando biometria.");
-                    // Fallback se o áudio falhar?
+                    console.warn("Audio Blob não gerado ou vazio. Tentando acionar apenas por palavra-chave (Fallback).");
+                    // Se falhou em gravar o áudio mas ouviu a palavra, aciona também?
+                    // Sim, melhor pecar pelo excesso.
+                    onEmergencyDetected();
+                    
                     setIsAnalyzing(false);
                     isAnalyzingRef.current = false;
                 }
