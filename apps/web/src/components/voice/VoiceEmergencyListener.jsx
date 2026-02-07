@@ -92,15 +92,19 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
     };
 
     recognition.onend = () => {
-      // Auto restart if it should be active and not currently analyzing
+      setIsListening(false);
+      // Reiniciar automaticamente se estiver ativo
       if (isActive && recognitionRef.current && !isAnalyzingRef.current) {
-         try {
-           recognition.start();
-         } catch (e) {
-           setIsListening(false);
-         }
-      } else {
-        setIsListening(false);
+         // Backoff para evitar loop infinito rápido em caso de erro persistente
+         setTimeout(() => {
+             try {
+                if (isActive && !isAnalyzingRef.current) {
+                    recognition.start();
+                }
+             } catch (e) {
+                console.warn("Erro ao reiniciar reconhecimento:", e);
+             }
+         }, 1000); // Espera 1 segundo antes de reiniciar
       }
     };
 
