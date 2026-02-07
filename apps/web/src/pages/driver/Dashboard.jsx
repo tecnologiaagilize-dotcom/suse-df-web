@@ -10,9 +10,180 @@ import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListene
 import OfflineQueueService from '../../services/OfflineQueueService';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard v4.2 - Offline Support");
+  console.log("SUSE-DF DriverDashboard v4.3 - Full Restore");
   const { user, signOut } = useAuth();
-  // ... (restante dos hooks)
+  const navigate = useNavigate();
+
+  // Estados de Emergência e Alerta
+  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const [activeAlertId, setActiveAlertId] = useState(null);
+  const [terminationStatus, setTerminationStatus] = useState('idle'); // 'idle', 'pending_validation', 'resolved_success'
+  const [trackingId, setTrackingId] = useState(null);
+  
+  // Estados de Localização
+  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 }); // Padrão: Brasília
+  
+  // Estados para Finalização e Modais
+  const [showTerminationModal, setShowTerminationModal] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
+  
+  // Estados de Voz e Token de Segurança
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
+  const [securityToken, setSecurityToken] = useState(null);
+  const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Função auxiliar para copiar token
+  const handleCopyToken = () => {
+    if (securityToken) {
+      navigator.clipboard.writeText(securityToken);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Função para enviar atualização de localização (Rastreamento)
+  const sendLocationUpdate = async (alertId) => {
+    if (!alertId) return;
+    
+    try {
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        });
+
+        const { latitude, longitude, speed, heading, accuracy } = position.coords;
+        setCurrentLocation({ lat: latitude, lng: longitude });
+
+        // Enviar para tabela de rastreamento (location_updates)
+        const { error } = await supabase.from('location_updates').insert({
+            alert_id: alertId,
+            latitude,
+            longitude,
+            speed: speed || 0,
+            heading: heading || 0,
+            accuracy: accuracy || 0
+        });
+        
+        if (error) console.error("Erro silencioso ao atualizar localização:", error);
+        
+    } catch (err) {
+        console.error("Erro GPS ao atualizar localização:", err);
+    }
+  };
+
+  // Carregar dados iniciais e configurar Realtime
+  useEffect(() => {
+    const fetchData = async () => {
+        if (!user) return;
+        
+        // 1. Recuperar Alerta Ativo ou Recém Resolvido
+        const { data: activeAlert } = await supabase
+            .from('emergency_alerts')
+            .select('id, status, termination_token_expires_at')
+            .eq('user_id', user.id)
+            .in('status', ['active', 'investigating', 'waiting_police_validation', 'resolved'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (activeAlert) {
+            console.log("Alerta recuperado:", activeAlert);
+            
+            // Só ativa se não estiver resolvido
+            if (activeAlert.status !== 'resolved') {
+                setActiveAlertId(activeAlert.id);
+                setIsEmergencyActive(true);
+            }
+            
+            if (activeAlert.status === 'waiting_police_validation') {
+                 setTerminationStatus('pending_validation');
+                 // Tenta pegar token do banco ou local
+                 const storedToken = localStorage.getItem('end_token');
+                 if (storedToken) setSecurityToken(storedToken);
+
+                 if (activeAlert.termination_token_expires_at) {
+                    setTokenExpiresAt(activeAlert.termination_token_expires_at);
+                    if (new Date(activeAlert.termination_token_expires_at) < new Date()) {
+                        setIsTokenExpired(true);
+                    }
+                 }
+            } else if (activeAlert.status === 'resolved') {
+                setIsEmergencyActive(false);
+                setTerminationStatus('idle');
+            }
+
+            if (activeAlert.status === 'active' || activeAlert.status === 'investigating') {
+                // Iniciar tracking
+                const interval = setInterval(() => sendLocationUpdate(activeAlert.id), 5000);
+                setTrackingId(interval);
+            }
+        } else {
+             setIsEmergencyActive(false);
+             setTerminationStatus('idle');
+        }
+
+        // 2. Recuperar Frase de Emergência
+        const { data: userData } = await supabase
+            .from('users')
+            .select('secret_word')
+            .eq('id', user.id)
+            .single();
+        
+        if (userData?.secret_word) {
+            setEmergencyPhrase(userData.secret_word);
+        } else if (user?.user_metadata?.emergency_phrase) {
+            setEmergencyPhrase(user.user_metadata.emergency_phrase);
+        }
+    };
+
+    fetchData();
+
+    // 3. Sincronização em Tempo Real (Ouvindo TODAS as mudanças no alerta do usuário)
+    const subscription = supabase
+      .channel(`driver_status_sync_${user.id}`)
+      .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'emergency_alerts',
+          filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log("Mudança detectada via Realtime:", payload.new.status);
+        
+        if (payload.new.status === 'resolved') {
+            setTerminationStatus('resolved_success');
+            setIsEmergencyActive(true); // Garante que mostra o card verde
+            
+            // Parar rastreamento
+            setTrackingId(prevId => {
+                if (prevId) clearInterval(prevId);
+                return null;
+            });
+        } else if (payload.new.status === 'active' || payload.new.status === 'investigating') {
+            setTerminationStatus('idle');
+            setIsEmergencyActive(true);
+        } else if (payload.new.status === 'waiting_police_validation') {
+            setTerminationStatus('pending_validation');
+        }
+      })
+      .subscribe();
+    
+    // Localização inicial
+    navigator.geolocation.getCurrentPosition((pos) => {
+        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    }, null, { enableHighAccuracy: true });
+
+    return () => {
+        subscription.unsubscribe();
+        if (trackingId) clearInterval(trackingId);
+    };
+  }, [user]);
 
   // Efeito para monitorar status online/offline e processar fila
   useEffect(() => {
