@@ -15,7 +15,7 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
 
-  // Gerenciamento do Gravador de Áudio (Rolling Buffer simplificado)
+  // Gerenciamento do Gravador de Áudio (Rolling Buffer Circular Real)
   useEffect(() => {
     let intervalId;
 
@@ -24,6 +24,7 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
         
+        // Configura para gravar pedaços pequenos (200ms) para gerenciamento granular
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
 
@@ -33,18 +34,17 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
           }
         };
 
-        mediaRecorder.start();
+        mediaRecorder.start(200); // 200ms chunks
 
-        // Limpa o buffer a cada 10 segundos para não estourar a memória
-        // Mantém apenas os últimos segundos "vivos" na memória do browser
+        // Limpeza inteligente do buffer (Mantém últimos ~15 segundos)
+        // Assumindo ~5 chunks por segundo (200ms), 15s = 75 chunks
         intervalId = setInterval(() => {
-            if (!isAnalyzingRef.current) {
-                // Se não estiver analisando, reseta o buffer
-                // (Estratégia ingênua: perde o histórico a cada 10s. 
-                // Para produção ideal, usaríamos um AudioWorklet com buffer circular real)
-                audioChunksRef.current = [];
+            if (!isAnalyzingRef.current && audioChunksRef.current.length > 100) {
+                // Remove os 20 chunks mais antigos (primeiros 4 segundos)
+                // Mantendo sempre um histórico seguro de ~16s
+                audioChunksRef.current = audioChunksRef.current.slice(20);
             }
-        }, 10000);
+        }, 2000); // Verifica a cada 2 segundos
 
       } catch (err) {
         console.warn("Erro ao iniciar captura de áudio para biometria:", err);
