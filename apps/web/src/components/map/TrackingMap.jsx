@@ -1,71 +1,100 @@
-import React, { useState, useCallback } from 'react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { supabase } from '../../lib/supabase';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-const containerStyle = {
-  width: '100%',
-  height: '100%'
-};
+// Corrigir ícone padrão do Leaflet (Problema comum com Webpack/Vite)
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
-const defaultCenter = {
-  lat: -15.793889,
-  lng: -47.882778
-};
+// Componente auxiliar para recentralizar o mapa quando as coordenadas mudam
+function ChangeView({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center);
+  }, [center, map]);
+  return null;
+}
 
-function TrackingMap({ lat, lng }) {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    // Tenta pegar a chave do ambiente ou usa string vazia (vai dar erro de API Key se não configurar)
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
-  });
+const defaultCenter = [-15.793889, -47.882778]; // Brasília (Leaflet usa [lat, lng])
 
-  const [map, setMap] = useState(null);
+function TrackingMap({ lat, lng, alertId }) {
+  const [routePath, setRoutePath] = useState([]);
+  
+  // Garantir coordenadas válidas
+  const center = (lat && lng) ? [Number(lat), Number(lng)] : defaultCenter;
 
-  const onLoad = useCallback(function callback(map) {
-    // const bounds = new window.google.maps.LatLngBounds(center);
-    // map.fitBounds(bounds);
-    setMap(map);
-  }, []);
+  // Buscar histórico de rota
+  useEffect(() => {
+      if (!alertId) return;
 
-  const onUnmount = useCallback(function callback(map) {
-    setMap(null);
-  }, []);
+      const fetchRoute = async () => {
+          const { data, error } = await supabase
+              .from('location_updates')
+              .select('latitude, longitude')
+              .eq('alert_id', alertId)
+              .order('recorded_at', { ascending: true });
 
-  // Se não houver chave configurada, mostra aviso
-  if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
-      return (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-500">
-              <p className="font-bold text-red-500">Google Maps API Key não configurada.</p>
-              <p className="text-sm">Adicione VITE_GOOGLE_MAPS_API_KEY no arquivo .env</p>
-              <p className="text-xs mt-2">Lat: {lat} | Lng: {lng}</p>
-          </div>
-      );
-  }
+          if (data) {
+              // Leaflet usa array [lat, lng]
+              const path = data.map(p => [p.latitude, p.longitude]);
+              setRoutePath(path);
+          }
+      };
 
-  if (loadError) {
-    return <div className="w-full h-full flex items-center justify-center bg-red-50 text-red-500">Erro ao carregar o mapa.</div>;
-  }
+      fetchRoute();
+  }, [alertId]);
 
-  if (!isLoaded) {
-    return <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-500">Carregando Mapa...</div>;
-  }
-
-  const center = (lat && lng) ? { lat: Number(lat), lng: Number(lng) } : defaultCenter;
+  // Atualizar a rota localmente
+  useEffect(() => {
+      if (lat && lng) {
+          setRoutePath(prev => {
+              const last = prev[prev.length - 1];
+              // Evitar duplicados (comparação simples)
+              if (last && last[0] === lat && last[1] === lng) return prev;
+              return [...prev, [Number(lat), Number(lng)]];
+          });
+      }
+  }, [lat, lng]);
 
   return (
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={center}
-        zoom={15}
-        onLoad={onLoad}
-        onUnmount={onUnmount}
-      >
-        {/* Marcador da Posição Atual */}
-        <Marker 
-            position={center}
-            title="Motorista"
-            // icon="http://maps.google.com/mapfiles/kml/pal4/icon54.png" // Ícone de alerta opcional
-        />
-      </GoogleMap>
+    <div className="w-full h-full">
+        <MapContainer 
+            center={center} 
+            zoom={15} 
+            style={{ width: '100%', height: '100%' }}
+            scrollWheelZoom={true}
+        >
+            <ChangeView center={center} />
+            
+            <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            
+            {/* Marcador da Posição Atual */}
+            <Marker position={center}>
+                <Popup>
+                    Viatura / Motorista <br />
+                    Lat: {lat?.toFixed(5)} <br />
+                    Lng: {lng?.toFixed(5)}
+                </Popup>
+            </Marker>
+
+            {/* Rota (Polyline) */}
+            {routePath.length > 1 && (
+                <Polyline 
+                    positions={routePath} 
+                    pathOptions={{ color: 'red', weight: 4, opacity: 0.8 }} 
+                />
+            )}
+        </MapContainer>
+    </div>
   );
 }
 

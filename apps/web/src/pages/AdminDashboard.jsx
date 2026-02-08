@@ -491,6 +491,7 @@ export default function Dashboard() {
                                    <TrackingMap 
                                         lat={activeWindow.current_lat}
                                         lng={activeWindow.current_lng}
+                                        alertId={activeWindow.id}
                                     />
                                     
                                     {/* Footer do Mapa */}
