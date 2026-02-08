@@ -15,6 +15,7 @@ import AdminDashboardReal from './pages/AdminDashboard';
 import AdminLoginReal from './pages/Login';
 import ChangePassword from './pages/admin/ChangePassword';
 import UserManagement from './pages/admin/UserManagement';
+import AuditLogs from './pages/admin/AuditLogs'; // Import added
 import SharedAlert from './pages/public/SharedAlert';
 
 // Protected Route Component
