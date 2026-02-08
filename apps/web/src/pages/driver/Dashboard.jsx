@@ -6,6 +6,7 @@ import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
+import OfflineQueueService from '../../services/OfflineQueueService';
 
 import GeofenceModal from '../../components/GeofenceModal';
 
@@ -634,15 +635,16 @@ export default function DriverDashboard() {
       {/* Modal de Cerca Virtual */}
       <GeofenceModal 
         isOpen={showGeofenceModal} 
-        onClose={() => setShowGeofenceModal(false)} 
+        onClose={() => setShowGeofenceModal(false)}
+        userId={user?.id}
       />
 
       {/* Modal de Encerramento Verificado */}
       {showTerminationModal && (
-          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" role="dialog" aria-labelledby="modal-title" aria-describedby="modal-description">
               <div className="bg-white w-full max-w-md rounded-lg overflow-hidden shadow-2xl">
                   <div className="bg-red-600 text-white p-4 flex justify-between items-center">
-                      <h3 className="font-bold flex items-center gap-2">
+                      <h3 id="modal-title" className="font-bold flex items-center gap-2">
                           <ShieldAlert size={20} /> Encerrar Monitoramento
                       </h3>
                       <button onClick={() => setShowTerminationModal(false)} className="text-white/80 hover:text-white">
@@ -651,7 +653,7 @@ export default function DriverDashboard() {
                   </div>
                   
                   <form onSubmit={handleSubmitTermination} className="p-6 space-y-6">
-                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-sm text-yellow-800">
+                      <div id="modal-description" className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-sm text-yellow-800">
                           <p className="font-bold">Protocolo de Segurança Ativo</p>
                           <p>Para sua segurança, o encerramento definitivo requer validação visual e justificativa.</p>
                       </div>
