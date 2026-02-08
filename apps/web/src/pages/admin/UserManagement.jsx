@@ -78,6 +78,16 @@ export default function UserManagement() {
   const roleOptions = getRoleOptions();
   const isFormValid = formData.name.trim() !== '' && formData.matricula.trim() !== '' && formData.role;
 
+  const getRoleLabel = (role) => {
+    const labels = {
+        master: 'Master',
+        admin: 'Supervisor do Sistema',
+        supervisor: 'Chefe de Atendimento',
+        operator: 'Operador da Mesa'
+    };
+    return labels[role] || role;
+  };
+
   // Função auxiliar para Log de Auditoria
   const logOperation = async (action, targetId, metadata = {}) => {
       try {
@@ -258,7 +268,7 @@ export default function UserManagement() {
                           ${staff.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
                             staff.role === 'supervisor' ? 'bg-blue-100 text-blue-800' : 
                             'bg-green-100 text-green-800'}`}>
-                          {staff.role}
+                          {getRoleLabel(staff.role)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -8,6 +8,14 @@ import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
 import ValidationModal from '../components/modals/ValidationModal';
 import ResolvedAlertModal from '../components/modals/ResolvedAlertModal';
 
+const ROLE_LABELS = {
+  master: 'Master',
+  admin: 'Supervisor do Sistema',
+  supervisor: 'Chefe de Atendimento',
+  operator: 'Operador da Mesa',
+  driver: 'Condutor'
+};
+
 export default function Dashboard() {
   const { user, userRole, signOut } = useAuth();
   const [alerts, setAlerts] = useState([]);
@@ -468,7 +476,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
               <>
-                {(userRole === 'admin' || userRole === 'master') && (
+                {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
                     <button onClick={() => navigate('/admin/audit')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
                         <Shield size={18} /> Auditoria
                     </button>
@@ -478,7 +486,10 @@ export default function Dashboard() {
                 </button>
               </>
             )}
-            <span className="text-sm text-gray-600">{user?.email}</span>
+            <div className="text-right">
+                <span className="block text-sm font-bold text-gray-900">{ROLE_LABELS[userRole] || userRole}</span>
+                <span className="block text-xs text-gray-500">{user?.email}</span>
+            </div>
             <button onClick={() => signOut()} className="p-2 text-gray-500 hover:text-red-600 transition-colors">
               <LogOut size={20} />
             </button>

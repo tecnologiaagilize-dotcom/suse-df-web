@@ -4,6 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Search, RefreshCw, FileText, Download, ArrowLeft, BarChart2, CheckCircle, AlertTriangle } from 'lucide-react';
 
+const ROLE_LABELS = {
+    master: 'Master',
+    admin: 'Supervisor do Sistema',
+    supervisor: 'Chefe de Atendimento',
+    operator: 'Operador da Mesa',
+    driver: 'Condutor'
+};
+
 export default function AuditLogs() {
   const { userRole } = useAuth();
   const navigate = useNavigate();
@@ -204,7 +212,7 @@ export default function AuditLogs() {
                                       </td>
                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                           <div className="font-medium">{log.actor_email || 'Sistema'}</div>
-                                          <div className="text-xs text-gray-500">{log.actor_role}</div>
+                                          <div className="text-xs text-gray-500">{ROLE_LABELS[log.actor_role] || log.actor_role}</div>
                                       </td>
                                       <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                                           <details className="cursor-pointer">
