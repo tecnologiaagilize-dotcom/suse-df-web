@@ -20,6 +20,8 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Política de Leitura: Apenas Staff (Operadores, Admins, etc) podem ver
 -- Correção: Referenciar tabela 'staff' em vez de view inexistente 'staff_users'
+-- Correção 2: Drop policy if exists para evitar erro 42710
+DROP POLICY IF EXISTS "Staff read audit" ON audit_logs;
 CREATE POLICY "Staff read audit" ON audit_logs
   FOR SELECT
   USING (
@@ -31,6 +33,7 @@ CREATE POLICY "Staff read audit" ON audit_logs
   );
 
 -- Política de Inserção: Qualquer usuário autenticado (Sistema registra ações deles)
+DROP POLICY IF EXISTS "Staff insert audit" ON audit_logs;
 CREATE POLICY "Staff insert audit" ON audit_logs
   FOR INSERT
   WITH CHECK (
