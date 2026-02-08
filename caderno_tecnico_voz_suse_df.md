@@ -42,6 +42,10 @@ O objetivo é permitir que motoristas em situação de perigo acionem um alerta 
 *   **PostGIS & Geolocalização:**
     *   Uso de colunas `GEOGRAPHY(POINT)` para alta precisão.
     *   Triggers (`sync_geom_from_latlng`) para compatibilidade retroativa com apps antigos.
+*   **Cerca Virtual (Geofencing):**
+    *   Tabela `administrative_regions`: Polígonos de RAs do DF e Entorno.
+    *   Tabela `driver_geofence_preferences`: Registro das áreas escolhidas pelo motorista.
+    *   Trigger `check_geofence_violation`: Monitora se o motorista sai da área permitida.
 *   **RPCs de Segurança:**
     *   `trigger_emergency_rpc`: Cria alertas e impede duplicidade (retorna alerta existente se já ativo).
 *   **Storage:** Bucket `voice-recordings` para armazenar amostras de voz.
@@ -50,16 +54,18 @@ O objetivo é permitir que motoristas em situação de perigo acionem um alerta 
 
 ## 4. Guia de Configuração e Deploy
 
-### 4.1 Frontend (Leaflet/OSM)
-A versão V1.2 removeu a dependência do Google Maps API em favor do **OpenStreetMap** (via Leaflet).
-*   Não é mais necessário configurar `VITE_GOOGLE_MAPS_API_KEY`.
-*   As dependências `leaflet` e `react-leaflet` são instaladas automaticamente no build.
+### 4.1 Frontend (Leaflet/OSM + Geofencing)
+A versão V1.2.1 introduz a seleção de áreas de atuação:
+*   Novo componente `GeofenceModal` no Dashboard do motorista.
+*   Não requer novas chaves de API.
 
 ### 4.2 Banco de Dados (Scripts SQL)
 Scripts essenciais já rodados:
 1.  `backend/voice_config_setup.sql` (Storage e Tabelas)
 2.  `backend/rpc_trigger_emergency_v2.sql` (Lógica de Alerta)
 3.  `backend/setup_postgis_v2.sql` (Ativação PostGIS + Triggers)
+4.  `backend/setup_geofencing_simple.sql` (Estrutura Cerca Virtual)
+5.  `backend/seed_regions_v1.2.1.sql` (Carga de Dados: Cidades DF/GO)
 
 ### 4.3 Serviço Python
 *   Repositório: `backend/biometry_service`
@@ -68,6 +74,12 @@ Scripts essenciais já rodados:
 ---
 
 ## 5. Procedimentos de Teste
+
+### Teste de Cerca Virtual
+1.  No Painel do Motorista, clique em "Definir Área de Atuação".
+2.  Selecione "Plano Piloto" e salve.
+3.  Simule uma localização fora do Plano Piloto (ex: Ceilândia).
+4.  Verifique nos logs do banco (`audit_logs` ou console) se o alerta de violação foi gerado.
 
 ### Teste de Mapa e Rota
 1.  Abra o Painel Admin e clique em "Assumir" um alerta.
@@ -90,4 +102,4 @@ Scripts essenciais já rodados:
 ---
 
 **Status Final:** Projeto Entregue e Documentado.
-Versão: 1.2 (Leaflet + PostGIS + Voice Stable)
+Versão: 1.2.1 (Geofencing + Leaflet + PostGIS + Voice Stable)
