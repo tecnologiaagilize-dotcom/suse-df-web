@@ -616,7 +616,8 @@ export default function Dashboard() {
                               </div>
 
                               {/* Coluna da Direita: Mapa */}
-                              <div className="w-2/3 h-full relative bg-gray-200">
+                              {/* Lógica de Minimização do Mapa durante Validação */}
+                              <div className={`h-full relative bg-gray-200 transition-all duration-300 ${validationModalAlert && validationModalAlert.id === activeWindow.id ? 'w-0 overflow-hidden opacity-0' : 'w-2/3'}`}>
                                    <TrackingMap 
                                         lat={activeWindow.current_lat}
                                         lng={activeWindow.current_lng}
@@ -651,6 +652,17 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                               </div>
+                              
+                              {/* Painel de Substituição do Mapa durante Validação */}
+                              {validationModalAlert && validationModalAlert.id === activeWindow.id && (
+                                  <div className="w-2/3 h-full bg-gray-100 flex flex-col items-center justify-center p-8 text-center animate-fade-in border-l border-gray-300">
+                                      <Map size={64} className="text-gray-300 mb-4" />
+                                      <h3 className="text-xl font-bold text-gray-600">Mapa Minimizado</h3>
+                                      <p className="text-gray-500 max-w-sm mt-2">
+                                          O mapa foi ocultado temporariamente para facilitar a validação dos dados de encerramento.
+                                      </p>
+                                  </div>
+                              )}
                           </div>
                       </div>
                   ))}
