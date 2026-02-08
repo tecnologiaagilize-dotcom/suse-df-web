@@ -97,14 +97,13 @@ Scripts essenciais já rodados:
 3.  Diga a frase de emergência.
 4.  O celular deve vibrar e a tela ficar vermelha.
 
-### Teste Offline
-1.  Desative Wi-Fi/Dados do celular.
-2.  Acione o botão SOS ou Voz.
-3.  Verifique a mensagem "Sem conexão. Alerta salvo...".
-4.  Reative a internet.
-5.  O alerta deve aparecer no Painel Admin em alguns segundos.
+### Teste de Zona de Sombra (Dead Zone)
+1.  Abra o Admin Dashboard.
+2.  Simule (via SQL ou App) uma posição dentro do "Buraco do Tatu" (-15.795, -47.8815).
+3.  O status na lista deve mudar para um badge cinza "Sombra".
+4.  Na janela do mapa, deve aparecer um alerta piscante "ZONA DE SOMBRA".
 
 ---
 
 **Status Final:** Projeto Entregue e Documentado.
-Versão: 1.2.1 (Geofencing + Leaflet + PostGIS + Voice Stable)
+Versão: 1.2.2 (Dead Zones + Geofencing + Leaflet + PostGIS)
