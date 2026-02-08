@@ -48,7 +48,9 @@ export default function Login() {
           <div className="bg-red-100 p-3 rounded-full mb-2">
             <ShieldAlert className="w-8 h-8 text-red-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">SUSE-DF</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            SUSE-DF <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full text-gray-700 font-normal">v1.2.4</span>
+          </h1>
           <p className="text-gray-500">Acesso Restrito - Atendimento</p>
         </div>
 

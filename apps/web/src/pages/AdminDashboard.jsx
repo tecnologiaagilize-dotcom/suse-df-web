@@ -395,10 +395,23 @@ export default function Dashboard() {
     }
   };
 
+  const getStatusLabel = (status) => {
+    switch (status) {
+        case 'resolved': return 'RESOLVIDO';
+        case 'active': 
+        case 'investigating': 
+        case 'waiting_police_validation':
+            return 'EM OCORRÊNCIA';
+        default: return status.toUpperCase();
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-red-100 text-red-800';
-      case 'investigating': return 'bg-yellow-100 text-yellow-800';
+      case 'active': 
+      case 'investigating': 
+      case 'waiting_police_validation':
+          return 'bg-red-100 text-red-800 animate-pulse'; // Vermelho e Intermitente
       case 'resolved': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -1185,7 +1198,7 @@ export default function Dashboard() {
                     <tr key={alert.id} className={`hover:bg-gray-50 ${activeWindows.find(w => w.id === alert.id) ? 'bg-blue-50' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(alert.status)}`}>
-                          {alert.status.toUpperCase()}
+                          {getStatusLabel(alert.status)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1211,15 +1224,16 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {activeWindows.find(w => w.id === alert.id) ? (
-                            <span className="text-blue-600 font-bold flex items-center gap-1">
-                                <CheckCircle size={16} /> Em Atendimento
+                            <span className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 text-xs uppercase font-bold shadow-sm animate-pulse">
+                                <AlertTriangle size={14} /> Em Ocorrência
                             </span>
                         ) : alert.status === 'resolved' ? (
                             <button 
                                 onClick={() => setShowResolvedModal(alert)}
                                 className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm"
                             >
-                              <CheckCircle size={14} /> Finalizado
+                              <CheckCircle size={14} /> 
+                              {alert.notes?.includes('[Encerramento Administrativo]') ? 'FINALIZADO OPERADOR' : 'FINALIZADO CONDUTOR'}
                             </button>
                         ) : (
                             <button 
