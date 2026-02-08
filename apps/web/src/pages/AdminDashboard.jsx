@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2 } from 'lucide-react';
@@ -6,16 +6,20 @@ import { useNavigate } from 'react-router-dom';
 import TrackingMap from '../components/map/TrackingMap'; 
 import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
 import ValidationModal from '../components/modals/ValidationModal';
+import ResolvedAlertModal from '../components/modals/ResolvedAlertModal';
 
 export default function Dashboard() {
   const { user, userRole, signOut } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const audioContextRef = useRef(null);
+  const prevAlertsRef = useRef([]);
 
   // Múltiplas janelas ativas
   const [activeWindows, setActiveWindows] = useState([]);
   const [showDetailsModal, setShowDetailsModal] = useState(null);
+  const [showResolvedModal, setShowResolvedModal] = useState(null);
   const [validationModalAlert, setValidationModalAlert] = useState(null);
   
   // Estados para Compartilhamento em Lote (SIS_GEO)
@@ -84,6 +88,58 @@ export default function Dashboard() {
         });
         return hasChanges ? newWindows : prevWindows;
     });
+  }, [alerts]);
+
+  // Alerta Sonoro para novas ocorrências
+  const playAlertSound = () => {
+    try {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioContextRef.current;
+        // Resume context if suspended (common in browsers)
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        // Som de sirene: Alternando frequências
+        const now = ctx.currentTime;
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.2);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.4);
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.5);
+
+        osc.start(now);
+        osc.stop(now + 0.5);
+    } catch (e) {
+        console.error("Erro ao tocar som:", e);
+    }
+  };
+
+  useEffect(() => {
+      // Detectar novas ocorrências ATIVAS
+      const newActiveAlerts = alerts.filter(a => a.status === 'active');
+      const prevActiveAlerts = prevAlertsRef.current.filter(a => a.status === 'active');
+      
+      const hasNew = newActiveAlerts.some(na => !prevActiveAlerts.find(pa => pa.id === na.id));
+      
+      if (hasNew) {
+          playAlertSound();
+      }
+      
+      prevAlertsRef.current = alerts;
   }, [alerts]);
 
   // Monitoramento de localizações para TODAS as janelas ativas
@@ -367,7 +423,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.3</span>
+            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.4</span>
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
@@ -702,6 +758,13 @@ export default function Dashboard() {
               }}
           />
       )}
+
+      {/* Modal de Ocorrência Finalizada (Read-Only) */}
+      <ResolvedAlertModal 
+          alert={showResolvedModal}
+          isOpen={!!showResolvedModal}
+          onClose={() => setShowResolvedModal(null)}
+      />
 
       {/* Modal de Compartilhamento em Lote */}
       {showShareSelectionModal && (
@@ -1151,6 +1214,13 @@ export default function Dashboard() {
                             <span className="text-blue-600 font-bold flex items-center gap-1">
                                 <CheckCircle size={16} /> Em Atendimento
                             </span>
+                        ) : alert.status === 'resolved' ? (
+                            <button 
+                                onClick={() => setShowResolvedModal(alert)}
+                                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm"
+                            >
+                              <CheckCircle size={14} /> Finalizado
+                            </button>
                         ) : (
                             <button 
                                 onClick={() => handleAccept(alert)}
