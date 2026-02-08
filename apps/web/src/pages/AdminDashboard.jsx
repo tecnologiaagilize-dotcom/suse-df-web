@@ -170,6 +170,19 @@ export default function Dashboard() {
     };
   }, [activeWindows.length]); // Recriar subs apenas quando adicionar/remover janelas
 
+  // Função auxiliar para Log de Auditoria
+  const logOperation = async (action, targetId, metadata = {}) => {
+      try {
+          await supabase.rpc('log_action', {
+              p_action: action,
+              p_target_id: targetId,
+              p_metadata: metadata
+          });
+      } catch (err) {
+          console.error("Falha silenciosa ao logar auditoria:", err);
+      }
+  };
+
   const handleAccept = async (alert) => {
       // Verificar se já está aberto
       if (activeWindows.find(w => w.id === alert.id)) return;
@@ -195,6 +208,13 @@ export default function Dashboard() {
             })
             .eq('id', alert.id);
           
+          // Log de Auditoria
+          logOperation('ALERT_ACCEPT', alert.id, { 
+              prev_status: 'active', 
+              new_status: 'investigating',
+              timestamp: now
+          });
+
           fetchAlerts(); // Refresh visual
       }
   };
@@ -232,6 +252,13 @@ export default function Dashboard() {
               .eq('id', alert.id);
 
           if (updateError) throw updateError;
+
+          // Log de Auditoria
+          logOperation('ALERT_RESOLVE', alert.id, { 
+              type: 'ADMIN_FORCE_RESOLVE',
+              reason: 'Encerramento Administrativo (Sem token)',
+              timestamp: now
+          });
 
           // Fechar janela localmente
           closeWindow(alert.id);
@@ -440,9 +467,16 @@ export default function Dashboard() {
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
-              <button onClick={() => navigate('/admin/users')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
-                <UserPlus size={18} /> Gestão
-              </button>
+              <>
+                {(userRole === 'admin' || userRole === 'master') && (
+                    <button onClick={() => navigate('/admin/audit')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                        <Shield size={18} /> Auditoria
+                    </button>
+                )}
+                <button onClick={() => navigate('/admin/users')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
+                    <UserPlus size={18} /> Gestão
+                </button>
+              </>
             )}
             <span className="text-sm text-gray-600">{user?.email}</span>
             <button onClick={() => signOut()} className="p-2 text-gray-500 hover:text-red-600 transition-colors">
@@ -764,6 +798,10 @@ export default function Dashboard() {
               onClose={() => setValidationModalAlert(null)}
               onSuccess={(updatedAlert) => {
                   if (updatedAlert && updatedAlert.status === 'resolved') {
+                      logOperation('ALERT_RESOLVE', updatedAlert.id, { 
+                          type: 'ADMIN_TOKEN_VALIDATED',
+                          timestamp: new Date().toISOString()
+                      });
                       closeWindow(updatedAlert.id);
                       fetchAlerts();
                   }
@@ -776,7 +814,14 @@ export default function Dashboard() {
       <ResolvedAlertModal 
           alert={showResolvedModal}
           isOpen={!!showResolvedModal}
-          onClose={() => setShowResolvedModal(null)}
+          onClose={() => {
+              if (showResolvedModal) {
+                  logOperation('ALERT_VIEW_HISTORY', showResolvedModal.id, { 
+                      action: 'view_resolved_details' 
+                  });
+              }
+              setShowResolvedModal(null);
+          }}
       />
 
       {/* Modal de Compartilhamento em Lote */}

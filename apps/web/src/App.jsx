@@ -78,6 +78,12 @@ function App() {
             </PrivateRoute>
           } />
 
+          <Route path="/admin/audit" element={
+            <PrivateRoute role="admin">
+              <AuditLogs />
+            </PrivateRoute>
+          } />
+
           {/* Protected Driver Routes */}
           <Route path="/driver/dashboard" element={
             <PrivateRoute role="driver">
