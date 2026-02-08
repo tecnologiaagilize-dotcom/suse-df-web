@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -161,8 +161,10 @@ export default function DriverDashboard() {
         console.log("Mudança detectada via Realtime:", payload.new.status);
         
         if (payload.new.status === 'resolved') {
-            setTerminationStatus('resolved_success');
-            setIsEmergencyActive(true); // Garante que mostra o card verde
+            console.log("Alerta resolvido remotamente. Resetando para Standby.");
+            setIsEmergencyActive(false);
+            setTerminationStatus('idle');
+            setActiveAlertId(null);
             
             // Parar rastreamento
             setTrackingId(prevId => {
@@ -204,6 +206,45 @@ export default function DriverDashboard() {
 
     return () => window.removeEventListener('online', handleOnline);
   }, []);
+
+  // 4. Polling de Segurança (Fallback para Realtime)
+  // Garante que o app detecte o encerramento mesmo se o WebSocket falhar
+  useEffect(() => {
+      let pollInterval;
+      
+      if (isEmergencyActive && activeAlertId) {
+          console.log("Polling ativo para alerta:", activeAlertId);
+          pollInterval = setInterval(async () => {
+              try {
+                  // Verifica status atual no banco
+                  const { data, error } = await supabase
+                      .from('emergency_alerts')
+                      .select('status')
+                      .eq('id', activeAlertId)
+                      .single();
+
+                  if (data && data.status === 'resolved') {
+                      console.log("Polling detectou resolução. Resetando para Standby.");
+                      setIsEmergencyActive(false);
+                      setTerminationStatus('idle');
+                      setActiveAlertId(null);
+                      
+                      // Garante parada do tracking
+                      setTrackingId(prev => {
+                          if (prev) clearInterval(prev);
+                          return null;
+                      });
+                  }
+              } catch (err) {
+                  console.error("Erro no polling:", err);
+              }
+          }, 3000); // Verifica a cada 3 segundos
+      }
+
+      return () => {
+          if (pollInterval) clearInterval(pollInterval);
+      };
+  }, [isEmergencyActive, activeAlertId]);
 
   // ... (dentro de handleSOS)
   const handleSOS = async (trigger = 'button') => {
@@ -442,7 +483,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.2</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.3</span>
               </h1>
             </div>
             <div className="flex items-center">
@@ -601,16 +642,16 @@ export default function DriverDashboard() {
                 <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center">
                   <button 
                     onClick={() => setShowGeofenceModal(true)}
-                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
+                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
                   >
                     <MapPin size={18} /> Definir Área de Atuação (Cerca Virtual)
                   </button>
                   
                   <button 
                     onClick={handleProfile}
-                    className="text-gray-600 hover:text-gray-800 underline text-sm"
+                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
                   >
-                    Meu Cadastro
+                    <User size={18} /> Meu Cadastro
                   </button>
                 </div>
 

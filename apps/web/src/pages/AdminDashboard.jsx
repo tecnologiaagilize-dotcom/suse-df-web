@@ -367,7 +367,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.2</span>
+            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.3</span>
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
@@ -1154,7 +1154,7 @@ export default function Dashboard() {
                         ) : (
                             <button 
                                 onClick={() => handleAccept(alert)}
-                                className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm"
+                                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm animate-pulse"
                             >
                               <Play size={14} /> Assumir
                             </button>
