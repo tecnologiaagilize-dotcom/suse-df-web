@@ -125,16 +125,16 @@ export default function GeofenceModal({ isOpen, onClose, userId }) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" role="dialog" aria-labelledby="geofence-title">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <h2 id="geofence-title" className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <MapPin className="text-blue-600" />
                 Área de Atuação (Cerca Virtual)
             </h2>
-            <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full">
+            <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full" aria-label="Fechar">
                 <X className="text-gray-500" />
             </button>
         </div>

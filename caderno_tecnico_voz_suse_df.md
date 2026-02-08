@@ -46,6 +46,9 @@ O objetivo é permitir que motoristas em situação de perigo acionem um alerta 
     *   Tabela `administrative_regions`: Polígonos de RAs do DF e Entorno.
     *   Tabela `driver_geofence_preferences`: Registro das áreas escolhidas pelo motorista.
     *   Trigger `check_geofence_violation`: Monitora se o motorista sai da área permitida.
+*   **Zonas de Sombra (Dead Zones):**
+    *   Tabela `dead_zones`: Mapeia áreas sem sinal (túneis, serras).
+    *   Trigger `check_dead_zone_entry`: Atualiza status do alerta para 'DEAD_ZONE' ao entrar nessas áreas.
 *   **RPCs de Segurança:**
     *   `trigger_emergency_rpc`: Cria alertas e impede duplicidade (retorna alerta existente se já ativo).
 *   **Storage:** Bucket `voice-recordings` para armazenar amostras de voz.
@@ -54,10 +57,10 @@ O objetivo é permitir que motoristas em situação de perigo acionem um alerta 
 
 ## 4. Guia de Configuração e Deploy
 
-### 4.1 Frontend (Leaflet/OSM + Geofencing)
-A versão V1.2.1 introduz a seleção de áreas de atuação:
-*   Novo componente `GeofenceModal` no Dashboard do motorista.
-*   Não requer novas chaves de API.
+### 4.1 Frontend (Leaflet/OSM + Geofencing + Dead Zones)
+A versão V1.2.2 inclui:
+*   Visualização de status "ZONA DE SOMBRA" no Painel Admin.
+*   Badge piscante amarelo/cinza quando a viatura perde sinal previsto.
 
 ### 4.2 Banco de Dados (Scripts SQL)
 Scripts essenciais já rodados:
@@ -66,6 +69,8 @@ Scripts essenciais já rodados:
 3.  `backend/setup_postgis_v2.sql` (Ativação PostGIS + Triggers)
 4.  `backend/setup_geofencing_simple.sql` (Estrutura Cerca Virtual)
 5.  `backend/seed_regions_v1.2.1.sql` (Carga de Dados: Cidades DF/GO)
+6.  `backend/setup_dead_zones.sql` (Estrutura Dead Zones)
+7.  `backend/update_dead_zones_trigger.sql` (Trigger de Conectividade)
 
 ### 4.3 Serviço Python
 *   Repositório: `backend/biometry_service`

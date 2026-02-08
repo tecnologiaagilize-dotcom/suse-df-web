@@ -348,6 +348,18 @@ export default function Dashboard() {
     }
   };
 
+  const getConnectivityBadge = (status) => {
+      if (status === 'DEAD_ZONE') {
+          return (
+              <span className="flex items-center gap-1 bg-gray-800 text-white text-xs px-2 py-0.5 rounded-full animate-pulse border border-gray-600">
+                  <AlertTriangle size={10} className="text-yellow-400" />
+                  ZONA DE SOMBRA
+              </span>
+          );
+      }
+      return null;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -355,7 +367,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.1</span>
+            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.2</span>
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
@@ -387,6 +399,9 @@ export default function Dashboard() {
                                   <span className="font-bold text-red-400 uppercase tracking-wider flex items-center gap-1">
                                     <AlertTriangle size={16} /> Emergência
                                   </span>
+                                  
+                                  {/* Badge de Conectividade (Zona de Sombra) */}
+                                  {getConnectivityBadge(activeWindow.connectivity_status)}
                                   
                                   {/* Contador de Espera (Fixo: Accepted - Created) */}
                                   <StaticDuration 
@@ -1094,6 +1109,7 @@ export default function Dashboard() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conexão</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motorista</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horário</th>
@@ -1108,6 +1124,17 @@ export default function Dashboard() {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(alert.status)}`}>
                           {alert.status.toUpperCase()}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                          {alert.connectivity_status === 'DEAD_ZONE' ? (
+                              <span className="text-xs font-bold text-gray-600 bg-gray-200 px-2 py-1 rounded flex items-center gap-1 w-fit">
+                                  <AlertTriangle size={12} /> Sombra
+                              </span>
+                          ) : (
+                              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded flex items-center gap-1 w-fit">
+                                  <CheckCircle size={12} /> Online
+                              </span>
+                          )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{alert.users?.name || 'Desconhecido'}</div>
