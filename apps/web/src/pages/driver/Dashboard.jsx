@@ -7,12 +7,15 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 
-import OfflineQueueService from '../../services/OfflineQueueService';
+import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.2 - Leaflet/OSM");
+  console.log("SUSE-DF DriverDashboard V1.2.1 - Geofencing");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Estado para Modal de Cerca Virtual
+  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
 
   // Estados de Emergência e Alerta
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
@@ -594,12 +597,19 @@ export default function DriverDashboard() {
                   <span className="text-4xl font-bold text-white">SOS</span>
                 </button>
 
-                <div className="w-full max-w-md flex justify-center">
+                <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center">
+                  <button 
+                    onClick={() => setShowGeofenceModal(true)}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
+                  >
+                    <MapPin size={18} /> Definir Área de Atuação (Cerca Virtual)
+                  </button>
+                  
                   <button 
                     onClick={handleProfile}
-                    className="text-blue-600 hover:text-blue-800 underline font-medium"
+                    className="text-gray-600 hover:text-gray-800 underline text-sm"
                   >
-                    Meu Cadastro - Clique Aqui
+                    Meu Cadastro
                   </button>
                 </div>
 
@@ -620,6 +630,12 @@ export default function DriverDashboard() {
           )}
         </div>
       </main>
+
+      {/* Modal de Cerca Virtual */}
+      <GeofenceModal 
+        isOpen={showGeofenceModal} 
+        onClose={() => setShowGeofenceModal(false)} 
+      />
 
       {/* Modal de Encerramento Verificado */}
       {showTerminationModal && (
