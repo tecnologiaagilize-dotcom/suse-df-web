@@ -39,6 +39,9 @@ O objetivo é permitir que motoristas em situação de perigo acionem um alerta 
 *   Endpoint: `POST /verify` (Recebe áudio Base64 + UserID).
 
 ### C. Banco de Dados (Supabase + PostgreSQL)
+*   **PostGIS & Geolocalização:**
+    *   Uso de colunas `GEOGRAPHY(POINT)` para alta precisão.
+    *   Triggers (`sync_geom_from_latlng`) para compatibilidade retroativa com apps antigos.
 *   **RPCs de Segurança:**
     *   `trigger_emergency_rpc`: Cria alertas e impede duplicidade (retorna alerta existente se já ativo).
 *   **Storage:** Bucket `voice-recordings` para armazenar amostras de voz.
@@ -47,18 +50,16 @@ O objetivo é permitir que motoristas em situação de perigo acionem um alerta 
 
 ## 4. Guia de Configuração e Deploy
 
-### 4.1 Variáveis de Ambiente (Frontend)
-No painel da Vercel, configure:
-```bash
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-VITE_BIOMETRY_SERVICE_URL=https://suse-df-web-production.up.railway.app
-```
+### 4.1 Frontend (Leaflet/OSM)
+A versão V1.2 removeu a dependência do Google Maps API em favor do **OpenStreetMap** (via Leaflet).
+*   Não é mais necessário configurar `VITE_GOOGLE_MAPS_API_KEY`.
+*   As dependências `leaflet` e `react-leaflet` são instaladas automaticamente no build.
 
 ### 4.2 Banco de Dados (Scripts SQL)
 Scripts essenciais já rodados:
 1.  `backend/voice_config_setup.sql` (Storage e Tabelas)
 2.  `backend/rpc_trigger_emergency_v2.sql` (Lógica de Alerta)
+3.  `backend/setup_postgis_v2.sql` (Ativação PostGIS + Triggers)
 
 ### 4.3 Serviço Python
 *   Repositório: `backend/biometry_service`
@@ -67,6 +68,11 @@ Scripts essenciais já rodados:
 ---
 
 ## 5. Procedimentos de Teste
+
+### Teste de Mapa e Rota
+1.  Abra o Painel Admin e clique em "Assumir" um alerta.
+2.  O mapa deve carregar (OpenStreetMap) mostrando a posição atual.
+3.  Conforme o motorista se move, uma linha vermelha (Polyline) deve ser desenhada automaticamente.
 
 ### Teste de Biometria (Ponta a Ponta)
 1.  Acesse o Painel do Motorista.
@@ -84,4 +90,4 @@ Scripts essenciais já rodados:
 ---
 
 **Status Final:** Projeto Entregue e Documentado.
-Versão: 1.1 (Voice + PWA Stable Backup)
+Versão: 1.2 (Leaflet + PostGIS + Voice Stable)
