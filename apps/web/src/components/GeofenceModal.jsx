@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { X, MapPin, Check, AlertTriangle } from 'lucide-react';
 
 export default function GeofenceModal({ isOpen, onClose, userId }) {
