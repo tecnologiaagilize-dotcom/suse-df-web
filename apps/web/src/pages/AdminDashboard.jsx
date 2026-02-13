@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2 } from 'lucide-react';
+import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrackingMap from '../components/map/TrackingMap'; 
 import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [showDetailsModal, setShowDetailsModal] = useState(null);
   const [showResolvedModal, setShowResolvedModal] = useState(null);
   const [validationModalAlert, setValidationModalAlert] = useState(null);
+  const [expandedMapId, setExpandedMapId] = useState(null);
   
   // Estados para Compartilhamento em Lote (SIS_GEO)
   const [showShareSelectionModal, setShowShareSelectionModal] = useState(false);
@@ -617,7 +618,26 @@ export default function Dashboard() {
 
                               {/* Coluna da Direita: Mapa */}
                               {/* Lógica de Minimização do Mapa durante Validação */}
-                              <div className={`h-full relative bg-gray-200 transition-all duration-300 ${validationModalAlert && validationModalAlert.id === activeWindow.id ? 'w-0 overflow-hidden opacity-0' : 'w-2/3'}`}>
+                              <div className={`transition-all duration-300 bg-gray-200 relative ${
+                                  expandedMapId === activeWindow.id 
+                                      ? 'fixed inset-0 z-50 w-full h-full' 
+                                      : (validationModalAlert && validationModalAlert.id === activeWindow.id ? 'w-0 h-full overflow-hidden opacity-0' : 'w-2/3 h-full')
+                              }`}>
+                                   <button
+                                      onClick={() => setExpandedMapId(expandedMapId === activeWindow.id ? null : activeWindow.id)}
+                                      className="absolute top-4 right-4 z-[60] bg-white text-gray-800 px-3 py-2 rounded shadow-md font-bold text-xs uppercase hover:bg-gray-50 flex items-center gap-2 border border-gray-300 transition-transform hover:scale-105"
+                                   >
+                                      {expandedMapId === activeWindow.id ? (
+                                          <>
+                                              <Minimize2 size={16} /> REDUZIR MAPA
+                                          </>
+                                      ) : (
+                                          <>
+                                              <Maximize2 size={16} /> AMPLIAR MAPA
+                                          </>
+                                      )}
+                                   </button>
+
                                    <TrackingMap 
                                         lat={activeWindow.current_lat}
                                         lng={activeWindow.current_lng}

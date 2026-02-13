@@ -51,12 +51,12 @@ export const AuthProvider = ({ children }) => {
       // 2. Check if user is Driver (Users table)
       const { data: userData } = await supabase
         .from('users')
-        .select('id')
+        .select('id, role')
         .eq('id', currentUser.id)
         .maybeSingle();
 
       if (userData) {
-        setUserRole('driver');
+        setUserRole(userData.role || 'driver');
         setLoading(false);
         return;
       }
@@ -119,7 +119,7 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Insert into Public Table (if session is active immediately)
     // Note: If email confirmation is enabled, this might fail or need to be done via Trigger
-    if (data?.user && role === 'driver') {
+    if (data?.user && (role === 'driver' || role === 'passenger')) {
       const { error: dbError } = await supabase
         .from('users')
         .insert([
@@ -129,6 +129,7 @@ export const AuthProvider = ({ children }) => {
             name: name,
             phone_number: phone,
             secret_word: emergencyPhrase,
+            role: role
           }
         ]);
       

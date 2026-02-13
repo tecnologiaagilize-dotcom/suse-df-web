@@ -10,6 +10,13 @@ import ForgotPassword from './pages/driver/ForgotPassword';
 import VoiceConfig from './pages/driver/VoiceConfig';
 import DriverProfile from './pages/driver/Profile';
 
+// Passenger Pages
+import PassengerLogin from './pages/passenger/Login';
+import PassengerRegister from './pages/passenger/Register';
+import PassengerDashboard from './pages/passenger/Dashboard';
+import PassengerProfile from './pages/passenger/Profile';
+import PassengerVoiceConfig from './pages/passenger/VoiceConfig';
+
 import AdminDashboardReal from './pages/AdminDashboard';
 
 import AdminLoginReal from './pages/Login';
@@ -44,6 +51,8 @@ const PrivateRoute = ({ children, role }) => {
         if (isStaff) {
             // Evita loop infinito: Se já está tentando ir para o admin, não redireciona de volta
             return <Navigate to="/admin/dashboard" replace />;
+        } else if (userRole === 'passenger') {
+            return <Navigate to="/passenger/dashboard" replace />;
         } else {
             return <Navigate to="/driver/dashboard" replace />;
         }
@@ -101,6 +110,28 @@ function App() {
           <Route path="/driver/profile" element={
             <PrivateRoute role="driver">
               <DriverProfile />
+            </PrivateRoute>
+          } />
+
+          {/* Protected Passenger Routes */}
+          <Route path="/passenger/login" element={<PassengerLogin />} />
+          <Route path="/passenger/register" element={<PassengerRegister />} />
+          
+          <Route path="/passenger/dashboard" element={
+            <PrivateRoute role="passenger">
+              <PassengerDashboard />
+            </PrivateRoute>
+          } />
+
+          <Route path="/passenger/voice-config" element={
+            <PrivateRoute role="passenger">
+              <PassengerVoiceConfig />
+            </PrivateRoute>
+          } />
+
+          <Route path="/passenger/profile" element={
+            <PrivateRoute role="passenger">
+              <PassengerProfile />
             </PrivateRoute>
           } />
 
