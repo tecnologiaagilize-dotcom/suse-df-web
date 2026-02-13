@@ -56,6 +56,7 @@ export const AuthProvider = ({ children }) => {
         .maybeSingle();
 
       if (userData) {
+        console.log('User role from DB:', userData.role);
         setUserRole(userData.role || 'driver');
         setLoading(false);
         return;
