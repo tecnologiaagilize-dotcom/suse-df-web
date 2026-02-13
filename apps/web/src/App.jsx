@@ -24,6 +24,7 @@ import ChangePassword from './pages/admin/ChangePassword';
 import UserManagement from './pages/admin/UserManagement';
 import AuditLogs from './pages/admin/AuditLogs'; // Import added
 import SharedAlert from './pages/public/SharedAlert';
+import HealthCheck from './pages/HealthCheck';
 
 // Protected Route Component
 const PrivateRoute = ({ children, role }) => {
@@ -72,6 +73,7 @@ function App() {
           <Route path="/driver/register" element={<DriverRegister />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/tracking/:token" element={<SharedAlert />} />
+          <Route path="/health" element={<HealthCheck />} />
           
           <Route path="/admin/login" element={<AdminLoginReal />} />
           
