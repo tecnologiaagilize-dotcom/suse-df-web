@@ -402,6 +402,7 @@ export default function Dashboard() {
             *, 
             users (
                 name, 
+                role,
                 phone_number, 
                 email, 
                 photo_url, 
@@ -472,7 +473,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.6</span>
+            Central de Monitoramento <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">v1.2.7</span>
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
@@ -1277,7 +1278,7 @@ export default function Dashboard() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conexão</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motorista</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">USUÁRIO</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horário</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação</th>
@@ -1305,6 +1306,9 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{alert.users?.name || 'Desconhecido'}</div>
+                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                            {alert.users?.role === 'passenger' ? 'PASSAGEIRO' : 'CONDUTOR'}
+                        </div>
                         <div className="text-sm text-gray-500">{alert.users?.phone_number}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
