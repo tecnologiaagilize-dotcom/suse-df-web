@@ -1307,7 +1307,7 @@ export default function Dashboard() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{alert.users?.name || 'Desconhecido'}</div>
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                            {alert.users?.role === 'passenger' ? 'PASSAGEIRO' : 'CONDUTOR'}
+                            {alert.users ? (alert.users.role === 'passenger' ? 'PASSAGEIRO' : 'CONDUTOR') : '-'}
                         </div>
                         <div className="text-sm text-gray-500">{alert.users?.phone_number}</div>
                       </td>
