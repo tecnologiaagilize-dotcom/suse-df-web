@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // 2. Check if user is Driver (Users table)
+      // 2. Check if user is Driver or Passenger (Users table)
       const { data: userData } = await supabase
         .from('users')
         .select('id, role')

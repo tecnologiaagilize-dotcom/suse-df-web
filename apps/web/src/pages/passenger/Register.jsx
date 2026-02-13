@@ -34,7 +34,8 @@ export default function PassengerRegister() {
         role: 'passenger'
       });
       alert('Cadastro realizado! Prossiga para configurar sua voz.');
-      navigate('/passenger/voice-config');
+      // Forçar refresh para garantir que o AuthProvider pegue o novo role correto
+      window.location.href = '/passenger/voice-config';
     } catch (error) {
       setError('Falha ao criar conta: ' + error.message);
     } finally {
