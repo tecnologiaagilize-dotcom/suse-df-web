@@ -87,13 +87,16 @@ export const AuthProvider = ({ children }) => {
     // Verificar se precisa trocar senha (apenas para staff)
     let mustChangePassword = false;
     if (data.user) {
-      const { data: staffData } = await supabase
+      // Tenta buscar staff apenas se o email parecer corporativo ou se não for um usuário comum
+      // Para evitar erro 400 em emails inválidos ou sem permissão de leitura na tabela staff
+      const { data: staffData, error: staffError } = await supabase
         .from('staff')
         .select('must_change_password')
         .eq('email', email)
         .maybeSingle();
       
-      if (staffData?.must_change_password) {
+      // Ignoramos erro aqui pois usuários comuns (passageiro/motorista) não estão na tabela staff
+      if (!staffError && staffData?.must_change_password) {
         mustChangePassword = true;
       }
     }

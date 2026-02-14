@@ -15,8 +15,10 @@ export default function VoiceConfig() {
   const [isSaving, setIsSaving] = useState(false);
   const [configPhrases, setConfigPhrases] = useState([]);
   const [loadingPhrases, setLoadingPhrases] = useState(true);
+  const [currentTranscript, setCurrentTranscript] = useState('');
   
   const mediaRecorderRef = useRef(null);
+  const recognitionRef = useRef(null);
   const audioChunksRef = useRef([]);
 
   const navigate = useNavigate();
@@ -61,12 +63,12 @@ export default function VoiceConfig() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Tentar formatos suportados pelo navegador
+      // 1. Configurar MediaRecorder (Áudio para Biometria)
       let options = { mimeType: 'audio/webm' };
       if (!MediaRecorder.isTypeSupported('audio/webm')) {
           if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
           else if (MediaRecorder.isTypeSupported('audio/ogg')) options = { mimeType: 'audio/ogg' };
-          else options = undefined; // Deixar o navegador decidir
+          else options = undefined;
       }
 
       mediaRecorderRef.current = new MediaRecorder(stream, options);
@@ -79,10 +81,13 @@ export default function VoiceConfig() {
       };
 
       mediaRecorderRef.current.onstop = () => {
-        // Criar blob com o tipo correto
         const blobType = mediaRecorderRef.current.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
         console.log(`Gravação finalizada. Tamanho: ${audioBlob.size}, Tipo: ${blobType}`);
+        
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+        }
         
         if (audioBlob.size < 100) {
             alert("Áudio muito curto ou vazio. Por favor, tente novamente.");
@@ -90,31 +95,49 @@ export default function VoiceConfig() {
         }
 
         if (recordingStep < 3) {
-            // Biometria
             setAudioBlobs(prev => ({ ...prev, [recordingStep]: audioBlob }));
-            
-            // Avançar passo UI
             const newRecordings = [...recordings];
             newRecordings[recordingStep] = true;
             setRecordings(newRecordings);
             setRecordingStep(recordingStep + 1);
         } else {
-            // Frase Secreta
-            setAudioBlobs(prev => {
-                const newState = { ...prev, 'emergency': audioBlob };
-                return newState;
-            });
+            setAudioBlobs(prev => ({ ...prev, 'emergency': audioBlob }));
             setPhraseAudioRecorded(true);
         }
         
-        // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
-        setIsRecording(false); // Garantir estado
+        setIsRecording(false);
+        setCurrentTranscript(''); // Limpar transcrição ao finalizar
       };
 
-      // Gravar em chunks de 100ms para garantir dados mesmo em gravações curtas
+      // 2. Configurar SpeechRecognition (Feedback Visual)
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'pt-BR';
+          
+          recognition.onresult = (event) => {
+              let interimTranscript = '';
+              for (let i = event.resultIndex; i < event.results.length; i++) {
+                  const transcript = event.results[i][0].transcript;
+                  if (event.results[i].isFinal) {
+                      interimTranscript += transcript;
+                  } else {
+                      interimTranscript += transcript;
+                  }
+              }
+              setCurrentTranscript(interimTranscript);
+          };
+          
+          recognition.start();
+          recognitionRef.current = recognition;
+      }
+
       mediaRecorderRef.current.start(100); 
       setIsRecording(true);
+      setCurrentTranscript('Ouvindo...');
 
     } catch (err) {
       console.error("Erro ao acessar microfone:", err);
@@ -129,7 +152,9 @@ export default function VoiceConfig() {
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      // O estado isRecording será atualizado no onstop
+    }
+    if (recognitionRef.current) {
+        recognitionRef.current.stop();
     }
   };
 
@@ -258,8 +283,8 @@ export default function VoiceConfig() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-red-100 rounded-full">
-              <Mic className="h-8 w-8 text-red-600" />
+            <div className="p-3 bg-blue-100 rounded-full">
+              <Mic className="h-8 w-8 text-blue-600" />
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
@@ -284,11 +309,11 @@ export default function VoiceConfig() {
             <p className="text-gray-500">Seu perfil biométrico e frase de emergência foram salvos e os áudios enviados para análise segura.</p>
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm font-medium text-gray-700">Sua frase secreta:</p>
-              <p className="text-lg font-bold text-red-600">"{emergencyPhrase}"</p>
+              <p className="text-lg font-bold text-blue-600">"{emergencyPhrase}"</p>
             </div>
             <button
               onClick={handleFinish}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Ir para o Painel
             </button>
@@ -310,8 +335,8 @@ export default function VoiceConfig() {
                 onTouchEnd={stopRecording}
                 className={`p-6 rounded-full transition-all select-none touch-none ${
                   isRecording 
-                    ? 'bg-red-100 text-red-600 scale-110 ring-4 ring-red-200' 
-                    : 'bg-red-600 text-white hover:bg-red-700 shadow-lg'
+                    ? 'bg-blue-100 text-blue-600 scale-110 ring-4 ring-blue-200' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
                 }`}
               >
                 {isRecording ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
@@ -321,6 +346,13 @@ export default function VoiceConfig() {
             <p className="text-center text-sm text-gray-500">
               {isRecording ? 'Solte para parar de gravar' : 'Segure o botão para gravar a frase'}
             </p>
+            
+            {/* Feedback de Transcrição */}
+            {currentTranscript && (
+                <div className="text-center text-sm text-blue-600 italic font-medium animate-pulse">
+                    Ouvindo: "{currentTranscript}..."
+                </div>
+            )}
 
             <div className="flex justify-center space-x-2">
               {[0, 1, 2].map((step) => (
@@ -330,7 +362,7 @@ export default function VoiceConfig() {
                     step < recordingStep || (step === recordingStep && recordings[step])
                       ? 'bg-green-500'
                       : step === recordingStep
-                      ? 'bg-red-500'
+                      ? 'bg-blue-500'
                       : 'bg-gray-300'
                   }`}
                 />
@@ -351,7 +383,7 @@ export default function VoiceConfig() {
                 <label className="block text-sm font-medium text-gray-700">Digite sua frase (min. 2 palavras):</label>
                 <input
                  type="text"
-                 className="appearance-none rounded-md block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                 className="appearance-none rounded-md block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                  placeholder="Ex: banana azul"
                  value={emergencyPhrase}
                  onChange={(e) => setEmergencyPhrase(e.target.value)}
@@ -367,7 +399,7 @@ export default function VoiceConfig() {
                 disabled={isSaving || emergencyPhrase.length < 3}
                 className={`p-4 rounded-full transition-all flex items-center space-x-2 select-none touch-none ${
                   isRecording 
-                    ? 'bg-red-100 text-red-600 scale-105' 
+                    ? 'bg-blue-100 text-blue-600 scale-105' 
                     : phraseAudioRecorded
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -383,11 +415,18 @@ export default function VoiceConfig() {
                 </span>
               </button>
             </div>
+            
+            {/* Feedback de Transcrição para Frase de Emergência */}
+            {currentTranscript && (
+                <div className="text-center text-sm text-blue-600 italic font-medium animate-pulse">
+                    Ouvindo: "{currentTranscript}..."
+                </div>
+            )}
 
             <button
               onClick={handleSavePhrase}
               disabled={emergencyPhrase.trim().split(' ').length < 2 || (!phraseAudioRecorded && !audioBlobs['emergency']) || isSaving}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {isSaving ? (
                   <>

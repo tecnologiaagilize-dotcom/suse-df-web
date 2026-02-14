@@ -481,13 +481,6 @@ export default function PassengerDashboard() {
                            <CheckCircle size={20} /> Finalizar Ocorrência
                         </button>
                     )}
-
-                    <button 
-                       onClick={() => navigate('/passenger/health')}
-                       className="w-full px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
-                    >
-                       <Activity size={20} /> Ver Ficha Médica (QR)
-                    </button>
                 </div>
              </div>
           ) : (

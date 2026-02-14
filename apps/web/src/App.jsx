@@ -192,8 +192,8 @@ function App() {
           } />
           
           {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/driver/login" replace />} />
-          <Route path="*" element={<Navigate to="/driver/login" replace />} />
+          <Route path="/" element={<Navigate to="/passenger/login" replace />} />
+          <Route path="*" element={<Navigate to="/passenger/login" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
