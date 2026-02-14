@@ -395,7 +395,7 @@ export default function PassengerDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v1.3.0</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v1.3.1</span>
               </h1>
             </div>
             <div className="flex items-center">

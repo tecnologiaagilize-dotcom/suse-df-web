@@ -340,8 +340,8 @@ export default function PassengerProfile() {
                 <Save className="h-5 w-5 mr-2" /> {saving ? 'Salvando...' : 'Salvar Alterações e Sair'}
               </button>
 
-              <button onClick={() => navigate('/passenger/voice-config')} className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <Mic className="h-5 w-5 mr-2 text-gray-500" /> Configurar Frases e Voz
+              <button onClick={() => navigate('/passenger/voice-config')} className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                <Mic className="h-5 w-5 mr-2 text-white" /> Configurar Frases e Voz
               </button>
             </div>
           </div>
