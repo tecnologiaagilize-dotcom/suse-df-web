@@ -583,7 +583,7 @@ export default function DriverDashboard() {
                                 </div>
                             )}
 
-                            {terminationStatus !== 'resolved_success' && (
+                    {terminationStatus !== 'resolved_success' && (
                                 <div className="text-left bg-yellow-900/30 p-4 rounded text-sm text-yellow-100 space-y-2 border border-yellow-800">
                                     <p className="font-bold flex items-center gap-2"><MapPin size={16}/> Instruções:</p>
                                     <ol className="list-decimal pl-5 space-y-1">
