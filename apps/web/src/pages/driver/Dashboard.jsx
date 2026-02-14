@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.2.2 - Dead Zones");
+  console.log("SUSE-DF DriverDashboard V1.3.0 - Dead Zones");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -487,7 +487,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Painel do Condutor <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">v1.2.9</span>
+                Painel do Condutor <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">v1.3.0</span>
               </h1>
             </div>
             <div className="flex items-center">
