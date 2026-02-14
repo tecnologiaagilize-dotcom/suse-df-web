@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -475,6 +475,10 @@ export default function DriverDashboard() {
     navigate('/driver/profile');
   };
 
+  const handleHealth = () => {
+    navigate('/driver/health');
+  };
+
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
@@ -483,7 +487,7 @@ export default function DriverDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v1.2.7</span>
+                Painel do Condutor <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">v1.2.9</span>
               </h1>
             </div>
             <div className="flex items-center">
@@ -647,6 +651,13 @@ export default function DriverDashboard() {
                     <MapPin size={18} /> Definir Área de Atuação (Cerca Virtual)
                   </button>
                   
+                  <button 
+                    onClick={handleHealth}
+                    className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-800 font-medium bg-red-50 px-4 py-2 rounded-full border border-red-200"
+                  >
+                    <HeartPulse size={18} /> Minha Saúde
+                  </button>
+
                   <button 
                     onClick={handleProfile}
                     className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"

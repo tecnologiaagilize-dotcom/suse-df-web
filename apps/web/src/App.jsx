@@ -16,6 +16,13 @@ import PassengerRegister from './pages/passenger/Register';
 import PassengerDashboard from './pages/passenger/Dashboard';
 import PassengerProfile from './pages/passenger/Profile';
 import PassengerVoiceConfig from './pages/passenger/VoiceConfig';
+import HealthProfile from './pages/passenger/health/HealthProfile';
+
+// Professional Pages
+import ProfessionalLogin from './pages/professional/Login';
+import ProfessionalDashboard from './pages/professional/Dashboard';
+import ProfessionalQRScanner from './pages/professional/QRScanner';
+import PatientRecord from './pages/professional/PatientRecord';
 
 import AdminDashboardReal from './pages/AdminDashboard';
 
@@ -24,7 +31,8 @@ import ChangePassword from './pages/admin/ChangePassword';
 import UserManagement from './pages/admin/UserManagement';
 import AuditLogs from './pages/admin/AuditLogs'; // Import added
 import SharedAlert from './pages/public/SharedAlert';
-import HealthCheck from './pages/HealthCheck';
+// import HealthCheck from './pages/public/HealthCheck'; // Substituído pelo Guard
+import HealthAccessGuard from './pages/public/HealthAccessGuard';
 
 // Protected Route Component
 const PrivateRoute = ({ children, role }) => {
@@ -42,9 +50,14 @@ const PrivateRoute = ({ children, role }) => {
      const isStaff = ['admin', 'operator', 'supervisor', 'master'].includes(userRole);
      const requiredAdminAccess = ['admin', 'operator', 'supervisor', 'master'].includes(role);
      
+     // Profissionais de Saúde
+     const isProfessional = userRole === 'professional';
+
      // Se for staff acessando rota de staff, permite
      if (isStaff && requiredAdminAccess) {
          // Permite acesso
+     } else if (isProfessional && role === 'professional') {
+         // Permite acesso profissional
      } else {
         console.warn(`Acesso negado. Requer: ${role}, Usuário é: ${userRole}`);
         
@@ -54,6 +67,8 @@ const PrivateRoute = ({ children, role }) => {
             return <Navigate to="/admin/dashboard" replace />;
         } else if (userRole === 'passenger') {
             return <Navigate to="/passenger/dashboard" replace />;
+        } else if (isProfessional) {
+            return <Navigate to="/professional/dashboard" replace />;
         } else {
             return <Navigate to="/driver/dashboard" replace />;
         }
@@ -73,7 +88,7 @@ function App() {
           <Route path="/driver/register" element={<DriverRegister />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/tracking/:token" element={<SharedAlert />} />
-          <Route path="/health" element={<HealthCheck />} />
+          <Route path="/health/check/:token" element={<HealthAccessGuard />} />
           
           <Route path="/admin/login" element={<AdminLoginReal />} />
           
@@ -96,6 +111,25 @@ function App() {
             </PrivateRoute>
           } />
 
+          {/* Protected Professional Routes */}
+          <Route path="/professional/login" element={<ProfessionalLogin />} />
+          <Route path="/professional/dashboard" element={
+            <PrivateRoute role="professional">
+              <ProfessionalDashboard />
+            </PrivateRoute>
+          } />
+          <Route path="/professional/scan" element={
+            <PrivateRoute role="professional">
+              <ProfessionalQRScanner />
+            </PrivateRoute>
+          } />
+          
+          <Route path="/professional/patient/:token" element={
+            <PrivateRoute role="professional">
+              <PatientRecord />
+            </PrivateRoute>
+          } />
+
           {/* Protected Driver Routes */}
           <Route path="/driver/dashboard" element={
             <PrivateRoute role="driver">
@@ -112,6 +146,12 @@ function App() {
           <Route path="/driver/profile" element={
             <PrivateRoute role="driver">
               <DriverProfile />
+            </PrivateRoute>
+          } />
+
+          <Route path="/driver/health" element={
+            <PrivateRoute role="driver">
+              <HealthProfile />
             </PrivateRoute>
           } />
 
@@ -134,6 +174,12 @@ function App() {
           <Route path="/passenger/profile" element={
             <PrivateRoute role="passenger">
               <PassengerProfile />
+            </PrivateRoute>
+          } />
+
+          <Route path="/passenger/health" element={
+            <PrivateRoute role="passenger">
+              <HealthProfile />
             </PrivateRoute>
           } />
 

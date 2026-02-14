@@ -53,8 +53,12 @@ export default function DriverLogin() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">SUSE-DF</h2>
-          <p className="mt-2 text-sm text-gray-600">Acesso do Condutor <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full">v1.2.7</span></p>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Login Condutor
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Sistema Unificado de Socorro e Emergência <span className="font-mono text-xs bg-gray-100 px-1 rounded">v1.2.9</span>
+          </p>
         </div>
 
         {error && (

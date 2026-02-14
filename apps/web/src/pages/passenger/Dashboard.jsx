@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
+import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Estado para Modal de Cerca Virtual
+  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
 
   // Estados de Emergência e Alerta
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
@@ -391,7 +395,7 @@ export default function PassengerDashboard() {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <AlertTriangle className="text-red-600" />
-                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v1.2.7</span>
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">v1.2.9</span>
               </h1>
             </div>
             <div className="flex items-center">
@@ -468,14 +472,23 @@ export default function PassengerDashboard() {
                     )}
                 </div>
                 
-                {terminationStatus === 'idle' && (
+                <div className="mt-8 w-full max-w-xs flex flex-col gap-3">
+                    {terminationStatus === 'idle' && (
+                        <button 
+                           onClick={() => setShowTerminationModal(true)}
+                           className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-2"
+                        >
+                           <CheckCircle size={20} /> Finalizar Ocorrência
+                        </button>
+                    )}
+
                     <button 
-                       onClick={() => setShowTerminationModal(true)}
-                       className="mt-8 px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2"
+                       onClick={() => navigate('/passenger/health')}
+                       className="w-full px-6 py-3 bg-white/10 text-white border border-white/30 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
                     >
-                       <CheckCircle size={20} /> Finalizar Ocorrência
+                       <Activity size={20} /> Ver Ficha Médica (QR)
                     </button>
-                )}
+                </div>
              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
@@ -512,10 +525,23 @@ export default function PassengerDashboard() {
 
                 <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center">
                   <button 
+                    onClick={() => setShowGeofenceModal(true)}
+                    className="w-full flex items-center justify-center gap-2 text-green-600 hover:text-green-800 font-medium bg-green-50 px-4 py-2 rounded-full border border-green-200"
+                  >
+                    <MapPin size={18} /> Definir Área de Segurança (Cerca Virtual)
+                  </button>
+
+                  <button 
                     onClick={handleProfile}
                     className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
                   >
                     <User size={18} /> Meu Cadastro
+                  </button>
+                  <button 
+                    onClick={() => navigate('/passenger/health')}
+                    className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-800 font-medium bg-red-50 px-4 py-2 rounded-full border border-red-200"
+                  >
+                    <HeartPulse size={18} /> Minha Saúde
                   </button>
                 </div>
 
@@ -536,6 +562,13 @@ export default function PassengerDashboard() {
           )}
         </div>
       </main>
+
+      {/* Modal de Cerca Virtual */}
+      <GeofenceModal 
+        isOpen={showGeofenceModal} 
+        onClose={() => setShowGeofenceModal(false)}
+        userId={user?.id}
+      />
 
       {/* Modal de Encerramento Verificado */}
       {showTerminationModal && (

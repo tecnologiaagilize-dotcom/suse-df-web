@@ -473,7 +473,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" />
-            Central de Monitoramento <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">v1.2.7</span>
+            Central de Monitoramento <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">v1.2.9</span>
           </h1>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (

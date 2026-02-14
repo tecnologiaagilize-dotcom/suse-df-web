@@ -1,7 +1,7 @@
 {
   "name": "suse-df-web",
   "private": true,
-  "version": "1.2.7",
+  "version": "1.2.9",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
@@ -13,10 +13,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ricky0123/vad-web": "^0.0.30",
     "@supabase/supabase-js": "^2.39.3",
+    "@tensorflow-models/speech-commands": "^0.5.4",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@yudiel/react-qr-scanner": "^1.2.10",
     "face-api.js": "^0.22.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.309.0",
+    "onnxruntime-web": "^1.24.1",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
