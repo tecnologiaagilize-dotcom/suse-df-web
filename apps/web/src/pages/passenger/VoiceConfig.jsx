@@ -259,6 +259,7 @@ export default function PassengerVoiceConfig() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
+          <p className="text-xs text-gray-400 mb-4">Versão 1.2.9 - Build {new Date().toISOString().slice(0,16)}</p>
           {recordingStep < 3 && !success && (
             <p className="mt-2 text-sm text-gray-600">
               Precisamos gravar 3 frases para criar seu perfil de segurança.
