@@ -57,7 +57,7 @@ export default function DriverLogin() {
             Login Condutor
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sistema Unificado de Socorro e Emergência <span className="font-mono text-xs bg-gray-100 px-1 rounded">v1.3.1</span>
+            Sistema Unificado de Socorro e Emergência <span className="font-mono text-xs bg-gray-100 px-1 rounded">v1.2.9</span>
           </p>
         </div>
 
