@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
+    react( ),
     VitePWA({
       selfDestroying: true, // NUCLEAR OPTION: Destrói o SW existente para limpar cache
       registerType: 'autoUpdate',
@@ -52,7 +52,7 @@ export default defineConfig({
             }
           },
           {
-            // Estratégia para API (Background Sync seria ideal aqui, mas requer SW customizado)
+            // Estratégia para API (Background Sync seria ideal aqui, mas requer SW customizado )
             // Para 'generateSW', vamos garantir que não cacheie API calls críticas
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
             handler: 'NetworkOnly',
@@ -67,8 +67,17 @@ export default defineConfig({
           }
         ]
       }
-    })
+    } )
   ],
+  // --- INÍCIO DA CORREÇÃO ---
+  // Adiciona um alias para resolver a dependência do módulo 'util' do Node.js
+  // que é requerido pelo @tensorflow-models/speech-commands.
+  resolve: {
+    alias: {
+      util: 'util/',
+    },
+  },
+  // --- FIM DA CORREÇÃO ---
   esbuild: {
     // Preserva nomes para evitar erro "H is not a function" em produção
     keepNames: true
