@@ -7,15 +7,15 @@ export default defineConfig({
   plugins: [
     react( ),
     VitePWA({
-      selfDestroying: true, // NUCLEAR OPTION: Destrói o SW existente para limpar cache
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'SUSE-DF Emergência',
         short_name: 'SUSE-DF',
         description: 'Sistema Unificado de Segurança e Emergência do Distrito Federal',
-        theme_color: '#dc2626', // Vermelho emergência
-        background_color: '#1f2937', // Cinza escuro
+        theme_color: '#dc2626',
+        background_color: '#1f2937',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -37,14 +37,13 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // Cache para tiles do mapa (OpenStreetMap) para funcionar offline
             urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'osm-tiles',
               expiration: {
                 maxEntries: 500,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 dias
+                maxAgeSeconds: 60 * 60 * 24 * 30
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -52,15 +51,13 @@ export default defineConfig({
             }
           },
           {
-            // Estratégia para API (Background Sync seria ideal aqui, mas requer SW customizado )
-            // Para 'generateSW', vamos garantir que não cacheie API calls críticas
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
             handler: 'NetworkOnly',
             options: {
                 backgroundSync: {
                     name: 'supabase-queue',
                     options: {
-                        maxRetentionTime: 24 * 60 // Tentar reenviar por 24 horas
+                        maxRetentionTime: 24 * 60
                     }
                 }
             }
@@ -69,21 +66,19 @@ export default defineConfig({
       }
     } )
   ],
-  // --- INÍCIO DA CORREÇÃO ---
-  // Adiciona um alias para resolver a dependência do módulo 'util' do Node.js
-  // que é requerido pelo @tensorflow-models/speech-commands.
+  // --- CORREÇÃO APLICADA ---
   resolve: {
     alias: {
-      util: 'util/',
+      // A barra no final foi removida para que o Vite resolva o pacote corretamente.
+      util: 'util',
     },
   },
   // --- FIM DA CORREÇÃO ---
   esbuild: {
-    // Preserva nomes para evitar erro "H is not a function" em produção
     keepNames: true
   },
   build: {
-    chunkSizeWarningLimit: 2000, // Aumentado para 2MB para evitar alertas falsos
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -103,7 +98,6 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'vendor-ui';
             }
-            // Outras dependências menores ficam num chunk genérico ou no index se forem muito pequenas
             return 'vendor-utils'; 
           }
         }
