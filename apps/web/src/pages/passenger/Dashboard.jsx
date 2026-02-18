@@ -27,6 +27,7 @@ export default function PassengerDashboard() {
   // Estados para Finalização e Modais
   const [showTerminationModal, setShowTerminationModal] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
+  const [isProcessingSOS, setIsProcessingSOS] = useState(false); // Novo estado de carregamento do SOS
   const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
   
   // Estados de Voz e Token de Segurança
@@ -223,12 +224,13 @@ export default function PassengerDashboard() {
   }, [isEmergencyActive, activeAlertId]);
 
   const handleSOS = async (trigger = 'button') => {
-    if (isEmergencyActive) return;
+    if (isEmergencyActive || isProcessingSOS) return;
 
+    setIsProcessingSOS(true); // Inicia carregamento visual
     try {
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       
-      let latitude = -15.793889; 
+      let latitude = -15.793889;  
       let longitude = -47.882778;
 
       try {
@@ -555,6 +557,15 @@ export default function PassengerDashboard() {
           )}
         </div>
       </main>
+
+      {/* Modal de Carregamento SOS */}
+      {isProcessingSOS && (
+          <div className="fixed inset-0 bg-red-900/90 z-50 flex flex-col items-center justify-center p-4 animate-pulse">
+              <AlertTriangle className="h-24 w-24 text-white mb-4 animate-bounce" />
+              <h2 className="text-3xl font-bold text-white text-center">ENVIANDO ALERTA...</h2>
+              <p className="text-white/80 mt-2 text-center">Aguarde a confirmação da central</p>
+          </div>
+      )}
 
       {/* Modal de Cerca Virtual */}
       <GeofenceModal 

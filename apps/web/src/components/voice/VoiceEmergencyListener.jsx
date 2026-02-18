@@ -122,10 +122,8 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
       
       if (isValid) {
           onEmergencyDetected();
-          setTimeout(() => {
-              setIsAnalyzing(false);
-              isAnalyzingRef.current = false;
-          }, 3000);
+          setIsAnalyzing(false);
+          isAnalyzingRef.current = false;
       } else {
           // Em modo offline/crítico, a detecção da Wake Word tem peso alto.
           // Se a biometria falhar, ainda acionamos (pode ser voz alterada por stress)
@@ -240,11 +238,8 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
             
             if (isValid) {
                 onEmergencyDetected();
-                // Mantém isAnalyzing true por um tempo para feedback visual
-                setTimeout(() => {
-                    setIsAnalyzing(false);
-                    isAnalyzingRef.current = false;
-                }, 3000);
+                setIsAnalyzing(false);
+                isAnalyzingRef.current = false;
             } else {
                 console.warn("Biometria de voz falhou ou inconclusiva.");
                 // Em caso de dúvida crítica (score médio), podemos pedir confirmação ou acionar silencioso
