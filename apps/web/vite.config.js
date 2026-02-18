@@ -77,22 +77,12 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Isola apenas o face-api.js por ser muito grande e específico
             if (id.includes('face-api.js')) {
               return 'vendor-face-api';
             }
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('leaflet') || id.includes('react-leaflet') || id.includes('@react-google-maps')) {
-              return 'vendor-maps';
-            }
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-ui';
-            }
-            return 'vendor-utils'; 
+            // Mantém todas as outras dependências juntas para evitar erros de ordem de importação/referência circular
+            return 'vendor'; 
           }
         }
       }
