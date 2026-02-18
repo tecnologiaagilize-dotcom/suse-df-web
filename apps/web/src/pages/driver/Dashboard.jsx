@@ -598,12 +598,14 @@ export default function DriverDashboard() {
                 </div>
                 
                 {terminationStatus === 'idle' && (
-                    <button 
-                       onClick={() => setShowTerminationModal(true)}
-                       className="mt-8 px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2"
-                    >
-                       <CheckCircle size={20} /> Finalizar Ocorrência
-                    </button>
+                    <div className="w-full max-w-xs mt-8">
+                        <button 
+                           onClick={() => setShowTerminationModal(true)}
+                           className="w-full px-6 py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-3 uppercase tracking-wider"
+                        >
+                           <CheckCircle size={24} /> Finalizar Ocorrência
+                        </button>
+                    </div>
                 )}
              </div>
           ) : (

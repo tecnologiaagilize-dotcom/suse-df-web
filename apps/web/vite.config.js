@@ -9,7 +9,6 @@ export default defineConfig({
     react( ),
     nodePolyfills(), // Adiciona os polyfills necessários para módulos do Node como 'util'
     VitePWA({
-      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
