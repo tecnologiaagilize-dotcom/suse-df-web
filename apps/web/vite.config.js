@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@tensorflow/tfjs-core': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs-core'),
+      '@tensorflow/tfjs-converter': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs-converter'),
+      '@tensorflow/tfjs-data': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs-data'),
+      '@tensorflow/tfjs-layers': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs-layers'),
+      '@tensorflow/tfjs-backend-webgl': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs-backend-webgl'),
+      '@tensorflow/tfjs-backend-cpu': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs-backend-cpu'),
+    }
+  },
   optimizeDeps: {
     include: [
       '@tensorflow/tfjs',
