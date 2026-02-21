@@ -29,22 +29,50 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
   const workletNodeRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Hook Anti-Standby
+  // Hook Anti-Standby (Tela)
   const { isLocked, requestWakeLock, releaseWakeLock } = useWakeLock();
+  
+  // Hack Audio Background (Áudio Silencioso)
+  const silenceAudioRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
 
-  // Ativar Wake Lock quando o monitoramento estiver ativo
+  // Gerenciar Wake Lock e Áudio de Background
   useEffect(() => {
     if (isActive) {
         requestWakeLock();
+        
+        // Iniciar áudio silencioso para manter processamento em background (Android/iOS workaround)
+        if (!silenceAudioRef.current) {
+            // MP3 de 1 segundo de silêncio
+            const silenceBase64 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjIwLjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAP//OEAAAAAAAAAAAAAAAAAAAAAAAAMwAAAANHUAICAAACAAICAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAP//OEAAAAAAAAAAAAAAAAAAAAAAAAMwAAAANHUAICAAACAAICAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAP//OEAAAAAAAAAAAAAAAAAAAAAAAAMwAAAANHUAICAAACAAICAAAAAAAAAAA';
+            const audio = new Audio(silenceBase64);
+            audio.loop = true;
+            audio.volume = 0.01; // Mínimo volume para ser considerado "ativo"
+            
+            // Tentar tocar (pode exigir interação do usuário antes)
+            audio.play().then(() => {
+                console.log("[Background] Áudio silencioso ativo (Keep-Alive).");
+            }).catch(e => {
+                console.warn("[Background] Falha ao iniciar áudio silencioso (Autoplay policy):", e);
+            });
+            
+            silenceAudioRef.current = audio;
+        }
     } else {
         releaseWakeLock();
+        if (silenceAudioRef.current) {
+            silenceAudioRef.current.pause();
+            silenceAudioRef.current = null;
+        }
     }
-    return () => releaseWakeLock();
+    return () => {
+        releaseWakeLock();
+        if (silenceAudioRef.current) silenceAudioRef.current.pause();
+    };
   }, [isActive, requestWakeLock, releaseWakeLock]);
 
   // Inicializar AudioWorklet (Core v2) e Wake Word
