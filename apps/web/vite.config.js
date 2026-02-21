@@ -9,6 +9,9 @@ export default defineConfig({
       '@tensorflow/tfjs-core': '@tensorflow/tfjs',
       '@tensorflow/tfjs-converter': '@tensorflow/tfjs',
       '@tensorflow/tfjs-data': '@tensorflow/tfjs',
+      '@tensorflow/tfjs-layers': '@tensorflow/tfjs',
+      '@tensorflow/tfjs-backend-webgl': '@tensorflow/tfjs',
+      '@tensorflow/tfjs-backend-cpu': '@tensorflow/tfjs',
     }
   },
   plugins: [
