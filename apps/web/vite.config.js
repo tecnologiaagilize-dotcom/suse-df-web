@@ -4,6 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@tensorflow/tfjs-core': '@tensorflow/tfjs',
+      '@tensorflow/tfjs-converter': '@tensorflow/tfjs',
+      '@tensorflow/tfjs-data': '@tensorflow/tfjs',
+    }
+  },
   plugins: [
     react(),
     VitePWA({
