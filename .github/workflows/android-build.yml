@@ -35,9 +35,9 @@ jobs:
         working-directory: ./apps/web
         run: npm run build
 
-      - name: Add Android Platform
+      - name: Sync Android Platform
         working-directory: ./apps/web
-        run: npx cap add android
+        run: npx cap sync android
 
       - name: Fix ProGuard Config
         working-directory: ./apps/web/android/app
