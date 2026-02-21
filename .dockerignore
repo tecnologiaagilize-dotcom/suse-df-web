@@ -1,0 +1,10 @@
+.git
+node_modules/
+backups/
+apps/web/node_modules/
+apps/web/dist/
+docs/
+.env
+.env.local
+.DS_Store
+*.md

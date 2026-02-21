@@ -1,0 +1,7 @@
+# ... (existente)
+backups/
+apps/web/node_modules/
+.env
+.DS_Store
+*.zip
+node_modules

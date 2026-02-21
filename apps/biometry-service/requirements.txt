@@ -1,0 +1,23 @@
+# Core
+fastapi==0.109.0
+uvicorn==0.27.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Database
+supabase==2.3.0
+
+# AI / Audio
+# Instalar numpy antes para evitar erros de build
+numpy<2.0.0
+
+# PyTorch CPU (leve) - será instalado via flag no Dockerfile ou aqui com index-url
+# Mas para garantir, vamos deixar sem versão fixa e confiar no --extra-index-url do pip
+torchaudio>=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+
+# SpeechBrain (versão mais recente compatível)
+speechbrain==0.5.16
+transformers
+huggingface-hub

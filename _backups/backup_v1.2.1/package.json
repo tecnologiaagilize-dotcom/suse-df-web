@@ -1,0 +1,13 @@
+{
+  "name": "suse-df-root",
+  "private": true,
+  "scripts": {
+    "build": "cd apps/web && npm install && npm run build"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
+}

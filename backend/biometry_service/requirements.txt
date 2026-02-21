@@ -1,0 +1,12 @@
+# Biometry Service Requirements
+fastapi==0.109.0
+uvicorn==0.27.0
+python-multipart==0.0.6
+torch==2.1.2
+torchaudio==2.1.2
+numpy==1.26.3
+scipy==1.11.4
+speechbrain==0.5.16
+transformers==4.36.2
+supabase==2.3.0
+python-dotenv==1.0.0

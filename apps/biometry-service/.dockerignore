@@ -1,0 +1,19 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.DS_Store
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+# Ignorar pastas irmãs se o contexto for a raiz (segurança extra)
+apps/web/
+backups/
+docs/
+node_modules/
