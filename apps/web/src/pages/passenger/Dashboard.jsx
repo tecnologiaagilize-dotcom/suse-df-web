@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse, Copy } from 'lucide-react';
@@ -7,10 +7,18 @@ import { supabase } from '../../lib/supabase';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
+import { useGeolocation } from '../../hooks/useGeolocation'; // Hook Híbrido
 
 export default function PassengerDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Hook de Geolocalização (Web + Native Background)
+  const { position: geoPosition, error: geoError } = useGeolocation({ 
+      enableHighAccuracy: true, 
+      timeout: 10000, 
+      maximumAge: 0 
+  });
 
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
@@ -68,21 +76,25 @@ export default function PassengerDashboard() {
       }
   };
 
+  // Atualizar currentLocation sempre que o hook trouxer nova posição
+  useEffect(() => {
+      if (geoPosition) {
+          setCurrentLocation({ 
+              lat: geoPosition.latitude, 
+              lng: geoPosition.longitude,
+              speed: geoPosition.speed,
+              heading: geoPosition.heading,
+              accuracy: geoPosition.accuracy
+          });
+      }
+  }, [geoPosition]);
+
   // Função para enviar atualização de localização (Rastreamento)
   const sendLocationUpdate = async (alertId) => {
-    if (!alertId) return;
+    if (!alertId || !geoPosition) return;
     
     try {
-        const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-            });
-        });
-
-        const { latitude, longitude, speed, heading, accuracy } = position.coords;
-        setCurrentLocation({ lat: latitude, lng: longitude });
+        const { latitude, longitude, speed, heading, accuracy } = geoPosition;
 
         // Enviar para tabela de rastreamento (location_updates)
         const { error } = await supabase.from('location_updates').insert({

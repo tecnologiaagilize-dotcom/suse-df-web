@@ -1,0 +1,62 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Dependencies
+        working-directory: ./apps/web
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Web App
+        working-directory: ./apps/web
+        run: npm run build
+
+      - name: Add Android Platform
+        working-directory: ./apps/web
+        run: npx cap add android
+
+      # Correção Automática do ProGuard (Evitar erro de EvalIssueException)
+      - name: Fix ProGuard Config
+        working-directory: ./apps/web/android/app
+        run: |
+          sed -i 's/proguard-android.txt/proguard-android-optimize.txt/g' build.gradle
+
+      # Correção de Permissões de GPS no Manifesto
+      # Inserir permissões extras se o template padrão não tiver
+      - name: Add GPS Permissions
+        working-directory: ./apps/web/android/app/src/main
+        run: |
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' AndroidManifest.xml
+
+      - name: Build APK
+        working-directory: ./apps/web/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: suse-df-debug-apk
+          path: apps/web/android/app/build/outputs/apk/debug/app-debug.apk
