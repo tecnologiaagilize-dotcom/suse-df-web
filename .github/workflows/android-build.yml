@@ -50,8 +50,12 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Rename APK
+        working-directory: ./apps/web/android/app/build/outputs/apk/debug
+        run: mv app-debug.apk SUSE-DF.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: suse-df-debug-apk
-          path: apps/web/android/app/build/outputs/apk/debug/app-debug.apk
+          name: SUSE-DF-APK
+          path: apps/web/android/app/build/outputs/apk/debug/SUSE-DF.apk
