@@ -4,15 +4,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@tensorflow/tfjs-core': '@tensorflow/tfjs',
-      '@tensorflow/tfjs-converter': '@tensorflow/tfjs',
-      '@tensorflow/tfjs-data': '@tensorflow/tfjs',
-      '@tensorflow/tfjs-layers': '@tensorflow/tfjs',
-      '@tensorflow/tfjs-backend-webgl': '@tensorflow/tfjs',
-      '@tensorflow/tfjs-backend-cpu': '@tensorflow/tfjs',
-    }
+  optimizeDeps: {
+    include: [
+      '@tensorflow/tfjs',
+      '@tensorflow/tfjs-core',
+      '@tensorflow/tfjs-converter',
+      '@tensorflow/tfjs-data',
+      '@tensorflow/tfjs-layers',
+      '@tensorflow/tfjs-backend-webgl',
+      '@tensorflow/tfjs-backend-cpu',
+      '@tensorflow-models/speech-commands'
+    ]
   },
   plugins: [
     react(),
@@ -50,7 +52,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // Cache para tiles do mapa (OpenStreetMap) para funcionar offline
             urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*$/,
             handler: 'CacheFirst',
             options: {
@@ -65,15 +66,13 @@ export default defineConfig({
             }
           },
           {
-            // Estratégia para API (Background Sync seria ideal aqui, mas requer SW customizado)
-            // Para 'generateSW', vamos garantir que não cacheie API calls críticas
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
             handler: 'NetworkOnly',
             options: {
                 backgroundSync: {
                     name: 'supabase-queue',
                     options: {
-                        maxRetentionTime: 24 * 60 // Tentar reenviar por 24 horas
+                        maxRetentionTime: 24 * 60 // 24 horas
                     }
                 }
             }
@@ -83,10 +82,12 @@ export default defineConfig({
     })
   ],
   esbuild: {
-    // Preserva nomes para evitar erro "H is not a function" em produção
     keepNames: true
   },
   build: {
+    commonjsOptions: {
+      include: [/node_modules\/@tensorflow/, /node_modules\/@tensorflow-models/]
+    },
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
@@ -95,11 +96,9 @@ export default defineConfig({
         assetFileNames: `assets/[name].[ext]`,
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Isola Face API (pesado)
             if (id.includes('face-api.js')) {
               return 'vendor-face-api';
             }
-            // Agrupa todo o resto para evitar erros de dependência circular
             return 'vendor'; 
           }
         }
