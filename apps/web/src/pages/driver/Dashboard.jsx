@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse } from 'lucide-react';
@@ -7,25 +7,30 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
+import { useGeolocation } from '../../hooks/useGeolocation'; // Hook Híbrido
 
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.0 - Dead Zones");
+  console.log("SUSE-DF DriverDashboard V1.3.2 - Native Geo");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Hook de Geolocalização (Web + Native Background)
+  const { position: geoPosition, error: geoError } = useGeolocation({ 
+      enableHighAccuracy: true, 
+      timeout: 10000, 
+      maximumAge: 0 
+  });
+
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
-
+  
   // Estados de Emergência e Alerta
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
   const [activeAlertId, setActiveAlertId] = useState(null);
   const [terminationStatus, setTerminationStatus] = useState('idle'); // 'idle', 'pending_validation', 'resolved_success'
   const [trackingId, setTrackingId] = useState(null);
-  
-  // Estados de Localização
-  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 }); // Padrão: Brasília
   
   // Estados para Finalização e Modais
   const [showTerminationModal, setShowTerminationModal] = useState(false);
@@ -49,21 +54,27 @@ export default function DriverDashboard() {
     }
   };
 
+  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 });
+  
+  // Atualizar currentLocation sempre que o hook trouxer nova posição
+  useEffect(() => {
+      if (geoPosition) {
+          setCurrentLocation({ 
+              lat: geoPosition.latitude, 
+              lng: geoPosition.longitude,
+              speed: geoPosition.speed,
+              heading: geoPosition.heading,
+              accuracy: geoPosition.accuracy
+          });
+      }
+  }, [geoPosition]);
+
   // Função para enviar atualização de localização (Rastreamento)
   const sendLocationUpdate = async (alertId) => {
-    if (!alertId) return;
+    if (!alertId || !geoPosition) return; // Só envia se tiver posição válida do hook
     
     try {
-        const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-            });
-        });
-
-        const { latitude, longitude, speed, heading, accuracy } = position.coords;
-        setCurrentLocation({ lat: latitude, lng: longitude });
+        const { latitude, longitude, speed, heading, accuracy } = geoPosition;
 
         // Enviar para tabela de rastreamento (location_updates)
         const { error } = await supabase.from('location_updates').insert({
