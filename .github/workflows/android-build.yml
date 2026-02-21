@@ -13,6 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Debug Info
+        run: echo "Workflow started!"
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -36,18 +39,10 @@ jobs:
         working-directory: ./apps/web
         run: npx cap add android
 
-      # Correção Automática do ProGuard (Evitar erro de EvalIssueException)
       - name: Fix ProGuard Config
         working-directory: ./apps/web/android/app
         run: |
           sed -i 's/proguard-android.txt/proguard-android-optimize.txt/g' build.gradle
-
-      # Correção de Permissões de GPS no Manifesto
-      # Inserir permissões extras se o template padrão não tiver
-      - name: Add GPS Permissions
-        working-directory: ./apps/web/android/app/src/main
-        run: |
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' AndroidManifest.xml
 
       - name: Build APK
         working-directory: ./apps/web/android
