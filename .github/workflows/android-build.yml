@@ -31,6 +31,10 @@ jobs:
         working-directory: ./apps/web
         run: npm install --legacy-peer-deps
 
+      - name: Create Env File
+        working-directory: ./apps/web
+        run: cp .env.example .env
+
       - name: Build Web App
         working-directory: ./apps/web
         run: npm run build
