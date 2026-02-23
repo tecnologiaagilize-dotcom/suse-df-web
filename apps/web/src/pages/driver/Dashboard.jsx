@@ -718,9 +718,9 @@ export default function DriverDashboard() {
                   <h2 className="text-2xl font-bold text-gray-900">Painel do Condutor</h2>
                   <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
 
-                  {/* Monitoramento de Voz Ativo - DESATIVADO TEMPORARIAMENTE PARA DEBUG */}
+                  {/* Monitoramento de Voz Ativo */}
                   <div className="mt-4 flex justify-center">
-                    {/* <VoiceEmergencyListener 
+                    <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
                       isActive={!isEmergencyActive && isAudioReady} // Só escuta se não estiver em emergência e permissões ok
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
@@ -730,15 +730,14 @@ export default function DriverDashboard() {
                         console.log("Emergência por voz detectada! Iniciando protocolo...");
                         handleSOS('voice');
                       }}
-                    /> */}
+                    />
                     
                     {/* Exibir o que está sendo ouvido (Feedback Visual) */}
-                    {/* {voiceTranscript && !isEmergencyActive && (
+                    {voiceTranscript && !isEmergencyActive && (
                         <div className="mt-2 text-xs text-center text-gray-500 italic animate-pulse">
                             Ouvindo: "{voiceTranscript}..."
                         </div>
-                    )} */}
-                    <p className="text-xs text-red-500 font-mono">DEBUG: VOZ DESATIVADA</p>
+                    )}
                   </div>
                 </div>
 
