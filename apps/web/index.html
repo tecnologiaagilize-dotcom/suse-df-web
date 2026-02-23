@@ -49,8 +49,18 @@
   <body>
     <div id="root"></div>
     <!-- TensorFlow.js External Dependencies (Loaded globally to avoid bundler issues) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <!-- Use specific versions known to work together -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.5.4/dist/speech-commands.min.js"></script>
+    <script>
+      // Wait for scripts to load
+      window.addEventListener('load', function() {
+        console.log('TensorFlow scripts loaded state:', {
+          tf: typeof tf !== 'undefined',
+          speechCommands: typeof speechCommands !== 'undefined'
+        });
+      });
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
