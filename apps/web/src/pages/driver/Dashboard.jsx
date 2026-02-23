@@ -233,10 +233,8 @@ export default function DriverDashboard() {
       })
       .subscribe();
     
-    // Localização inicial
-    navigator.geolocation.getCurrentPosition((pos) => {
-        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    }, null, { enableHighAccuracy: true });
+    // Localização inicial removida do useEffect para evitar crash no Android
+    // A localização será obtida apenas quando o usuário clicar em "INICIAR PLANTÃO"
 
     return () => {
         subscription.unsubscribe();
