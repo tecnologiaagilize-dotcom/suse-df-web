@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse, Mic, Zap, Navigation } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -11,10 +11,8 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import GeofenceModal from '../../components/GeofenceModal';
 
-import TravelChecklist from '../../components/TravelChecklist';
-
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.5.2 - Checklist Fix");
+  console.log("SUSE-DF DriverDashboard V1.5.3 - Checklist Fix Final");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -555,7 +553,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Condutor
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.3 (Checklist)</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.4 (Checklist)</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
