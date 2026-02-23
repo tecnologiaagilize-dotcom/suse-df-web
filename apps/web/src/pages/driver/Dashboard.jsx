@@ -26,59 +26,79 @@ export default function DriverDashboard() {
 
   const startShift = async () => {
       console.log("[System] Iniciando plantão...");
-      setIsShiftActive(true);
+      setIsShiftActive(true); // Ativa UI primeiro para feedback visual
       
       let watchId;
       let mounted = true;
 
       try {
-          // PASSO 1: Geolocalização (Prioridade 1)
+          // PASSO 1: Verificar Permissões com Cuidado (Sem travar a UI)
           if (Capacitor.isNativePlatform()) {
-              const status = await Geolocation.checkPermissions();
-              console.log("[Geo] Status inicial:", status);
-              
-              if (status.location !== 'granted') {
-                  console.log("[Geo] Solicitando permissão...");
-                  await Geolocation.requestPermissions();
-                  console.log("[Geo] Permissão processada.");
+              try {
+                  const status = await Geolocation.checkPermissions();
+                  if (status.location !== 'granted') {
+                      const request = await Geolocation.requestPermissions();
+                      if (request.location !== 'granted') {
+                          alert("Precisamos da sua localização para ativar a segurança. Por favor, permita o acesso nas configurações.");
+                          setIsShiftActive(false); // Reverte se negar
+                          return;
+                      }
+                  }
+              } catch (permError) {
+                  console.warn("[System] Erro ao verificar permissões (pode ser ignorado em alguns dispositivos):", permError);
               }
           }
 
-          // PASSO 2: Iniciar Rastreamento
+          // PASSO 2: Iniciar Rastreamento Protegido
           if (mounted) {
-              watchId = await Geolocation.watchPosition({ 
-                  enableHighAccuracy: true, 
-                  timeout: 10000, 
-                  maximumAge: 0 
-              }, (pos, err) => {
-                  if (!mounted) return;
-                  if (pos) {
-                      setGeoPosition({
-                          latitude: pos.coords.latitude,
-                          longitude: pos.coords.longitude,
-                          speed: pos.coords.speed,
-                          heading: pos.coords.heading,
-                          accuracy: pos.coords.accuracy
-                      });
-                  }
-              });
+              try {
+                  watchId = await Geolocation.watchPosition({ 
+                      enableHighAccuracy: true, 
+                      timeout: 10000, 
+                      maximumAge: 0 
+                  }, (pos, err) => {
+                      if (!mounted) return;
+                      if (err) {
+                          console.warn("[System] Erro no watchPosition:", err);
+                          return;
+                      }
+                      if (pos) {
+                          setGeoPosition({
+                              latitude: pos.coords.latitude,
+                              longitude: pos.coords.longitude,
+                              speed: pos.coords.speed,
+                              heading: pos.coords.heading,
+                              accuracy: pos.coords.accuracy
+                          });
+                      }
+                  });
+              } catch (watchError) {
+                  console.error("[System] Falha crítica ao iniciar GPS:", watchError);
+                  alert("Erro ao iniciar GPS. Verifique se a localização está ativada.");
+                  setIsShiftActive(false);
+              }
           }
 
       } catch (error) {
-          console.error("[System] Erro na inicialização do GPS:", error);
+          console.error("[System] Erro geral na inicialização:", error);
+          alert("Erro ao iniciar sistema de segurança: " + error.message);
+          setIsShiftActive(false);
       } finally {
-          // PASSO 3: Liberar Áudio
+          // PASSO 3: Liberar Áudio com Proteção Extra
           if (mounted) {
-              if (Capacitor.isNativePlatform()) {
-                  // No Android, esperamos 2s para garantir que o diálogo de permissão fechou
-                  console.log("[System] Liberando Áudio em 2s (Native)...");
-                  setTimeout(() => {
-                      if (mounted) setIsAudioReady(true);
-                  }, 2000);
-              } else {
-                  // Na Web, liberamos imediatamente para não perder o contexto de interação do usuário (Autoplay Policy)
-                  console.log("[System] Liberando Áudio imediatamente (Web)...");
-                  setIsAudioReady(true);
+              try {
+                  if (Capacitor.isNativePlatform()) {
+                      // No Android, esperamos 2s para garantir que o diálogo de permissão fechou
+                      setTimeout(() => {
+                          if (mounted) setIsAudioReady(true);
+                      }, 2000);
+                  } else {
+                      // Na Web, liberamos imediatamente
+                      setIsAudioReady(true);
+                  }
+              } catch (audioError) {
+                  console.error("[System] Erro ao preparar áudio:", audioError);
+                  // Não revertemos isShiftActive aqui para não "desligar" o app por causa do áudio
               }
           }
       }
