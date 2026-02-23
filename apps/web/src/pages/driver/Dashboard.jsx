@@ -39,6 +39,32 @@ export default function DriverDashboard() {
   
   // Estados de Voz e Token de Segurança
   const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [isAudioReady, setIsAudioReady] = useState(false); // Controla quando iniciar o áudio (serialização de permissões)
+
+  // Serialização de Permissões: Só ativa Áudio (Mic) depois que GPS resolver
+  useEffect(() => {
+      let timer;
+      
+      // Se GPS já respondeu (sucesso ou erro), libera o áudio após breve delay
+      if (geoPosition || geoError) {
+          console.log("[Permissões] GPS resolvido. Liberando Áudio em 1s...");
+          timer = setTimeout(() => setIsAudioReady(true), 1000);
+      }
+      
+      return () => clearTimeout(timer);
+  }, [geoPosition, geoError]);
+
+  // Fallback de segurança: Se GPS travar (usuário não clica), libera áudio em 10s
+  useEffect(() => {
+      const timer = setTimeout(() => {
+          if (!isAudioReady) {
+              console.warn("[Permissões] Timeout de espera do GPS. Forçando liberação do Áudio.");
+              setIsAudioReady(true);
+          }
+      }, 10000);
+      return () => clearTimeout(timer);
+  }, []);
+
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
@@ -656,7 +682,7 @@ export default function DriverDashboard() {
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive && isAudioReady} // Só escuta se não estiver em emergência e se estiver pronto
+                      isActive={!isEmergencyActive && isAudioReady} // Só escuta se não estiver em emergência e permissões ok
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onEmergencyDetected={() => {
                         // Feedback imediato antes mesmo de chamar o backend
