@@ -74,12 +74,13 @@ export default function DriverDashboard() {
           // O Android mata o app se pedir duas permissões pesadas (GPS + Mic) ao mesmo tempo ou muito rápido
           if (mounted && Capacitor.isNativePlatform()) {
               console.log("[System] Aguardando 3s antes de ativar áudio...");
-              setTimeout(() => {
-                  if (mounted) {
-                      // Só agora ativamos a flag que fará o componente de Voz montar e pedir permissão
-                      setIsAudioReady(true);
-                  }
-              }, 3000);
+              // setTimeout(() => {
+              //     if (mounted) {
+              //         // Só agora ativamos a flag que fará o componente de Voz montar e pedir permissão
+              //         setIsAudioReady(true);
+              //     }
+              // }, 3000);
+              console.log("[System] Áudio desativado temporariamente para evitar crash na inicialização");
           } else {
               // Web pode ser imediato
               setIsAudioReady(true);
@@ -733,7 +734,16 @@ export default function DriverDashboard() {
                   <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
 
                   {/* Monitoramento de Voz Ativo */}
-                  <div className="mt-4 flex justify-center">
+                  <div className="mt-4 flex flex-col items-center justify-center">
+                    {!isAudioReady && Capacitor.isNativePlatform() && (
+                        <button 
+                            onClick={() => setIsAudioReady(true)}
+                            className="mb-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-300 shadow-sm active:scale-95 transition-transform"
+                        >
+                            ATIVAR MONITORAMENTO DE VOZ
+                        </button>
+                    )}
+
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
                       isActive={!isEmergencyActive && isAudioReady} // Só escuta se não estiver em emergência e permissões ok
