@@ -67,13 +67,19 @@ export default function DriverDashboard() {
       } catch (error) {
           console.error("[System] Erro na inicialização do GPS:", error);
       } finally {
-          // PASSO 3: Liberar Áudio (Somente após o GPS resolver ou falhar)
-          // Adicionamos um delay extra de 2s para garantir que a UI de permissão do Android fechou totalmente
+          // PASSO 3: Liberar Áudio
           if (mounted) {
-              console.log("[System] Liberando Áudio em 2s...");
-              setTimeout(() => {
-                  if (mounted) setIsAudioReady(true);
-              }, 2000);
+              if (Capacitor.isNativePlatform()) {
+                  // No Android, esperamos 2s para garantir que o diálogo de permissão fechou
+                  console.log("[System] Liberando Áudio em 2s (Native)...");
+                  setTimeout(() => {
+                      if (mounted) setIsAudioReady(true);
+                  }, 2000);
+              } else {
+                  // Na Web, liberamos imediatamente para não perder o contexto de interação do usuário (Autoplay Policy)
+                  console.log("[System] Liberando Áudio imediatamente (Web)...");
+                  setIsAudioReady(true);
+              }
           }
       }
   };
