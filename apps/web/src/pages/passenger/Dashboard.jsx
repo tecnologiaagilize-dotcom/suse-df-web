@@ -208,10 +208,10 @@ export default function PassengerDashboard() {
       })
       .subscribe();
     
-    // Localização inicial
-    navigator.geolocation.getCurrentPosition((pos) => {
-        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    }, null, { enableHighAccuracy: true });
+    // Localização inicial removida do useEffect para evitar crash
+    // navigator.geolocation.getCurrentPosition((pos) => {
+    //    setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    // }, null, { enableHighAccuracy: true });
 
     return () => {
         subscription.unsubscribe();
@@ -550,6 +550,32 @@ export default function PassengerDashboard() {
                     )}
                 </div>
              </div>
+          ) : !isMonitoringActive ? (
+              // TELA DE INÍCIO DE MONITORAMENTO (PARA EVITAR CRASH NO MOUNT)
+              <div className="flex flex-col items-center justify-center h-[80vh] space-y-8 p-6">
+                  <div className="text-center">
+                      <ShieldAlert className="h-24 w-24 text-gray-400 mx-auto mb-4" />
+                      <h2 className="text-2xl font-bold text-gray-900">Bem-vindo, {user?.user_metadata?.name || 'Passageiro'}</h2>
+                      <p className="text-gray-500 mt-2">Você está offline. Inicie o monitoramento para ativar sua segurança.</p>
+                  </div>
+                  
+                  <button 
+                      onClick={startMonitoring}
+                      className="w-full max-w-sm py-5 bg-green-600 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3"
+                  >
+                      <Zap className="h-8 w-8" />
+                      ATIVAR SEGURANÇA
+                  </button>
+                  
+                  <div className="w-full max-w-sm mt-8 border-t pt-8">
+                     <button 
+                        onClick={handleSignOut}
+                        className="w-full py-3 text-gray-500 hover:text-red-600 font-medium flex items-center justify-center gap-2"
+                     >
+                        <LogOut size={20} /> Sair do Sistema
+                     </button>
+                  </div>
+              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
                 <div className="text-center">
@@ -559,7 +585,7 @@ export default function PassengerDashboard() {
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive} 
+                      isActive={!isEmergencyActive && isAudioReady} 
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onEmergencyDetected={() => {
                         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
