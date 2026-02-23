@@ -688,6 +688,32 @@ export default function DriverDashboard() {
                     </div>
                 )}
              </div>
+          ) : !isShiftActive ? (
+              // TELA DE INÍCIO DE TURNO (PARA EVITAR CRASH NO MOUNT)
+              <div className="flex flex-col items-center justify-center h-[80vh] space-y-8 p-6">
+                  <div className="text-center">
+                      <ShieldAlert className="h-24 w-24 text-gray-400 mx-auto mb-4" />
+                      <h2 className="text-2xl font-bold text-gray-900">Bem-vindo, {user?.user_metadata?.name || 'Motorista'}</h2>
+                      <p className="text-gray-500 mt-2">Você está offline. Inicie seu turno para ativar o monitoramento de segurança.</p>
+                  </div>
+                  
+                  <button 
+                      onClick={startShift}
+                      className="w-full max-w-sm py-5 bg-green-600 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3"
+                  >
+                      <Zap className="h-8 w-8" />
+                      INICIAR PLANTÃO
+                  </button>
+                  
+                  <div className="w-full max-w-sm mt-8 border-t pt-8">
+                     <button 
+                        onClick={handleSignOut}
+                        className="w-full py-3 text-gray-500 hover:text-red-600 font-medium flex items-center justify-center gap-2"
+                     >
+                        <LogOut size={20} /> Sair do Sistema
+                     </button>
+                  </div>
+              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
                 <div className="text-center">
