@@ -70,17 +70,34 @@ export default function DriverDashboard() {
               }).catch(err => console.error("Erro watchPosition:", err));
           }
 
-          // PASSO 3: Esperar 3 SEGUNDOS antes de mexer com Áudio
-          // O Android mata o app se pedir duas permissões pesadas (GPS + Mic) ao mesmo tempo ou muito rápido
+          // PASSO 3: Áudio Inteligente (Auto-start se já permitido, Manual se não)
           if (mounted && Capacitor.isNativePlatform()) {
-              console.log("[System] Aguardando 3s antes de ativar áudio...");
-              // setTimeout(() => {
-              //     if (mounted) {
-              //         // Só agora ativamos a flag que fará o componente de Voz montar e pedir permissão
-              //         setIsAudioReady(true);
-              //     }
-              // }, 3000);
-              console.log("[System] Áudio desativado temporariamente para evitar crash na inicialização");
+              // Verifica se JÁ TEMOS permissão de microfone
+              // O plugin 'VoiceRecorder' ou similar do Capacitor geralmente não expõe checkPermissions padrão
+              // Mas podemos tentar inferir ou usar um truque: 
+              // Se o usuário já deu permissão antes, o navegador/webview não deve crashar.
+              
+              // Vamos tentar iniciar o áudio AUTOMATICAMENTE, mas com um delay seguro
+              // E envolto em um try-catch silencioso para não matar o app
+              setTimeout(async () => {
+                  if (!mounted) return;
+                  
+                  try {
+                      // Tenta checar permissão de microfone via API do navegador primeiro (mais seguro)
+                      const micStatus = await navigator.permissions.query({ name: 'microphone' });
+                      
+                      if (micStatus.state === 'granted') {
+                          console.log("[System] Permissão de Microfone JÁ CONCEDIDA. Iniciando auto-monitoramento...");
+                          setIsAudioReady(true);
+                      } else {
+                          console.log("[System] Permissão de Microfone pendente. Aguardando ativação manual.");
+                          // Não faz nada, deixa o botão manual aparecer
+                      }
+                  } catch (e) {
+                      // Fallback para dispositivos que não suportam permissions query
+                      console.warn("[System] Não foi possível checar permissão de mic. Mantendo manual por segurança.", e);
+                  }
+              }, 2000);
           } else {
               // Web pode ser imediato
               setIsAudioReady(true);
@@ -736,12 +753,18 @@ export default function DriverDashboard() {
                   {/* Monitoramento de Voz Ativo */}
                   <div className="mt-4 flex flex-col items-center justify-center">
                     {!isAudioReady && Capacitor.isNativePlatform() && (
-                        <button 
-                            onClick={() => setIsAudioReady(true)}
-                            className="mb-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-300 shadow-sm active:scale-95 transition-transform"
-                        >
-                            ATIVAR MONITORAMENTO DE VOZ
-                        </button>
+                        <div className="flex flex-col items-center gap-2 mb-4">
+                            <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded border border-yellow-200 text-center max-w-xs">
+                                ⚠️ Toque abaixo para ativar o monitoramento de voz.
+                                <br/>Necessário apenas na primeira vez ou se a permissão foi revogada.
+                            </p>
+                            <button 
+                                onClick={() => setIsAudioReady(true)}
+                                className="px-6 py-3 bg-blue-600 text-white rounded-full text-sm font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-2"
+                            >
+                                <Zap size={16} /> ATIVAR MICROFONE
+                            </button>
+                        </div>
                     )}
 
                     <VoiceEmergencyListener 
