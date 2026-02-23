@@ -11,8 +11,10 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import GeofenceModal from '../../components/GeofenceModal';
 
+import TravelChecklist from '../../components/TravelChecklist';
+
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.3 - Serialized Permissions");
+  console.log("SUSE-DF DriverDashboard V1.5.0 - Travel Checklist");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -22,91 +24,48 @@ export default function DriverDashboard() {
   // Estados de Voz e Token de Segurança
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isAudioReady, setIsAudioReady] = useState(false); 
-  const [isShiftActive, setIsShiftActive] = useState(false); // Novo Estado: Plantão Ativo
+  const [isShiftActive, setIsShiftActive] = useState(false); // Agora representa "Viagem Ativa"
+  const [showChecklist, setShowChecklist] = useState(false); // Controle do Modal de Checklist
 
-  const startShift = async () => {
-      console.log("[System] Iniciando plantão...");
+  const startTravelProcess = () => {
+      setShowChecklist(true);
+  };
+
+  const handleChecklistComplete = () => {
+      setShowChecklist(false);
+      startShiftExecution();
+  };
+
+  const startShiftExecution = async () => {
+      console.log("[System] Iniciando viagem confirmada...");
+      setIsShiftActive(true);
       
-      // PASSO 0: Ativar UI primeiro para feedback visual imediato
-      setIsShiftActive(true); 
-      
+      // Como o checklist já garantiu as permissões e o GPS, podemos iniciar os watchers com segurança
       let mounted = true;
 
-      try {
-          // PASSO 1: Solicitar APENAS Geolocalização primeiro
-          if (Capacitor.isNativePlatform()) {
-              try {
-                  const status = await Geolocation.checkPermissions();
-                  if (status.location !== 'granted') {
-                      const request = await Geolocation.requestPermissions();
-                      if (request.location !== 'granted') {
-                          alert("Precisamos da sua localização para ativar a segurança.");
-                          setIsShiftActive(false);
-                          return;
-                      }
-                  }
-              } catch (permError) {
-                  console.warn("[System] Erro permissão GPS:", permError);
+      // Iniciar GPS
+      if (mounted) {
+          Geolocation.watchPosition({ 
+              enableHighAccuracy: true, 
+              timeout: 10000, 
+              maximumAge: 0 
+          }, (pos, err) => {
+              if (!mounted) return;
+              if (pos) {
+                  setGeoPosition({
+                      latitude: pos.coords.latitude,
+                      longitude: pos.coords.longitude,
+                      speed: pos.coords.speed,
+                      heading: pos.coords.heading,
+                      accuracy: pos.coords.accuracy
+                  });
               }
-          }
+          }).catch(err => console.error("Erro watchPosition:", err));
+      }
 
-          // PASSO 2: Iniciar GPS (Sem pedir áudio ainda)
-          if (mounted) {
-              Geolocation.watchPosition({ 
-                  enableHighAccuracy: true, 
-                  timeout: 10000, 
-                  maximumAge: 0 
-              }, (pos, err) => {
-                  if (!mounted) return;
-                  if (pos) {
-                      setGeoPosition({
-                          latitude: pos.coords.latitude,
-                          longitude: pos.coords.longitude,
-                          speed: pos.coords.speed,
-                          heading: pos.coords.heading,
-                          accuracy: pos.coords.accuracy
-                      });
-                  }
-              }).catch(err => console.error("Erro watchPosition:", err));
-          }
-
-          // PASSO 3: Áudio Inteligente (Auto-start se já permitido, Manual se não)
-          if (mounted && Capacitor.isNativePlatform()) {
-              // Verifica se JÁ TEMOS permissão de microfone
-              // O plugin 'VoiceRecorder' ou similar do Capacitor geralmente não expõe checkPermissions padrão
-              // Mas podemos tentar inferir ou usar um truque: 
-              // Se o usuário já deu permissão antes, o navegador/webview não deve crashar.
-              
-              // Vamos tentar iniciar o áudio AUTOMATICAMENTE, mas com um delay seguro
-              // E envolto em um try-catch silencioso para não matar o app
-              setTimeout(async () => {
-                  if (!mounted) return;
-                  
-                  try {
-                      // Tenta checar permissão de microfone via API do navegador primeiro (mais seguro)
-                      const micStatus = await navigator.permissions.query({ name: 'microphone' });
-                      
-                      if (micStatus.state === 'granted') {
-                          console.log("[System] Permissão de Microfone JÁ CONCEDIDA. Iniciando auto-monitoramento...");
-                          setIsAudioReady(true);
-                      } else {
-                          console.log("[System] Permissão de Microfone pendente. Aguardando ativação manual.");
-                          // Não faz nada, deixa o botão manual aparecer
-                      }
-                  } catch (e) {
-                      // Fallback para dispositivos que não suportam permissions query
-                      console.warn("[System] Não foi possível checar permissão de mic. Mantendo manual por segurança.", e);
-                  }
-              }, 2000);
-          } else {
-              // Web pode ser imediato
-              setIsAudioReady(true);
-          }
-
-      } catch (error) {
-          console.error("[System] Erro geral:", error);
-          alert("Erro ao iniciar: " + error.message);
-          setIsShiftActive(false);
+      // Ativar Áudio Automaticamente (pois já passou no checklist)
+      if (mounted) {
+          setIsAudioReady(true);
       }
   };
 
@@ -598,7 +557,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Condutor
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.4.2 (Safe Init)</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.0 (Checklist)</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -724,15 +683,15 @@ export default function DriverDashboard() {
                   <div className="text-center">
                       <ShieldAlert className="h-24 w-24 text-gray-400 mx-auto mb-4" />
                       <h2 className="text-2xl font-bold text-gray-900">Bem-vindo, {user?.user_metadata?.name || 'Motorista'}</h2>
-                      <p className="text-gray-500 mt-2">Você está offline. Inicie seu turno para ativar o monitoramento de segurança.</p>
+                      <p className="text-gray-500 mt-2">Você está offline. Inicie sua viagem para ativar o monitoramento de segurança.</p>
                   </div>
                   
                   <button 
-                      onClick={startShift}
+                      onClick={handleStartTrip}
                       className="w-full max-w-sm py-5 bg-green-600 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
-                      <Zap className="h-8 w-8" />
-                      INICIAR PLANTÃO
+                      <Navigation className="h-8 w-8" />
+                      INICIAR VIAGEM
                   </button>
                   
                   <div className="w-full max-w-sm mt-8 border-t pt-8">
@@ -755,8 +714,7 @@ export default function DriverDashboard() {
                     {!isAudioReady && Capacitor.isNativePlatform() && (
                         <div className="flex flex-col items-center gap-2 mb-4">
                             <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded border border-yellow-200 text-center max-w-xs">
-                                ⚠️ Toque abaixo para ativar o monitoramento de voz.
-                                <br/>Necessário apenas na primeira vez ou se a permissão foi revogada.
+                                ⚠️ O monitoramento de voz precisa da sua permissão.
                             </p>
                             <button 
                                 onClick={() => setIsAudioReady(true)}
@@ -843,6 +801,13 @@ export default function DriverDashboard() {
           )}
         </div>
       </main>
+
+      {/* Modal de Checklist de Preparação */}
+      <PreparationModal 
+        isOpen={showPrepModal}
+        onClose={() => setShowPrepModal(false)}
+        onComplete={onPrepComplete}
+      />
 
       {/* Modal de Cerca Virtual */}
       <GeofenceModal 
