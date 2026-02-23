@@ -191,9 +191,9 @@ function App() {
             </PrivateRoute>
           } />
           
-          {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/passenger/login" replace />} />
-          <Route path="*" element={<Navigate to="/passenger/login" replace />} />
+          {/* Default Redirect - Trocado para Driver */}
+          <Route path="/" element={<Navigate to="/driver/login" replace />} />
+          <Route path="*" element={<Navigate to="/driver/login" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
