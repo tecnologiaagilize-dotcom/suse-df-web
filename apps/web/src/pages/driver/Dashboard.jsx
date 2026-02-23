@@ -22,69 +22,64 @@ export default function DriverDashboard() {
   // Estados de Voz e Token de Segurança
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isAudioReady, setIsAudioReady] = useState(false); 
+  const [isShiftActive, setIsShiftActive] = useState(false); // Novo Estado: Plantão Ativo
 
-  // FLUXO DE INICIALIZAÇÃO SERIALIZADO (CRÍTICO PARA EVITAR CRASH NO ANDROID)
-  useEffect(() => {
+  const startShift = async () => {
+      console.log("[System] Iniciando plantão...");
+      setIsShiftActive(true);
+      
       let watchId;
       let mounted = true;
 
-      const initSystem = async () => {
-          console.log("[System] Iniciando sequência de permissões...");
-          
-          try {
-              // PASSO 1: Geolocalização (Prioridade 1)
-              if (Capacitor.isNativePlatform()) {
-                  const status = await Geolocation.checkPermissions();
-                  console.log("[Geo] Status inicial:", status);
-                  
-                  if (status.location !== 'granted') {
-                      console.log("[Geo] Solicitando permissão...");
-                      await Geolocation.requestPermissions();
-                      console.log("[Geo] Permissão processada.");
-                  }
-              }
-
-              // PASSO 2: Iniciar Rastreamento
-              if (mounted) {
-                  watchId = await Geolocation.watchPosition({ 
-                      enableHighAccuracy: true, 
-                      timeout: 10000, 
-                      maximumAge: 0 
-                  }, (pos, err) => {
-                      if (!mounted) return;
-                      if (pos) {
-                          setGeoPosition({
-                              latitude: pos.coords.latitude,
-                              longitude: pos.coords.longitude,
-                              speed: pos.coords.speed,
-                              heading: pos.coords.heading,
-                              accuracy: pos.coords.accuracy
-                          });
-                      }
-                  });
-              }
-
-          } catch (error) {
-              console.error("[System] Erro na inicialização do GPS:", error);
-          } finally {
-              // PASSO 3: Liberar Áudio (Somente após o GPS resolver ou falhar)
-              // Adicionamos um delay extra de 2s para garantir que a UI de permissão do Android fechou totalmente
-              if (mounted) {
-                  console.log("[System] Liberando Áudio em 2s...");
-                  setTimeout(() => {
-                      if (mounted) setIsAudioReady(true);
-                  }, 2000);
+      try {
+          // PASSO 1: Geolocalização (Prioridade 1)
+          if (Capacitor.isNativePlatform()) {
+              const status = await Geolocation.checkPermissions();
+              console.log("[Geo] Status inicial:", status);
+              
+              if (status.location !== 'granted') {
+                  console.log("[Geo] Solicitando permissão...");
+                  await Geolocation.requestPermissions();
+                  console.log("[Geo] Permissão processada.");
               }
           }
-      };
 
-      initSystem();
+          // PASSO 2: Iniciar Rastreamento
+          if (mounted) {
+              watchId = await Geolocation.watchPosition({ 
+                  enableHighAccuracy: true, 
+                  timeout: 10000, 
+                  maximumAge: 0 
+              }, (pos, err) => {
+                  if (!mounted) return;
+                  if (pos) {
+                      setGeoPosition({
+                          latitude: pos.coords.latitude,
+                          longitude: pos.coords.longitude,
+                          speed: pos.coords.speed,
+                          heading: pos.coords.heading,
+                          accuracy: pos.coords.accuracy
+                      });
+                  }
+              });
+          }
 
-      return () => {
-          mounted = false;
-          if (watchId) Geolocation.clearWatch({ id: watchId });
-      };
-  }, []);
+      } catch (error) {
+          console.error("[System] Erro na inicialização do GPS:", error);
+      } finally {
+          // PASSO 3: Liberar Áudio (Somente após o GPS resolver ou falhar)
+          // Adicionamos um delay extra de 2s para garantir que a UI de permissão do Android fechou totalmente
+          if (mounted) {
+              console.log("[System] Liberando Áudio em 2s...");
+              setTimeout(() => {
+                  if (mounted) setIsAudioReady(true);
+              }, 2000);
+          }
+      }
+  };
+
+  // FLUXO DE INICIALIZAÇÃO REMOVIDO DO useEffect AUTOMÁTICO
+  // useEffect(() => { ... }, []); // REMOVIDO PARA EVITAR CRASH NO LOGIN
 
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
