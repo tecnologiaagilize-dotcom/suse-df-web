@@ -57,7 +57,7 @@ export default function DriverLogin() {
             Login Condutor
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 flex flex-col items-center">
-            <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded mb-1">SUSE-v1.5.0 (Checklist)</span>
+            <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded mb-1">SUSE-v1.5.1 (Build Fix)</span>
             <span>Sistema Unificado de Socorro e Emergência</span>
           </p>
         </div>

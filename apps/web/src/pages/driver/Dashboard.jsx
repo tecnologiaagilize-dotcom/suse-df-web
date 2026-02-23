@@ -14,7 +14,7 @@ import GeofenceModal from '../../components/GeofenceModal';
 import TravelChecklist from '../../components/TravelChecklist';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.5.0 - Travel Checklist");
+  console.log("SUSE-DF DriverDashboard V1.5.1 - Build Fix");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -25,48 +25,46 @@ export default function DriverDashboard() {
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isAudioReady, setIsAudioReady] = useState(false); 
   const [isShiftActive, setIsShiftActive] = useState(false); // Agora representa "Viagem Ativa"
-  const [showChecklist, setShowChecklist] = useState(false); // Controle do Modal de Checklist
+  
+  // Estado para o Modal de Preparação
+  const [showPrepModal, setShowPrepModal] = useState(false);
 
-  const startTravelProcess = () => {
-      setShowChecklist(true);
+  const handleStartTrip = () => {
+      setShowPrepModal(true);
   };
 
-  const handleChecklistComplete = () => {
-      setShowChecklist(false);
-      startShiftExecution();
-  };
-
-  const startShiftExecution = async () => {
-      console.log("[System] Iniciando viagem confirmada...");
+  const onPrepComplete = () => {
+      setShowPrepModal(false);
       setIsShiftActive(true);
       
-      // Como o checklist já garantiu as permissões e o GPS, podemos iniciar os watchers com segurança
-      let mounted = true;
+      // Inicia GPS Real
+      startGPS();
+      
+      // Inicia Audio (Inteligente)
+      startAudioSmart();
+  };
 
-      // Iniciar GPS
-      if (mounted) {
-          Geolocation.watchPosition({ 
-              enableHighAccuracy: true, 
-              timeout: 10000, 
-              maximumAge: 0 
-          }, (pos, err) => {
-              if (!mounted) return;
-              if (pos) {
-                  setGeoPosition({
-                      latitude: pos.coords.latitude,
-                      longitude: pos.coords.longitude,
-                      speed: pos.coords.speed,
-                      heading: pos.coords.heading,
-                      accuracy: pos.coords.accuracy
-                  });
-              }
-          }).catch(err => console.error("Erro watchPosition:", err));
-      }
+  const startGPS = () => {
+      Geolocation.watchPosition({ 
+          enableHighAccuracy: true, 
+          timeout: 10000, 
+          maximumAge: 0 
+      }, (pos, err) => {
+          if (pos) {
+              setGeoPosition({
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                  speed: pos.coords.speed,
+                  heading: pos.coords.heading,
+                  accuracy: pos.coords.accuracy
+              });
+          }
+      }).catch(console.error);
+  };
 
-      // Ativar Áudio Automaticamente (pois já passou no checklist)
-      if (mounted) {
-          setIsAudioReady(true);
-      }
+  const startAudioSmart = () => {
+      // Tenta ativar áudio automaticamente se possível, senão deixa manual
+      setIsAudioReady(true); 
   };
 
   // FLUXO DE INICIALIZAÇÃO REMOVIDO DO useEffect AUTOMÁTICO
