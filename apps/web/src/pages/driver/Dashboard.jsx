@@ -7,62 +7,83 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
-import { useGeolocation } from '../../hooks/useGeolocation'; // Hook Híbrido
-
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.2 - Native Geo");
+  console.log("SUSE-DF DriverDashboard V1.3.3 - Serialized Permissions");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Hook de Geolocalização (Web + Native Background)
-  const { position: geoPosition, error: geoError } = useGeolocation({ 
-      enableHighAccuracy: true, 
-      timeout: 10000, 
-      maximumAge: 0 
-  });
-
-  // Estado para Modal de Cerca Virtual
-  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
-  
-  // Estados de Emergência e Alerta
-  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
-  const [activeAlertId, setActiveAlertId] = useState(null);
-  const [terminationStatus, setTerminationStatus] = useState('idle'); // 'idle', 'pending_validation', 'resolved_success'
-  const [trackingId, setTrackingId] = useState(null);
-  
-  // Estados para Finalização e Modais
-  const [showTerminationModal, setShowTerminationModal] = useState(false);
-  const [isTerminating, setIsTerminating] = useState(false);
-  const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
+  // Estado manual de Geolocalização (Substituindo Hook para evitar conflito)
+  const [geoPosition, setGeoPosition] = useState(null);
   
   // Estados de Voz e Token de Segurança
   const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [isAudioReady, setIsAudioReady] = useState(false); // Controla quando iniciar o áudio (serialização de permissões)
+  const [isAudioReady, setIsAudioReady] = useState(false); 
 
-  // Serialização de Permissões: Só ativa Áudio (Mic) depois que GPS resolver
+  // FLUXO DE INICIALIZAÇÃO SERIALIZADO (CRÍTICO PARA EVITAR CRASH NO ANDROID)
   useEffect(() => {
-      let timer;
-      
-      // Se GPS já respondeu (sucesso ou erro), libera o áudio após breve delay
-      if (geoPosition || geoError) {
-          console.log("[Permissões] GPS resolvido. Liberando Áudio em 1s...");
-          timer = setTimeout(() => setIsAudioReady(true), 1000);
-      }
-      
-      return () => clearTimeout(timer);
-  }, [geoPosition, geoError]);
+      let watchId;
+      let mounted = true;
 
-  // Fallback de segurança: Se GPS travar (usuário não clica), libera áudio em 10s
-  useEffect(() => {
-      const timer = setTimeout(() => {
-          if (!isAudioReady) {
-              console.warn("[Permissões] Timeout de espera do GPS. Forçando liberação do Áudio.");
-              setIsAudioReady(true);
+      const initSystem = async () => {
+          console.log("[System] Iniciando sequência de permissões...");
+          
+          try {
+              // PASSO 1: Geolocalização (Prioridade 1)
+              if (Capacitor.isNativePlatform()) {
+                  const status = await Geolocation.checkPermissions();
+                  console.log("[Geo] Status inicial:", status);
+                  
+                  if (status.location !== 'granted') {
+                      console.log("[Geo] Solicitando permissão...");
+                      await Geolocation.requestPermissions();
+                      console.log("[Geo] Permissão processada.");
+                  }
+              }
+
+              // PASSO 2: Iniciar Rastreamento
+              if (mounted) {
+                  watchId = await Geolocation.watchPosition({ 
+                      enableHighAccuracy: true, 
+                      timeout: 10000, 
+                      maximumAge: 0 
+                  }, (pos, err) => {
+                      if (!mounted) return;
+                      if (pos) {
+                          setGeoPosition({
+                              latitude: pos.coords.latitude,
+                              longitude: pos.coords.longitude,
+                              speed: pos.coords.speed,
+                              heading: pos.coords.heading,
+                              accuracy: pos.coords.accuracy
+                          });
+                      }
+                  });
+              }
+
+          } catch (error) {
+              console.error("[System] Erro na inicialização do GPS:", error);
+          } finally {
+              // PASSO 3: Liberar Áudio (Somente após o GPS resolver ou falhar)
+              // Adicionamos um delay extra de 2s para garantir que a UI de permissão do Android fechou totalmente
+              if (mounted) {
+                  console.log("[System] Liberando Áudio em 2s...");
+                  setTimeout(() => {
+                      if (mounted) setIsAudioReady(true);
+                  }, 2000);
+              }
           }
-      }, 10000);
-      return () => clearTimeout(timer);
+      };
+
+      initSystem();
+
+      return () => {
+          mounted = false;
+          if (watchId) Geolocation.clearWatch({ id: watchId });
+      };
   }, []);
 
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
