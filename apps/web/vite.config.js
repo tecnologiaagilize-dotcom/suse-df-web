@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto', // Tentar registro automático
+      injectRegister: 'manual', // Controle manual para evitar erro no Capacitor
       devOptions: {
         enabled: true
       },

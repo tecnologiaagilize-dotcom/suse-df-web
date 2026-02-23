@@ -656,7 +656,7 @@ export default function DriverDashboard() {
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive} // Só escuta se não estiver em emergência
+                      isActive={!isEmergencyActive && isAudioReady} // Só escuta se não estiver em emergência e se estiver pronto
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onEmergencyDetected={() => {
                         // Feedback imediato antes mesmo de chamar o backend
