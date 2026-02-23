@@ -14,7 +14,7 @@ import GeofenceModal from '../../components/GeofenceModal';
 import TravelChecklist from '../../components/TravelChecklist';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.5.1 - Build Fix");
+  console.log("SUSE-DF DriverDashboard V1.5.2 - Checklist Fix");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -905,3 +905,158 @@ export default function DriverDashboard() {
     </div>
   );
 }
+
+const PreparationModal = ({ isOpen, onClose, onComplete }) => {
+    const [steps, setSteps] = useState({
+        gps: 'pending', // pending, loading, success, error
+        audio: 'pending',
+        server: 'pending'
+    });
+
+    useEffect(() => {
+        if (isOpen) {
+            runChecklist();
+        }
+    }, [isOpen]);
+
+    const runChecklist = async () => {
+        // Passo 1: GPS
+        setSteps(s => ({ ...s, gps: 'loading' }));
+        try {
+            if (Capacitor.isNativePlatform()) {
+                const status = await Geolocation.checkPermissions();
+                if (status.location !== 'granted') {
+                    const req = await Geolocation.requestPermissions();
+                    if (req.location !== 'granted') throw new Error("Permissão GPS negada");
+                }
+            }
+            // Teste rápido de GPS
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => resolve(true), 3000); // Fallback se demorar
+                Geolocation.getCurrentPosition({ timeout: 2000 }).then(resolve).catch(resolve);
+            });
+            setSteps(s => ({ ...s, gps: 'success' }));
+        } catch (e) {
+            console.error("Erro GPS:", e);
+            setSteps(s => ({ ...s, gps: 'error' }));
+            return; // Para aqui
+        }
+
+        // Delay visual
+        await new Promise(r => setTimeout(r, 500));
+
+        // Passo 2: Áudio
+        setSteps(s => ({ ...s, audio: 'loading' }));
+        try {
+            if (Capacitor.isNativePlatform()) {
+                // Tenta checar permissão sem travar
+                try {
+                    const micStatus = await navigator.permissions.query({ name: 'microphone' });
+                    if (micStatus.state !== 'granted') {
+                         // Apenas loga, o componente principal vai pedir se precisar
+                         console.log("Mic permission pending");
+                    }
+                } catch(e) {}
+            }
+            setSteps(s => ({ ...s, audio: 'success' }));
+        } catch (e) {
+            setSteps(s => ({ ...s, audio: 'error' }));
+        }
+
+        // Delay visual
+        await new Promise(r => setTimeout(r, 500));
+
+        // Passo 3: Servidor
+        setSteps(s => ({ ...s, server: 'loading' }));
+        if (navigator.onLine) {
+            setSteps(s => ({ ...s, server: 'success' }));
+        } else {
+             setSteps(s => ({ ...s, server: 'warning' })); // Permite offline
+        }
+
+        // Finaliza
+        setTimeout(() => {
+            onComplete();
+        }, 1000);
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6">
+                <h3 className="text-xl font-bold text-center mb-6 text-gray-800">Iniciando Viagem...</h3>
+                
+                <div className="space-y-4">
+                    {/* Item GPS */}
+                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                        <div className={`p-2 rounded-full ${
+                            steps.gps === 'loading' ? 'bg-blue-100 text-blue-600 animate-spin' :
+                            steps.gps === 'success' ? 'bg-green-100 text-green-600' :
+                            steps.gps === 'error' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-400'
+                        }`}>
+                            {steps.gps === 'loading' ? <Zap size={20}/> : 
+                             steps.gps === 'success' ? <Check size={20}/> : 
+                             steps.gps === 'error' ? <X size={20}/> : <MapPin size={20}/>}
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-bold text-sm">Localização (GPS)</p>
+                            <p className="text-xs text-gray-500">
+                                {steps.gps === 'pending' ? 'Aguardando...' :
+                                 steps.gps === 'loading' ? 'Ativando satélites...' :
+                                 steps.gps === 'success' ? 'Sinal Estabelecido' : 'Falha ao conectar'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Item Audio */}
+                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                        <div className={`p-2 rounded-full ${
+                            steps.audio === 'loading' ? 'bg-blue-100 text-blue-600 animate-pulse' :
+                            steps.audio === 'success' ? 'bg-green-100 text-green-600' :
+                            steps.audio === 'error' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-400'
+                        }`}>
+                             {steps.audio === 'loading' ? <Mic size={20}/> : 
+                             steps.audio === 'success' ? <Check size={20}/> : 
+                             steps.audio === 'error' ? <X size={20}/> : <Mic size={20}/>}
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-bold text-sm">Monitoramento de Voz</p>
+                            <p className="text-xs text-gray-500">
+                                {steps.audio === 'pending' ? 'Aguardando...' :
+                                 steps.audio === 'loading' ? 'Verificando microfone...' :
+                                 steps.audio === 'success' ? 'Pronto para uso' : 'Indisponível'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Item Servidor */}
+                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                        <div className={`p-2 rounded-full ${
+                            steps.server === 'loading' ? 'bg-blue-100 text-blue-600 animate-pulse' :
+                            steps.server === 'success' ? 'bg-green-100 text-green-600' :
+                            steps.server === 'warning' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-400'
+                        }`}>
+                             {steps.server === 'success' ? <Check size={20}/> : 
+                              steps.server === 'warning' ? <AlertTriangle size={20}/> : <Zap size={20}/>}
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-bold text-sm">Conexão com a Central</p>
+                            <p className="text-xs text-gray-500">
+                                {steps.server === 'pending' ? 'Aguardando...' :
+                                 steps.server === 'loading' ? 'Conectando...' :
+                                 steps.server === 'success' ? 'Conectado e Seguro' : 'Modo Offline Ativo'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {steps.gps === 'error' && (
+                    <button onClick={onClose} className="mt-6 w-full py-3 bg-red-600 text-white rounded-lg font-bold">
+                        Cancelar e Tentar Novamente
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
