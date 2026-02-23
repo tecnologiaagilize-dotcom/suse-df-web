@@ -5,6 +5,43 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SUSE-DF | Sistema de Socorro Emergencial</title>
+    <!-- Simple Error Catcher for Mobile Debugging -->
+    <script>
+      window.onerror = function(message, source, lineno, colno, error) {
+        var errDiv = document.createElement('div');
+        errDiv.style.position = 'fixed';
+        errDiv.style.top = '0';
+        errDiv.style.left = '0';
+        errDiv.style.width = '100%';
+        errDiv.style.backgroundColor = 'red';
+        errDiv.style.color = 'white';
+        errDiv.style.zIndex = '9999';
+        errDiv.style.padding = '10px';
+        errDiv.style.fontFamily = 'monospace';
+        errDiv.style.fontSize = '12px';
+        errDiv.style.whiteSpace = 'pre-wrap';
+        errDiv.innerText = 'Global Error:\n' + message + '\nAt: ' + source + ':' + lineno + ':' + colno;
+        document.body.appendChild(errDiv);
+        return false;
+      };
+      
+      window.addEventListener('unhandledrejection', function(event) {
+        var errDiv = document.createElement('div');
+        errDiv.style.position = 'fixed';
+        errDiv.style.bottom = '0';
+        errDiv.style.left = '0';
+        errDiv.style.width = '100%';
+        errDiv.style.backgroundColor = 'orange';
+        errDiv.style.color = 'black';
+        errDiv.style.zIndex = '9999';
+        errDiv.style.padding = '10px';
+        errDiv.style.fontFamily = 'monospace';
+        errDiv.style.fontSize = '12px';
+        errDiv.style.whiteSpace = 'pre-wrap';
+        errDiv.innerText = 'Unhandled Promise Rejection:\n' + event.reason;
+        document.body.appendChild(errDiv);
+      });
+    </script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
      crossorigin=""/>
