@@ -7,18 +7,74 @@ import { supabase } from '../../lib/supabase';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
-import { useGeolocation } from '../../hooks/useGeolocation'; // Hook Híbrido
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 
 export default function PassengerDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Hook de Geolocalização (Web + Native Background)
-  const { position: geoPosition, error: geoError } = useGeolocation({ 
-      enableHighAccuracy: true, 
-      timeout: 10000, 
-      maximumAge: 0 
-  });
+  // Estado manual de Geolocalização (Substituindo Hook para evitar conflito)
+  const [geoPosition, setGeoPosition] = useState(null);
+  
+  // Estados de Voz e Controle de Sessão
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [isAudioReady, setIsAudioReady] = useState(false); 
+  const [isMonitoringActive, setIsMonitoringActive] = useState(false); // Novo Estado: Monitoramento Ativo
+
+  const startMonitoring = async () => {
+      console.log("[System] Iniciando monitoramento passageiro...");
+      setIsMonitoringActive(true);
+      
+      let watchId;
+      let mounted = true;
+
+      try {
+          // PASSO 1: Geolocalização (Prioridade 1)
+          if (Capacitor.isNativePlatform()) {
+              const status = await Geolocation.checkPermissions();
+              if (status.location !== 'granted') {
+                  await Geolocation.requestPermissions();
+              }
+          }
+
+          // PASSO 2: Iniciar Rastreamento
+          if (mounted) {
+              watchId = await Geolocation.watchPosition({ 
+                  enableHighAccuracy: true, 
+                  timeout: 10000, 
+                  maximumAge: 0 
+              }, (pos, err) => {
+                  if (!mounted) return;
+                  if (pos) {
+                      setGeoPosition({
+                          latitude: pos.coords.latitude,
+                          longitude: pos.coords.longitude,
+                          speed: pos.coords.speed,
+                          heading: pos.coords.heading,
+                          accuracy: pos.coords.accuracy
+                      });
+                  }
+              });
+          }
+
+      } catch (error) {
+          console.error("[System] Erro na inicialização do GPS:", error);
+      } finally {
+          // PASSO 3: Liberar Áudio
+          if (mounted) {
+              if (Capacitor.isNativePlatform()) {
+                  // No Android, esperamos 2s para garantir que o diálogo de permissão fechou
+                  setTimeout(() => {
+                      if (mounted) setIsAudioReady(true);
+                  }, 2000);
+              } else {
+                  // Na Web, liberamos imediatamente
+                  setIsAudioReady(true);
+              }
+          }
+      }
+  };
 
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
@@ -37,8 +93,7 @@ export default function PassengerDashboard() {
   const [isTerminating, setIsTerminating] = useState(false);
   const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
   
-  // Estados de Voz e Token de Segurança
-  const [voiceTranscript, setVoiceTranscript] = useState('');
+  // Estados de Voz e Token de Segurança (voiceTranscript movido para cima)
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
