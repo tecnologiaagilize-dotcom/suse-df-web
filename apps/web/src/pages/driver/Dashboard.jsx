@@ -26,81 +26,69 @@ export default function DriverDashboard() {
 
   const startShift = async () => {
       console.log("[System] Iniciando plantão...");
-      setIsShiftActive(true); // Ativa UI primeiro para feedback visual
       
-      let watchId;
+      // PASSO 0: Ativar UI primeiro para feedback visual imediato
+      setIsShiftActive(true); 
+      
       let mounted = true;
 
       try {
-          // PASSO 1: Verificar Permissões com Cuidado (Sem travar a UI)
+          // PASSO 1: Solicitar APENAS Geolocalização primeiro
           if (Capacitor.isNativePlatform()) {
               try {
                   const status = await Geolocation.checkPermissions();
                   if (status.location !== 'granted') {
                       const request = await Geolocation.requestPermissions();
                       if (request.location !== 'granted') {
-                          alert("Precisamos da sua localização para ativar a segurança. Por favor, permita o acesso nas configurações.");
-                          setIsShiftActive(false); // Reverte se negar
+                          alert("Precisamos da sua localização para ativar a segurança.");
+                          setIsShiftActive(false);
                           return;
                       }
                   }
               } catch (permError) {
-                  console.warn("[System] Erro ao verificar permissões (pode ser ignorado em alguns dispositivos):", permError);
+                  console.warn("[System] Erro permissão GPS:", permError);
               }
           }
 
-          // PASSO 2: Iniciar Rastreamento Protegido
+          // PASSO 2: Iniciar GPS (Sem pedir áudio ainda)
           if (mounted) {
-              try {
-                  watchId = await Geolocation.watchPosition({ 
-                      enableHighAccuracy: true, 
-                      timeout: 10000, 
-                      maximumAge: 0 
-                  }, (pos, err) => {
-                      if (!mounted) return;
-                      if (err) {
-                          console.warn("[System] Erro no watchPosition:", err);
-                          return;
-                      }
-                      if (pos) {
-                          setGeoPosition({
-                              latitude: pos.coords.latitude,
-                              longitude: pos.coords.longitude,
-                              speed: pos.coords.speed,
-                              heading: pos.coords.heading,
-                              accuracy: pos.coords.accuracy
-                          });
-                      }
-                  });
-              } catch (watchError) {
-                  console.error("[System] Falha crítica ao iniciar GPS:", watchError);
-                  alert("Erro ao iniciar GPS. Verifique se a localização está ativada.");
-                  setIsShiftActive(false);
-              }
+              Geolocation.watchPosition({ 
+                  enableHighAccuracy: true, 
+                  timeout: 10000, 
+                  maximumAge: 0 
+              }, (pos, err) => {
+                  if (!mounted) return;
+                  if (pos) {
+                      setGeoPosition({
+                          latitude: pos.coords.latitude,
+                          longitude: pos.coords.longitude,
+                          speed: pos.coords.speed,
+                          heading: pos.coords.heading,
+                          accuracy: pos.coords.accuracy
+                      });
+                  }
+              }).catch(err => console.error("Erro watchPosition:", err));
+          }
+
+          // PASSO 3: Esperar 3 SEGUNDOS antes de mexer com Áudio
+          // O Android mata o app se pedir duas permissões pesadas (GPS + Mic) ao mesmo tempo ou muito rápido
+          if (mounted && Capacitor.isNativePlatform()) {
+              console.log("[System] Aguardando 3s antes de ativar áudio...");
+              setTimeout(() => {
+                  if (mounted) {
+                      // Só agora ativamos a flag que fará o componente de Voz montar e pedir permissão
+                      setIsAudioReady(true);
+                  }
+              }, 3000);
+          } else {
+              // Web pode ser imediato
+              setIsAudioReady(true);
           }
 
       } catch (error) {
-          console.error("[System] Erro geral na inicialização:", error);
-          alert("Erro ao iniciar sistema de segurança: " + error.message);
+          console.error("[System] Erro geral:", error);
+          alert("Erro ao iniciar: " + error.message);
           setIsShiftActive(false);
-      } finally {
-          // PASSO 3: Liberar Áudio com Proteção Extra
-          if (mounted) {
-              try {
-                  if (Capacitor.isNativePlatform()) {
-                      // No Android, esperamos 2s para garantir que o diálogo de permissão fechou
-                      setTimeout(() => {
-                          if (mounted) setIsAudioReady(true);
-                      }, 2000);
-                  } else {
-                      // Na Web, liberamos imediatamente
-                      setIsAudioReady(true);
-                  }
-              } catch (audioError) {
-                  console.error("[System] Erro ao preparar áudio:", audioError);
-                  // Não revertemos isShiftActive aqui para não "desligar" o app por causa do áudio
-              }
-          }
       }
   };
 
@@ -590,9 +578,9 @@ export default function DriverDashboard() {
             <div className="flex flex-col">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <ShieldAlert className="text-red-600" />
-                SUSE - Motorista
+                SUSE - Condutor
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.1</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.4.2 (Safe Init)</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
