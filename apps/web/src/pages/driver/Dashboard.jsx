@@ -28,7 +28,17 @@ export default function DriverDashboard() {
   const [showPrepModal, setShowPrepModal] = useState(false);
 
   const handleStartTrip = () => {
-      setShowPrepModal(true);
+      // SEPARAÇÃO CRÍTICA: WEB vs MOBILE
+      if (!Capacitor.isNativePlatform()) {
+          // MODO WEB: Início imediato (Navegador gerencia permissões)
+          console.log("Modo Web detectado: Iniciando direto...");
+          setIsShiftActive(true);
+          startGPS();
+          startAudioSmart();
+      } else {
+          // MODO ANDROID/NATIVE: Usa Checklist para evitar crash de Foreground Service
+          setShowPrepModal(true);
+      }
   };
 
   const onPrepComplete = () => {
