@@ -45,11 +45,13 @@ export default function Login() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
-          <div className="bg-red-100 p-3 rounded-full mb-2">
-            <ShieldAlert className="w-8 h-8 text-red-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">SUSE-DF</h1>
-          <p className="text-gray-500">Acesso Restrito - Atendimento</p>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <ShieldAlert className="text-red-600" />
+            SUSE-DF
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Sistema Unificado de Segurança e Emergência v1.3.1
+          </p>
         </div>
 
         {error && (

@@ -1,22 +1,90 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2 } from 'lucide-react';
+import { LogOut, MapPin, AlertTriangle, CheckCircle, UserPlus, X, Play, Clock, Timer, Phone, Mail, Car, User, Share2, Eye, Shield, Copy, ExternalLink, Map, Plus, Briefcase, FileText, Truck, Save, Edit, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrackingMap from '../components/map/TrackingMap'; 
 import { ProgressiveTimer, StaticDuration } from '../components/common/Timers';
 import ValidationModal from '../components/modals/ValidationModal';
+import ResolvedAlertModal from '../components/modals/ResolvedAlertModal';
+
+const ROLE_LABELS = {
+  master: 'Master',
+  admin: 'Supervisor do Sistema',
+  supervisor: 'Chefe de Atendimento',
+  operator: 'Operador da Mesa',
+  driver: 'Condutor'
+};
+
+const SECURITY_UNITS = [
+    {
+        label: "Batalhões de Policiamento de Área (BPM)",
+        options: [
+            "1º BPM – Asa Sul", "2º BPM – Taguatinga", "3º BPM – Ceilândia", "4º BPM – Guará",
+            "5º BPM – Asa Norte", "6º BPM – Esplanada dos Ministérios", "7º BPM – Lago Sul", "8º BPM – Ceilândia",
+            "9º BPM – Gama", "10º BPM – Ceilândia", "11º BPM – Samambaia", "12º BPM – Judiciário (Tribunais)",
+            "13º BPM – Sobradinho", "14º BPM – Planaltina", "15º BPM – Ceilândia", "16º BPM – Brazlândia",
+            "17º BPM – Águas Claras", "18º BPM – Recanto das Emas", "19º BPM – Ceilândia", "20º BPM – Paranoá",
+            "21º BPM – São Sebastião", "22º BPM – Jardim Botânico", "23º BPM – Ceilândia", "24º BPM – Lago Norte",
+            "25º BPM – Samambaia", "26º BPM – Santa Maria", "27º BPM – Recanto das Emas", "28º BPM – Riacho Fundo",
+            "29º BPM – SIA/SCIA", "30º BPM – Planaltina", "31º BPM – Fercal (Ambiental)", "32º BPM – Ceilândia",
+            "33º BPM – Sol Nascente/Pôr do Sol"
+        ]
+    },
+    {
+        label: "Batalhões Especializados e Operacionais",
+        options: [
+            "BOPE – Batalhão de Operações Especiais", "BPCHOQUE – Batalhão de Polícia de Choque",
+            "BPATAMO – Batalhão de Polícia de Choque (Tático Motorizado)", "BPTRAN – Batalhão de Polícia de Trânsito",
+            "BPRV – Batalhão de Polícia Rodoviária", "BPMA – Batalhão de Polícia Militar Ambiental",
+            "BPCÃES – Batalhão de Policiamento com Cães", "BPGEP – Batalhão de Polícia de Guarda e Escolta",
+            "BAvOp – Batalhão de Aviação Operacional", "BPESC – Batalhão de Polícia Escolar",
+            "BPChoque/RPon – Batalhão de Polícia Montada"
+        ]
+    },
+    {
+        label: "Polícia Civil (Delegacias Circunscricionais)",
+        options: [
+            "1ª DP – Asa Sul", "2ª DP – Asa Norte", "3ª DP – Cruzeiro", "4ª DP – Guará", "5ª DP – Área Central",
+            "6ª DP – Paranoá", "8ª DP – SIA", "9ª DP – Lago Norte", "10ª DP – Lago Sul", "11ª DP – Núcleo Bandeirante",
+            "12ª DP – Taguatinga Centro", "13ª DP – Sobradinho", "14ª DP – Gama", "15ª DP – Ceilândia Centro",
+            "16ª DP – Planaltina", "17ª DP – Taguatinga Norte", "18ª DP – Brazlândia", "19ª DP – Ceilândia Norte",
+            "20ª DP – Gama Oeste", "21ª DP – Taguatinga Sul", "23ª DP – P Sul", "24ª DP – Setor O",
+            "26ª DP – Samambaia Norte", "27ª DP – Recanto das Emas", "29ª DP – Riacho Fundo", "30ª DP – São Sebastião",
+            "31ª DP – Planaltina", "32ª DP – Samambaia Sul", "33ª DP – Santa Maria", "35ª DP – Sobradinho II",
+            "DEAM I – Asa Sul", "DEAM II – Ceilândia", "DCA I – Asa Norte", "DCA II – Taguatinga"
+        ]
+    },
+    {
+        label: "Corpo de Bombeiros (CBMDF)",
+        options: [
+            "1º GBM – Brasília", "2º GBM – Taguatinga", "3º GBM – SIA", "6º GBM – Ceilândia", "7º GBM – Brazlândia",
+            "8º GBM – Ceilândia", "9º GBM – Planaltina", "10º GBM – Paranoá", "12º GBM – Samambaia", "13º GBM – Guará",
+            "15º GBM – Asa Sul", "16º GBM – Gama", "17º GBM – São Sebastião", "18º GBM – Santa Maria",
+            "21º GBM – Riacho Fundo", "22º GBM – Sobradinho", "25º GBM – Águas Claras", "28º GBM – Riacho Fundo II",
+            "34º GBM – Lago Norte", "36º GBM – Recanto das Emas", "41º GBM – Ceilândia", "45º GBM – Sudoeste"
+        ]
+    },
+    {
+        label: "Órgãos de Trânsito",
+        options: ["DETRAN-DF", "DER-DF", "PRF-DF"]
+    }
+];
 
 export default function Dashboard() {
   const { user, userRole, signOut } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const audioContextRef = useRef(null);
+  const prevAlertsRef = useRef([]);
 
   // Múltiplas janelas ativas
   const [activeWindows, setActiveWindows] = useState([]);
   const [showDetailsModal, setShowDetailsModal] = useState(null);
+  const [showResolvedModal, setShowResolvedModal] = useState(null);
   const [validationModalAlert, setValidationModalAlert] = useState(null);
+  const [expandedMapId, setExpandedMapId] = useState(null);
   
   // Estados para Compartilhamento em Lote (SIS_GEO)
   const [showShareSelectionModal, setShowShareSelectionModal] = useState(false);
@@ -24,6 +92,8 @@ export default function Dashboard() {
   const [selectedAgents, setSelectedAgents] = useState([]);
   const [generatedLinks, setGeneratedLinks] = useState([]); // Array de { name, phone, link }
   const [agents, setAgents] = useState([]);
+  const [filteredAgents, setFilteredAgents] = useState([]); // Novo estado para filtro
+  const [filterUnit, setFilterUnit] = useState(''); // Estado do filtro de unidade
   const [loadingShare, setLoadingShare] = useState(false);
 
   // Estado para Modal de Chefe de Viatura
@@ -86,6 +156,67 @@ export default function Dashboard() {
     });
   }, [alerts]);
 
+  // Filtro de Agentes por Unidade
+  useEffect(() => {
+    if (filterUnit) {
+        setFilteredAgents(agents.filter(a => a.lotacao === filterUnit));
+    } else {
+        setFilteredAgents(agents);
+    }
+  }, [agents, filterUnit]);
+
+  // Alerta Sonoro para novas ocorrências
+  const playAlertSound = () => {
+    try {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioContextRef.current;
+        // Resume context if suspended (common in browsers)
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        // Som de sirene: Alternando frequências
+        const now = ctx.currentTime;
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.2);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.4);
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.5);
+
+        osc.start(now);
+        osc.stop(now + 0.5);
+    } catch (e) {
+        console.error("Erro ao tocar som:", e);
+    }
+  };
+
+  useEffect(() => {
+      // Detectar novas ocorrências ATIVAS
+      const newActiveAlerts = alerts.filter(a => a.status === 'active');
+      const prevActiveAlerts = prevAlertsRef.current.filter(a => a.status === 'active');
+      
+      const hasNew = newActiveAlerts.some(na => !prevActiveAlerts.find(pa => pa.id === na.id));
+      
+      if (hasNew) {
+          playAlertSound();
+      }
+      
+      prevAlertsRef.current = alerts;
+  }, [alerts]);
+
   // Monitoramento de localizações para TODAS as janelas ativas
   useEffect(() => {
     if (activeWindows.length === 0) return;
@@ -114,6 +245,19 @@ export default function Dashboard() {
     };
   }, [activeWindows.length]); // Recriar subs apenas quando adicionar/remover janelas
 
+  // Função auxiliar para Log de Auditoria
+  const logOperation = async (action, targetId, metadata = {}) => {
+      try {
+          await supabase.rpc('log_action', {
+              p_action: action,
+              p_target_id: targetId,
+              p_metadata: metadata
+          });
+      } catch (err) {
+          console.error("Falha silenciosa ao logar auditoria:", err);
+      }
+  };
+
   const handleAccept = async (alert) => {
       // Verificar se já está aberto
       if (activeWindows.find(w => w.id === alert.id)) return;
@@ -139,6 +283,13 @@ export default function Dashboard() {
             })
             .eq('id', alert.id);
           
+          // Log de Auditoria
+          logOperation('ALERT_ACCEPT', alert.id, { 
+              prev_status: 'active', 
+              new_status: 'investigating',
+              timestamp: now
+          });
+
           fetchAlerts(); // Refresh visual
       }
   };
@@ -176,6 +327,13 @@ export default function Dashboard() {
               .eq('id', alert.id);
 
           if (updateError) throw updateError;
+
+          // Log de Auditoria
+          logOperation('ALERT_RESOLVE', alert.id, { 
+              type: 'ADMIN_FORCE_RESOLVE',
+              reason: 'Encerramento Administrativo (Sem token)',
+              timestamp: now
+          });
 
           // Fechar janela localmente
           closeWindow(alert.id);
@@ -310,6 +468,7 @@ export default function Dashboard() {
             *, 
             users (
                 name, 
+                role,
                 phone_number, 
                 email, 
                 photo_url, 
@@ -339,13 +498,38 @@ export default function Dashboard() {
     }
   };
 
+  const getStatusLabel = (status) => {
+    switch (status) {
+        case 'resolved': return 'RESOLVIDO';
+        case 'active': 
+        case 'investigating': 
+        case 'waiting_police_validation':
+            return 'EM OCORRÊNCIA';
+        default: return status.toUpperCase();
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-red-100 text-red-800';
-      case 'investigating': return 'bg-yellow-100 text-yellow-800';
+      case 'active': 
+      case 'investigating': 
+      case 'waiting_police_validation':
+          return 'bg-red-100 text-red-800 animate-pulse'; // Vermelho e Intermitente
       case 'resolved': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getConnectivityBadge = (status) => {
+      if (status === 'DEAD_ZONE') {
+          return (
+              <span className="flex items-center gap-1 bg-gray-800 text-white text-xs px-2 py-0.5 rounded-full animate-pulse border border-gray-600">
+                  <AlertTriangle size={10} className="text-yellow-400" />
+                  ZONA DE SOMBRA
+              </span>
+          );
+      }
+      return null;
   };
 
   return (
@@ -353,17 +537,30 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-white shadow-sm z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <AlertTriangle className="text-red-600" />
-            Central de Monitoramento <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.1</span>
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <AlertTriangle className="text-red-600" />
+              Central de Monitoramento
+            </h1>
+            <span className="text-xs text-gray-500 font-mono ml-8">SUSE-v1.3.1</span>
+          </div>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
-              <button onClick={() => navigate('/admin/users')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
-                <UserPlus size={18} /> Gestão
-              </button>
+              <>
+                {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
+                    <button onClick={() => navigate('/admin/audit')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                        <Shield size={18} /> Auditoria
+                    </button>
+                )}
+                <button onClick={() => navigate('/admin/users')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
+                    <UserPlus size={18} /> Gestão
+                </button>
+              </>
             )}
-            <span className="text-sm text-gray-600">{user?.email}</span>
+            <div className="text-right">
+                <span className="block text-sm font-bold text-gray-900">{ROLE_LABELS[userRole] || userRole}</span>
+                <span className="block text-xs text-gray-500">{user?.email}</span>
+            </div>
             <button onClick={() => signOut()} className="p-2 text-gray-500 hover:text-red-600 transition-colors">
               <LogOut size={20} />
             </button>
@@ -387,6 +584,9 @@ export default function Dashboard() {
                                   <span className="font-bold text-red-400 uppercase tracking-wider flex items-center gap-1">
                                     <AlertTriangle size={16} /> Emergência
                                   </span>
+                                  
+                                  {/* Badge de Conectividade (Zona de Sombra) */}
+                                  {getConnectivityBadge(activeWindow.connectivity_status)}
                                   
                                   {/* Contador de Espera (Fixo: Accepted - Created) */}
                                   <StaticDuration 
@@ -487,7 +687,27 @@ export default function Dashboard() {
                               </div>
 
                               {/* Coluna da Direita: Mapa */}
-                              <div className="w-2/3 h-full relative bg-gray-200">
+                              {/* Lógica de Minimização do Mapa durante Validação */}
+                              <div className={`transition-all duration-300 bg-gray-200 relative ${
+                                  expandedMapId === activeWindow.id 
+                                      ? 'fixed inset-0 z-50 w-full h-full' 
+                                      : (validationModalAlert && validationModalAlert.id === activeWindow.id ? 'w-0 h-full overflow-hidden opacity-0' : 'w-2/3 h-full')
+                              }`}>
+                                   <button
+                                      onClick={() => setExpandedMapId(expandedMapId === activeWindow.id ? null : activeWindow.id)}
+                                      className="absolute top-4 right-4 z-[60] bg-white text-gray-800 px-3 py-2 rounded shadow-md font-bold text-xs uppercase hover:bg-gray-50 flex items-center gap-2 border border-gray-300 transition-transform hover:scale-105"
+                                   >
+                                      {expandedMapId === activeWindow.id ? (
+                                          <>
+                                              <Minimize2 size={16} /> REDUZIR MAPA
+                                          </>
+                                      ) : (
+                                          <>
+                                              <Maximize2 size={16} /> AMPLIAR MAPA
+                                          </>
+                                      )}
+                                   </button>
+
                                    <TrackingMap 
                                         lat={activeWindow.current_lat}
                                         lng={activeWindow.current_lng}
@@ -522,6 +742,17 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                               </div>
+                              
+                              {/* Painel de Substituição do Mapa durante Validação */}
+                              {validationModalAlert && validationModalAlert.id === activeWindow.id && (
+                                  <div className="w-2/3 h-full bg-gray-100 flex flex-col items-center justify-center p-8 text-center animate-fade-in border-l border-gray-300">
+                                      <Map size={64} className="text-gray-300 mb-4" />
+                                      <h3 className="text-xl font-bold text-gray-600">Mapa Minimizado</h3>
+                                      <p className="text-gray-500 max-w-sm mt-2">
+                                          O mapa foi ocultado temporariamente para facilitar a validação dos dados de encerramento.
+                                      </p>
+                                  </div>
+                              )}
                           </div>
                       </div>
                   ))}
@@ -676,10 +907,17 @@ export default function Dashboard() {
       {validationModalAlert && (
           <ValidationModal 
               alert={validationModalAlert}
+              // Passar coordenadas atualizadas se disponíveis na janela ativa, senão usa as iniciais
+              currentLat={activeWindows.find(w => w.id === validationModalAlert.id)?.current_lat || validationModalAlert.initial_lat}
+              currentLng={activeWindows.find(w => w.id === validationModalAlert.id)?.current_lng || validationModalAlert.initial_lng}
               isOpen={true}
               onClose={() => setValidationModalAlert(null)}
               onSuccess={(updatedAlert) => {
                   if (updatedAlert && updatedAlert.status === 'resolved') {
+                      logOperation('ALERT_RESOLVE', updatedAlert.id, { 
+                          type: 'ADMIN_TOKEN_VALIDATED',
+                          timestamp: new Date().toISOString()
+                      });
                       closeWindow(updatedAlert.id);
                       fetchAlerts();
                   }
@@ -688,9 +926,23 @@ export default function Dashboard() {
           />
       )}
 
+      {/* Modal de Ocorrência Finalizada (Read-Only) */}
+      <ResolvedAlertModal 
+          alert={showResolvedModal}
+          isOpen={!!showResolvedModal}
+          onClose={() => {
+              if (showResolvedModal) {
+                  logOperation('ALERT_VIEW_HISTORY', showResolvedModal.id, { 
+                      action: 'view_resolved_details' 
+                  });
+              }
+              setShowResolvedModal(null);
+          }}
+      />
+
       {/* Modal de Compartilhamento em Lote */}
       {showShareSelectionModal && (
-          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border border-gray-200 flex flex-col max-h-[90vh]">
                   <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 flex justify-between items-center shrink-0">
                       <h3 className="font-bold text-lg flex items-center gap-2">
@@ -741,26 +993,46 @@ export default function Dashboard() {
                           </div>
                       ) : (
                           <div className="flex flex-col h-full">
-                              <div className="flex justify-between items-center mb-4">
-                                  <p className="text-gray-600">Selecione os chefes de viatura que receberão o link:</p>
-                                  <button 
-                                      onClick={() => {
-                                          setShowShareSelectionModal(false);
-                                          setNewAgent({ name: '', matricula: '', posto_graduacao: '', lotacao: '', viatura: '', phone: '', observacoes: '' });
-                                          setEditingAgentId(null);
-                                          setShowAgentModal(true);
-                                      }}
-                                      className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1.5 rounded-md hover:bg-blue-200 text-sm font-medium transition-colors"
+                              <div className="flex flex-col gap-3 mb-4">
+                                  <div className="flex justify-between items-center">
+                                      <p className="text-gray-600">Selecione os chefes de viatura que receberão o link:</p>
+                                      <button 
+                                          onClick={() => {
+                                              setShowShareSelectionModal(false);
+                                              setNewAgent({ name: '', matricula: '', posto_graduacao: '', lotacao: '', viatura: '', phone: '', observacoes: '' });
+                                              setEditingAgentId(null);
+                                              setShowAgentModal(true);
+                                          }}
+                                          className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1.5 rounded-md hover:bg-blue-200 text-sm font-medium transition-colors"
+                                      >
+                                          <Plus size={16} /> Novo Chefe
+                                      </button>
+                                  </div>
+                                  
+                                  {/* Filtro de Unidade */}
+                                  <select
+                                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2 text-sm"
+                                      value={filterUnit}
+                                      onChange={(e) => setFilterUnit(e.target.value)}
                                   >
-                                      <Plus size={16} /> Novo Chefe
-                                  </button>
+                                      <option value="">Todas as Unidades (Mostrar Todos)</option>
+                                      {SECURITY_UNITS.map((group, idx) => (
+                                          <optgroup key={idx} label={group.label}>
+                                              {group.options.map((unit) => (
+                                                  <option key={unit} value={unit}>{unit}</option>
+                                              ))}
+                                          </optgroup>
+                                      ))}
+                                  </select>
                               </div>
                               
                               <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50 p-2 space-y-2">
-                                  {agents.length === 0 ? (
-                                      <p className="text-center text-gray-500 py-8">Nenhum chefe de viatura cadastrado.</p>
+                                  {filteredAgents.length === 0 ? (
+                                      <p className="text-center text-gray-500 py-8">
+                                          {filterUnit ? 'Nenhum chefe nesta unidade.' : 'Nenhum chefe de viatura cadastrado.'}
+                                      </p>
                                   ) : (
-                                      agents.map(agent => {
+                                      filteredAgents.map(agent => {
                                           const hasLinks = agent.share_tokens && agent.share_tokens[0]?.count > 0;
                                           return (
                                               <div key={agent.id} className="flex items-center gap-2 p-3 bg-white rounded-md border border-gray-200 hover:border-blue-400 transition-colors group">
@@ -841,7 +1113,7 @@ export default function Dashboard() {
 
       {/* Modal de Chefe de Viatura */}
       {showAgentModal && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/60 z-[10000] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border border-gray-200">
                 <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -951,54 +1223,13 @@ export default function Dashboard() {
                                 onChange={e => setNewAgent({...newAgent, lotacao: e.target.value})}
                             >
                                 <option value="">Selecione o Batalhão...</option>
-                                <optgroup label="Batalhões de Policiamento de Área (BPM)">
-                                    <option value="1º BPM – Asa Sul">1º BPM – Asa Sul</option>
-                                    <option value="2º BPM – Taguatinga">2º BPM – Taguatinga</option>
-                                    <option value="3º BPM – Ceilândia">3º BPM – Ceilândia</option>
-                                    <option value="4º BPM – Guará">4º BPM – Guará</option>
-                                    <option value="5º BPM – Asa Norte">5º BPM – Asa Norte</option>
-                                    <option value="6º BPM – Esplanada dos Ministérios">6º BPM – Esplanada dos Ministérios</option>
-                                    <option value="7º BPM – Lago Sul">7º BPM – Lago Sul</option>
-                                    <option value="8º BPM – Ceilândia">8º BPM – Ceilândia</option>
-                                    <option value="9º BPM – Gama">9º BPM – Gama</option>
-                                    <option value="10º BPM – Ceilândia">10º BPM – Ceilândia</option>
-                                    <option value="11º BPM – Samambaia">11º BPM – Samambaia</option>
-                                    <option value="12º BPM – Judiciário">12º BPM – Judiciário (Tribunais)</option>
-                                    <option value="13º BPM – Sobradinho">13º BPM – Sobradinho</option>
-                                    <option value="14º BPM – Planaltina">14º BPM – Planaltina</option>
-                                    <option value="15º BPM – Ceilândia">15º BPM – Ceilândia</option>
-                                    <option value="16º BPM – Brazlândia">16º BPM – Brazlândia</option>
-                                    <option value="17º BPM – Águas Claras">17º BPM – Águas Claras</option>
-                                    <option value="18º BPM – Recanto das Emas">18º BPM – Recanto das Emas</option>
-                                    <option value="19º BPM – Ceilândia">19º BPM – Ceilândia</option>
-                                    <option value="20º BPM – Paranoá">20º BPM – Paranoá</option>
-                                    <option value="21º BPM – São Sebastião">21º BPM – São Sebastião</option>
-                                    <option value="22º BPM – Jardim Botânico">22º BPM – Jardim Botânico</option>
-                                    <option value="23º BPM – Ceilândia">23º BPM – Ceilândia</option>
-                                    <option value="24º BPM – Lago Norte">24º BPM – Lago Norte</option>
-                                    <option value="25º BPM – Samambaia">25º BPM – Samambaia</option>
-                                    <option value="26º BPM – Santa Maria">26º BPM – Santa Maria</option>
-                                    <option value="27º BPM – Recanto das Emas">27º BPM – Recanto das Emas</option>
-                                    <option value="28º BPM – Riacho Fundo">28º BPM – Riacho Fundo</option>
-                                    <option value="29º BPM – SIA/SCIA">29º BPM – SIA/SCIA</option>
-                                    <option value="30º BPM – Planaltina">30º BPM – Planaltina</option>
-                                    <option value="31º BPM – Fercal">31º BPM – Fercal (Ambiental)</option>
-                                    <option value="32º BPM – Ceilândia">32º BPM – Ceilândia</option>
-                                    <option value="33º BPM – Sol Nascente/Pôr do Sol">33º BPM – Sol Nascente/Pôr do Sol</option>
-                                </optgroup>
-                                <optgroup label="Batalhões Especializados e Operacionais">
-                                    <option value="BOPE">BOPE – Batalhão de Operações Especiais</option>
-                                    <option value="BPCHOQUE">BPCHOQUE – Batalhão de Polícia de Choque</option>
-                                    <option value="BPATAMO">BPATAMO – Batalhão de Polícia de Choque (Tático Motorizado)</option>
-                                    <option value="BPTRAN">BPTRAN – Batalhão de Polícia de Trânsito</option>
-                                    <option value="BPRV">BPRV – Batalhão de Polícia Rodoviária</option>
-                                    <option value="BPMA">BPMA – Batalhão de Polícia Militar Ambiental</option>
-                                    <option value="BPCÃES">BPCÃES – Batalhão de Policiamento com Cães</option>
-                                    <option value="BPGEP">BPGEP – Batalhão de Polícia de Guarda e Escolta</option>
-                                    <option value="BAvOp">BAvOp – Batalhão de Aviação Operacional</option>
-                                    <option value="BPESC">BPESC – Batalhão de Polícia Escolar</option>
-                                    <option value="BPChoque/RPon">BPChoque/RPon – Batalhão de Polícia Montada</option>
-                                </optgroup>
+                                {SECURITY_UNITS.map((group, idx) => (
+                                    <optgroup key={idx} label={group.label}>
+                                        {group.options.map((unit) => (
+                                            <option key={unit} value={unit}>{unit}</option>
+                                        ))}
+                                    </optgroup>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -1094,7 +1325,8 @@ export default function Dashboard() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motorista</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conexão</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">USUÁRIO</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horário</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação</th>
@@ -1106,11 +1338,25 @@ export default function Dashboard() {
                     <tr key={alert.id} className={`hover:bg-gray-50 ${activeWindows.find(w => w.id === alert.id) ? 'bg-blue-50' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(alert.status)}`}>
-                          {alert.status.toUpperCase()}
+                          {getStatusLabel(alert.status)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                          {alert.connectivity_status === 'DEAD_ZONE' ? (
+                              <span className="text-xs font-bold text-gray-600 bg-gray-200 px-2 py-1 rounded flex items-center gap-1 w-fit">
+                                  <AlertTriangle size={12} /> Sombra
+                              </span>
+                          ) : (
+                              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded flex items-center gap-1 w-fit">
+                                  <CheckCircle size={12} /> Online
+                              </span>
+                          )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{alert.users?.name || 'Desconhecido'}</div>
+                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                            {alert.users ? (alert.users.role === 'passenger' ? 'PASSAGEIRO' : 'CONDUTOR') : '-'}
+                        </div>
                         <div className="text-sm text-gray-500">{alert.users?.phone_number}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1121,13 +1367,21 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {activeWindows.find(w => w.id === alert.id) ? (
-                            <span className="text-blue-600 font-bold flex items-center gap-1">
-                                <CheckCircle size={16} /> Em Atendimento
+                            <span className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 text-xs uppercase font-bold shadow-sm animate-pulse">
+                                <AlertTriangle size={14} /> Em Ocorrência
                             </span>
+                        ) : alert.status === 'resolved' ? (
+                            <button 
+                                onClick={() => setShowResolvedModal(alert)}
+                                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm"
+                            >
+                              <CheckCircle size={14} /> 
+                              {alert.notes?.includes('[Encerramento Administrativo]') ? 'FINALIZADO OPERADOR' : 'FINALIZADO CONDUTOR'}
+                            </button>
                         ) : (
                             <button 
                                 onClick={() => handleAccept(alert)}
-                                className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm"
+                                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1 text-xs uppercase font-bold shadow-sm animate-pulse"
                             >
                               <Play size={14} /> Assumir
                             </button>

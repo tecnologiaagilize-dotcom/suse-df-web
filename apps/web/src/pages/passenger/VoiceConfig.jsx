@@ -5,7 +5,7 @@ import { Mic, AlertCircle, PlayCircle, Square, CheckCircle, Loader } from 'lucid
 import { supabase } from '../../lib/supabase';
 import AudioFeatureExtractor from '../../services/AudioFeatureExtractor';
 
-export default function VoiceConfig() {
+export default function PassengerVoiceConfig() {
   const [recordingStep, setRecordingStep] = useState(0); // 0-2 (Biometria), 3 (Frase), 4 (Score)
   const [isRecording, setIsRecording] = useState(false);
   const [qualityScore, setQualityScore] = useState(0);
@@ -65,7 +65,7 @@ export default function VoiceConfig() {
             setConfigPhrases([
                 { phrase_text: "O sistema de segurança está ativo" },
                 { phrase_text: "Minha voz é minha identidade" },
-                { phrase_text: "Autorização confirmada pelo motorista" }
+                { phrase_text: "Autorização confirmada pelo passageiro" }
             ]);
         }
       } catch (err) {
@@ -192,14 +192,9 @@ export default function VoiceConfig() {
 
         // 4. Transcrição (Confirmação de inteligibilidade)
         // Ajuste: Penalidade menor se não houver transcrição (Web Speech pode falhar)
-        const speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-        
-        if (speechSupported && (!currentTranscript || currentTranscript.length < 3)) {
-            // Se suporta mas não transcreveu, pequena penalidade
-            technicalScore -= 0.5; // Era 1
-            // penalties.push("Fala não reconhecida (WebSpeech)"); // Removido para não bloquear
-        } else if (!speechSupported) {
-            console.warn("Web Speech API não suportada neste navegador via VoiceConfig.");
+        if (!currentTranscript || currentTranscript.length < 3) {
+            technicalScore -= 1; // Era 2
+            penalties.push("Fala não reconhecida (WebSpeech)");
         }
 
         // Clamp score 0-10
@@ -313,7 +308,6 @@ export default function VoiceConfig() {
               });
           
           if (error) {
-             // Fallback para bucket 'avatars' se 'voice-recordings' não existir
              console.warn("Bucket voice-recordings falhou, tentando avatars:", error.message);
              const { error: backupError } = await supabase.storage
                 .from('avatars')
@@ -336,16 +330,16 @@ export default function VoiceConfig() {
       }
   };
 
-  const handleSavePhrase = async () => {
-    console.log("Botão Salvar clicado. Estado atual:", { emergencyPhrase, phraseAudioRecorded, audioBlobs });
+  const handleFinish = () => {
+    navigate('/passenger/dashboard');
+  };
 
-    // Validações
+  const handleSavePhrase = async () => {
     if (emergencyPhrase.trim().split(' ').length < 2) {
       alert("A frase deve ter pelo menos 2 palavras.");
       return;
     }
     
-    // Verificação dupla do estado de gravação
     if (!phraseAudioRecorded && !audioBlobs['emergency']) {
       alert("Você precisa gravar o áudio da frase de emergência.");
       return;
@@ -354,9 +348,6 @@ export default function VoiceConfig() {
     setIsSaving(true);
 
     try {
-        console.log("Iniciando processo de salvamento...");
-        
-        // 1. Upload dos Áudios
         const biometryUrls = {};
         for (let i = 0; i < 3; i++) {
             if (audioBlobs[i]) {
@@ -370,30 +361,18 @@ export default function VoiceConfig() {
             emergencyAudioUrl = await uploadAudio(audioBlobs['emergency'], `${user.id}/emergency_phrase.webm`);
         }
 
-        // 2. Atualizar tabela users
-        // Atualiza colunas de URLs e a frase secreta
         const updateData = {
             secret_word: emergencyPhrase,
             updated_at: new Date().toISOString()
         };
 
-        // Adiciona URLs se existirem
         if (biometryUrls['voice_biometry_1_url']) updateData.voice_biometry_1_url = biometryUrls['voice_biometry_1_url'];
         if (biometryUrls['voice_biometry_2_url']) updateData.voice_biometry_2_url = biometryUrls['voice_biometry_2_url'];
         if (biometryUrls['voice_biometry_3_url']) updateData.voice_biometry_3_url = biometryUrls['voice_biometry_3_url'];
         if (emergencyAudioUrl) updateData.secret_word_audio_url = emergencyAudioUrl;
 
-        const { error } = await supabase
-            .from('users')
-            .update(updateData)
-            .eq('id', user.id);
-
-        if (error) {
-            console.warn("Update direto falhou (provavelmente colunas inexistentes), usando metadata:", error.message);
-            // Se falhar o update direto, garantimos que pelo menos o metadata seja salvo
-        }
+        await supabase.from('users').update(updateData).eq('id', user.id);
         
-        // 3. Salvar TUDO no Auth Metadata (Garantia de funcionamento sem migração de banco)
         const metadataUpdates = {
             emergency_phrase: emergencyPhrase,
             ...biometryUrls,
@@ -401,16 +380,11 @@ export default function VoiceConfig() {
             voice_config_completed: true
         };
 
-        const { error: authError } = await supabase.auth.updateUser({
-            data: metadataUpdates
-        });
-
-        if (authError) throw authError;
+        await supabase.auth.updateUser({ data: metadataUpdates });
         
-        console.log("Configuração salva com sucesso (Metadata)!");
         setSuccess(true);
         alert("Configuração de voz salva com sucesso!");
-        navigate('/driver/dashboard', { replace: true });
+        navigate('/passenger/dashboard', { replace: true });
 
     } catch (error) {
         console.error("Erro ao salvar:", error);
@@ -418,10 +392,6 @@ export default function VoiceConfig() {
     } finally {
         setIsSaving(false);
     }
-  };
-
-  const handleFinish = () => {
-    navigate('/driver/dashboard', { replace: true });
   };
 
   const resetProcess = () => {
@@ -463,7 +433,7 @@ export default function VoiceConfig() {
                 <div className="flex flex-col gap-3">
                     <button
                         onClick={handleFinish}
-                        className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                     >
                         Voltar ao Painel Principal
                     </button>

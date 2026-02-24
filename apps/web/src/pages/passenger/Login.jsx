@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, User, Lock, Video } from 'lucide-react';
 import FaceLogin from '../../components/face-auth/FaceLogin';
 
-export default function DriverLogin() {
+export default function PassengerLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,21 +18,17 @@ export default function DriverLogin() {
     try {
       setError('');
       setLoading(true);
-      console.log('Tentando login motorista com:', email); // Debug
+      console.log('Tentando login passageiro com:', email);
       const { user } = await signIn(email, password);
       
       // Armazenar end_token se disponível nos metadados
       if (user?.user_metadata?.end_token) {
-          console.log("End Token recuperado do login:", user.user_metadata.end_token);
           localStorage.setItem('end_token', user.user_metadata.end_token);
       } else {
-          console.warn("Usuário sem end_token configurado nos metadados.");
-          localStorage.removeItem('end_token'); // Limpa para evitar lixo antigo
+          localStorage.removeItem('end_token');
       }
 
-      // Check if user is driver
-      // For now, assume yes and redirect
-      navigate('/driver/dashboard');
+      navigate('/passenger/dashboard');
     } catch (error) {
       setError('Falha ao fazer login: ' + error.message);
     } finally {
@@ -42,10 +38,8 @@ export default function DriverLogin() {
 
   const handleFaceVerified = (verified) => {
     if (verified) {
-      // Logic to auto-login with face would go here
-      // Typically requires a backend verification of the face descriptor
       alert('Face reconhecida! (Simulação)');
-      navigate('/driver/dashboard');
+      navigate('/passenger/dashboard');
     }
   };
 
@@ -54,7 +48,7 @@ export default function DriverLogin() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="text-center">
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Login Condutor
+            Login Passageiro
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 flex flex-col items-center">
             <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded mb-1">SUSE-v1.3.1</span>
@@ -118,7 +112,7 @@ export default function DriverLogin() {
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <Link to="/driver/register" className="font-medium text-red-600 hover:text-red-500">
+              <Link to="/passenger/register" className="font-medium text-red-600 hover:text-red-500">
                 Criar conta
               </Link>
               <Link to="/forgot-password" className="font-medium text-red-600 hover:text-red-500">

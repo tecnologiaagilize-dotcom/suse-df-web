@@ -78,6 +78,29 @@ export default function UserManagement() {
   const roleOptions = getRoleOptions();
   const isFormValid = formData.name.trim() !== '' && formData.matricula.trim() !== '' && formData.role;
 
+  const getRoleLabel = (role) => {
+    const labels = {
+        master: 'Master',
+        admin: 'Supervisor do Sistema',
+        supervisor: 'Chefe de Atendimento',
+        operator: 'Operador da Mesa'
+    };
+    return labels[role] || role;
+  };
+
+  // Função auxiliar para Log de Auditoria
+  const logOperation = async (action, targetId, metadata = {}) => {
+      try {
+          await supabase.rpc('log_action', {
+              p_action: action,
+              p_target_id: targetId,
+              p_metadata: metadata
+          });
+      } catch (err) {
+          console.error("Falha silenciosa ao logar auditoria:", err);
+      }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Tentando salvar usuário:", formData); // Log para debug
@@ -96,17 +119,26 @@ export default function UserManagement() {
       const tempPassword = `temp${Math.floor(1000 + Math.random() * 9000)}`;
 
       // Inserção no banco
-      const { error: dbError } = await supabase
+      const { data: insertedData, error: dbError } = await supabase
         .from('staff')
         .insert([{
-          full_name: formData.name, // Ajustado para full_name conforme banco atualizado
+          full_name: formData.name, 
           matricula: formData.matricula,
           email: fakeEmail,
           role: formData.role,
-          // must_change_password: true // Removido pois não existe no schema atual
-        }]);
+        }])
+        .select();
 
       if (dbError) throw dbError;
+
+      // Log de Auditoria: Criação de Usuário
+      if (insertedData && insertedData[0]) {
+          logOperation('USER_CREATE', insertedData[0].id, { 
+              matricula: formData.matricula,
+              role: formData.role,
+              created_by_email: userRole // Idealmente email, mas userRole serve de contexto rápido
+          });
+      }
 
       setMessage({
         type: 'success',
@@ -236,7 +268,7 @@ export default function UserManagement() {
                           ${staff.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
                             staff.role === 'supervisor' ? 'bg-blue-100 text-blue-800' : 
                             'bg-green-100 text-green-800'}`}>
-                          {staff.role}
+                          {getRoleLabel(staff.role)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
