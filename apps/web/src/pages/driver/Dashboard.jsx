@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.0 - Dead Zones");
+  console.log("SUSE-DF DriverDashboard V1.2.1 - Geofencing");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -161,10 +161,8 @@ export default function DriverDashboard() {
         console.log("Mudança detectada via Realtime:", payload.new.status);
         
         if (payload.new.status === 'resolved') {
-            console.log("Alerta resolvido remotamente. Resetando para Standby.");
-            setIsEmergencyActive(false);
-            setTerminationStatus('idle');
-            setActiveAlertId(null);
+            setTerminationStatus('resolved_success');
+            setIsEmergencyActive(true); // Garante que mostra o card verde
             
             // Parar rastreamento
             setTrackingId(prevId => {
@@ -206,45 +204,6 @@ export default function DriverDashboard() {
 
     return () => window.removeEventListener('online', handleOnline);
   }, []);
-
-  // 4. Polling de Segurança (Fallback para Realtime)
-  // Garante que o app detecte o encerramento mesmo se o WebSocket falhar
-  useEffect(() => {
-      let pollInterval;
-      
-      if (isEmergencyActive && activeAlertId) {
-          console.log("Polling ativo para alerta:", activeAlertId);
-          pollInterval = setInterval(async () => {
-              try {
-                  // Verifica status atual no banco
-                  const { data, error } = await supabase
-                      .from('emergency_alerts')
-                      .select('status')
-                      .eq('id', activeAlertId)
-                      .single();
-
-                  if (data && data.status === 'resolved') {
-                      console.log("Polling detectou resolução. Resetando para Standby.");
-                      setIsEmergencyActive(false);
-                      setTerminationStatus('idle');
-                      setActiveAlertId(null);
-                      
-                      // Garante parada do tracking
-                      setTrackingId(prev => {
-                          if (prev) clearInterval(prev);
-                          return null;
-                      });
-                  }
-              } catch (err) {
-                  console.error("Erro no polling:", err);
-              }
-          }, 3000); // Verifica a cada 3 segundos
-      }
-
-      return () => {
-          if (pollInterval) clearInterval(pollInterval);
-      };
-  }, [isEmergencyActive, activeAlertId]);
 
   // ... (dentro de handleSOS)
   const handleSOS = async (trigger = 'button') => {
@@ -466,28 +425,6 @@ export default function DriverDashboard() {
       }
   };
 
-  const handleRegenerateToken = async () => {
-      if (!activeAlertId) return;
-      
-      try {
-          // Gerar novo token sem pedir foto novamente
-          const { data: newToken, error } = await supabase.rpc('generate_termination_token', { p_alert_id: activeAlertId });
-          
-          if (error) throw error;
-          
-          const { data: alertData } = await supabase.from('emergency_alerts').select('termination_token_expires_at').eq('id', activeAlertId).single();
-
-          setSecurityToken(newToken);
-          setTokenExpiresAt(alertData?.termination_token_expires_at);
-          setIsTokenExpired(false);
-          alert("Novo token gerado com sucesso!");
-          
-      } catch (error) {
-          console.error("Erro ao regenerar token:", error);
-          alert("Erro ao gerar novo token: " + error.message);
-      }
-  };
-
   const handleSignOut = async () => {
     await signOut();
     navigate('/driver/login');
@@ -497,27 +434,18 @@ export default function DriverDashboard() {
     navigate('/driver/profile');
   };
 
-  const handleVoiceConfig = () => {
-    navigate('/driver/voice-config');
-  };
-
-  const handleHealth = () => {
-    navigate('/driver/health');
-  };
-
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex flex-col">
+            <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <ShieldAlert className="text-red-600" />
-                SUSE - Motorista
+                <AlertTriangle className="text-red-600" />
+                Botão de Pânico <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">V1.2.1</span>
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.1</span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
               <button onClick={handleSignOut} className="p-2 rounded-full text-gray-400 hover:text-gray-500">
                 <LogOut className="h-6 w-6" />
@@ -602,15 +530,15 @@ export default function DriverDashboard() {
                                     <p className="text-white font-bold mb-2">Token não encontrado</p>
                                     <p className="text-xs text-red-200 mb-4">Você recarregou a página e o token de segurança temporário foi perdido.</p>
                                     <button 
-                                        onClick={handleRegenerateToken}
-                                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold shadow-md active:scale-95 transition-transform"
+                                        onClick={() => setShowTerminationModal(true)}
+                                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-bold"
                                     >
                                         Gerar Novo Token
                                     </button>
                                 </div>
                             )}
 
-                    {terminationStatus !== 'resolved_success' && (
+                            {terminationStatus !== 'resolved_success' && (
                                 <div className="text-left bg-yellow-900/30 p-4 rounded text-sm text-yellow-100 space-y-2 border border-yellow-800">
                                     <p className="font-bold flex items-center gap-2"><MapPin size={16}/> Instruções:</p>
                                     <ol className="list-decimal pl-5 space-y-1">
@@ -625,14 +553,12 @@ export default function DriverDashboard() {
                 </div>
                 
                 {terminationStatus === 'idle' && (
-                    <div className="w-full max-w-xs mt-8">
-                        <button 
-                           onClick={() => setShowTerminationModal(true)}
-                           className="w-full px-6 py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-700 transition-colors shadow-lg flex items-center justify-center gap-3 uppercase tracking-wider"
-                        >
-                           <CheckCircle size={24} /> Finalizar Ocorrência
-                        </button>
-                    </div>
+                    <button 
+                       onClick={() => setShowTerminationModal(true)}
+                       className="mt-8 px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2"
+                    >
+                       <CheckCircle size={20} /> Finalizar Ocorrência
+                    </button>
                 )}
              </div>
           ) : (
@@ -675,30 +601,16 @@ export default function DriverDashboard() {
                 <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center">
                   <button 
                     onClick={() => setShowGeofenceModal(true)}
-                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
                   >
                     <MapPin size={18} /> Definir Área de Atuação (Cerca Virtual)
                   </button>
                   
                   <button 
                     onClick={handleProfile}
-                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
+                    className="text-gray-600 hover:text-gray-800 underline text-sm"
                   >
-                    <User size={18} /> Meu Cadastro
-                  </button>
-
-                  <button 
-                    onClick={handleVoiceConfig}
-                    className="w-full flex items-center justify-center gap-2 text-purple-600 hover:text-purple-800 font-medium bg-purple-50 px-4 py-2 rounded-full border border-purple-200"
-                  >
-                    <Clock size={18} /> Configurar Voz
-                  </button>
-
-                  <button 
-                    onClick={handleHealth}
-                    className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-800 font-medium bg-red-50 px-4 py-2 rounded-full border border-red-200"
-                  >
-                    <HeartPulse size={18} /> Minha Saúde
+                    Meu Cadastro
                   </button>
                 </div>
 

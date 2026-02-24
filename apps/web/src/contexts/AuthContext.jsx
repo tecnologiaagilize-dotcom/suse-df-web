@@ -48,16 +48,15 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // 2. Check if user is Driver or Passenger (Users table)
+      // 2. Check if user is Driver (Users table)
       const { data: userData } = await supabase
         .from('users')
-        .select('id, role')
+        .select('id')
         .eq('id', currentUser.id)
         .maybeSingle();
 
       if (userData) {
-        console.log('User role from DB:', userData.role);
-        setUserRole(userData.role || 'driver');
+        setUserRole('driver');
         setLoading(false);
         return;
       }
@@ -87,16 +86,13 @@ export const AuthProvider = ({ children }) => {
     // Verificar se precisa trocar senha (apenas para staff)
     let mustChangePassword = false;
     if (data.user) {
-      // Tenta buscar staff apenas se o email parecer corporativo ou se não for um usuário comum
-      // Para evitar erro 400 em emails inválidos ou sem permissão de leitura na tabela staff
-      const { data: staffData, error: staffError } = await supabase
+      const { data: staffData } = await supabase
         .from('staff')
         .select('must_change_password')
         .eq('email', email)
         .maybeSingle();
       
-      // Ignoramos erro aqui pois usuários comuns (passageiro/motorista) não estão na tabela staff
-      if (!staffError && staffData?.must_change_password) {
+      if (staffData?.must_change_password) {
         mustChangePassword = true;
       }
     }
@@ -123,7 +119,7 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Insert into Public Table (if session is active immediately)
     // Note: If email confirmation is enabled, this might fail or need to be done via Trigger
-    if (data?.user && (role === 'driver' || role === 'passenger')) {
+    if (data?.user && role === 'driver') {
       const { error: dbError } = await supabase
         .from('users')
         .insert([
@@ -133,7 +129,6 @@ export const AuthProvider = ({ children }) => {
             name: name,
             phone_number: phone,
             secret_word: emergencyPhrase,
-            role: role
           }
         ]);
       

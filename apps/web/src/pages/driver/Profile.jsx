@@ -33,7 +33,6 @@ export default function DriverProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [photoFile, setPhotoFile] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -652,6 +651,30 @@ export default function DriverProfile() {
               >
                 <Save className="h-5 w-5 mr-2" />
                 {saving ? 'Salvando...' : 'Salvar Alterações e Sair'}
+              </button>
+
+              <h4 className="text-lg font-medium text-gray-900 pt-4">Segurança e Voz</h4>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <Mic className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-yellow-800">Frase de Emergência Atual</h3>
+                    <div className="mt-2 text-sm text-yellow-700">
+                      <p>"{profile.secret_word || 'Não configurada'}"</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleVoiceConfig}
+                className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Mic className="h-5 w-5 mr-2 text-gray-500" />
+                Configurar Frases e Voz
               </button>
             </div>
           </div>

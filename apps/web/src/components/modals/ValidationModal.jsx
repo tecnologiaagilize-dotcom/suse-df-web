@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, X, Eye, User, FileText, Shield, CheckCircle, Map, Maximize2, Minimize2, Clipboard } from 'lucide-react';
+import { ShieldAlert, X, Eye, User, FileText, Shield, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import TrackingMap from '../map/TrackingMap';
 
-export default function ValidationModal({ alert: alertData, currentLat, currentLng, isOpen, onClose, onSuccess }) {
+export default function ValidationModal({ alert: alertData, isOpen, onClose, onSuccess }) {
     const [officerRank, setOfficerRank] = useState('');
     const [officerName, setOfficerName] = useState('');
     const [officerMatricula, setOfficerMatricula] = useState('');
@@ -13,9 +12,6 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
     const [loading, setLoading] = useState(false);
     const [currentAlert, setCurrentAlert] = useState(alertData);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-    
-    // Estado para controlar a expansão do mapa
-    const [isMapExpanded, setIsMapExpanded] = useState(false);
 
     // Sincronizar com dados mais recentes e limpar formulário ao abrir
     useEffect(() => {
@@ -29,7 +25,6 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
             setValidationToken('');
             setLoading(false);
             setShowSuccessMessage(false);
-            setIsMapExpanded(false);
             
             // Tentar buscar versão mais fresca do alerta (foto/justificativa)
             fetchFreshAlert(alertData.id);
@@ -49,36 +44,6 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
             }
         } catch (err) {
             console.error("Erro ao atualizar alerta no modal:", err);
-        }
-    };
-
-    const handlePhoneChange = (e) => {
-        let val = e.target.value.replace(/\D/g, '');
-        if (val.length > 11) val = val.slice(0, 11);
-        
-        let formatted = val;
-        if (val.length > 0) {
-            if (val.length <= 2) {
-                formatted = `(${val}`;
-            } else if (val.length <= 7) {
-                formatted = `(${val.slice(0, 2)}) ${val.slice(2)}`;
-            } else {
-                formatted = `(${val.slice(0, 2)}) ${val.slice(2, 7)}-${val.slice(7)}`;
-            }
-        }
-        
-        setOfficerPhone(formatted);
-    };
-
-    const handlePasteToken = async () => {
-        try {
-            const text = await navigator.clipboard.readText();
-            if (text) {
-                setValidationToken(text.trim().toUpperCase().slice(0, 8));
-            }
-        } catch (err) {
-            console.error('Failed to read clipboard', err);
-            // Fallback ou aviso se necessário, mas geralmente silencioso se falhar
         }
     };
 
@@ -117,18 +82,12 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
                     return;
                 }
 
-                // Limpar máscara do telefone para salvar apenas números?
-                // Depende do backend, mas geralmente salvamos limpo ou formatado.
-                // O código original salvava como string, vamos manter formatado se preferir ou limpar.
-                // Vou manter como está no input para visualização, mas se precisar limpar:
-                // const cleanPhone = officerPhone.replace(/\D/g, '');
-
                 // Chamar RPC para validar token
                 const { data, error } = await supabase
                     .rpc('validate_termination_token', {
                         p_alert_id: currentAlert.id,
                         p_token_input: validationToken.trim().toUpperCase(),
-                        p_police_officer: `${officerRank} ${officerName} (${officerMatricula}) - ${officerBattalion} - Tel: ${officerPhone}`
+                        p_police_officer: `${officerRank} ${officerName} (${officerMatricula}) - ${officerBattalion}`
                     });
 
                 if (error) {
@@ -164,7 +123,7 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
                 
                 if (error) throw error;
                 alert("Monitoramento mantido. Status retornado para Ativo.");
-                if (onSuccess) onSuccess(null); // null indica que não foi resolvido, apenas fechou/rejeitou
+                if (onSuccess) onSuccess(null);
                 if (onClose) onClose();
             }
         } catch (error) {
@@ -186,8 +145,7 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
                     <p className="mt-4 text-green-100">Sincronizando com o motorista...</p>
                 </div>
             )}
-            
-            <div className={`bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border-4 border-yellow-500 flex flex-col max-h-[95vh] ${showSuccessMessage ? 'pointer-events-none grayscale opacity-50' : ''}`}>
+            <div className={`bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden animate-fade-in border-4 border-yellow-500 flex flex-col max-h-[90vh] ${showSuccessMessage ? 'pointer-events-none grayscale opacity-50' : ''}`}>
                 <div className="bg-yellow-500 text-yellow-900 p-4 flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-xl flex items-center gap-2 uppercase tracking-wide">
                         <ShieldAlert size={28} /> Validação de Encerramento
@@ -197,97 +155,49 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
                     </button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-6 relative">
-                    
-                    {/* Mapa Expandido (Overlay) */}
-                    {isMapExpanded && (
-                        <div className="absolute inset-0 z-50 bg-gray-100 flex flex-col animate-fade-in">
-                             <div className="p-2 bg-gray-800 text-white flex justify-between items-center shrink-0">
-                                <h4 className="font-bold flex items-center gap-2"><Map size={18}/> Geolocalização Ampliada</h4>
-                                <button 
-                                    onClick={() => setIsMapExpanded(false)}
-                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-bold flex items-center gap-1 transition-colors"
-                                >
-                                    <Minimize2 size={16} /> REDUZIR MAPA
-                                </button>
-                            </div>
-                            <div className="flex-1 w-full h-full">
-                                <TrackingMap 
-                                    lat={currentLat} 
-                                    lng={currentLng} 
-                                    alertId={currentAlert.id} 
+                <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-6">
+                    {/* Evidência Visual */}
+                    <div className="w-full md:w-1/2 flex flex-col">
+                        <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                            <Eye size={18}/> Evidência Visual
+                            <button 
+                                onClick={() => fetchFreshAlert(currentAlert.id)} 
+                                className="text-xs text-blue-600 underline ml-2 hover:text-blue-800"
+                                title="Clique para recarregar a imagem se ela foi enviada recentemente"
+                            >
+                                (Atualizar Foto)
+                            </button>
+                        </h4>
+                        <div className="bg-gray-100 rounded-lg border border-gray-300 flex-1 flex items-center justify-center overflow-hidden min-h-[300px] relative">
+                            {currentAlert.termination_photo_url ? (
+                                <img 
+                                    src={currentAlert.termination_photo_url} 
+                                    alt="Evidência de Encerramento" 
+                                    className="w-full h-full object-contain"
                                 />
-                            </div>
+                            ) : (
+                                <div className="text-gray-400 flex flex-col items-center">
+                                    <User size={48} />
+                                    <p>Sem foto disponível</p>
+                                    <p className="text-xs mt-2">Aguardando envio do motorista...</p>
+                                </div>
+                            )}
                         </div>
-                    )}
-
-                    {/* Coluna Esquerda: Evidência Visual e Mapa */}
-                    <div className="w-full md:w-5/12 flex flex-col gap-4">
-                        {/* Foto */}
-                        <div className="flex flex-col h-[300px]">
-                            <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                                <Eye size={18}/> Evidência Visual
-                                <button 
-                                    onClick={() => fetchFreshAlert(currentAlert.id)} 
-                                    className="text-xs text-blue-600 underline ml-2 hover:text-blue-800"
-                                    title="Clique para recarregar a imagem se ela foi enviada recentemente"
-                                >
-                                    (Atualizar Foto)
-                                </button>
-                            </h4>
-                            <div className="bg-gray-100 rounded-lg border border-gray-300 flex-1 flex items-center justify-center overflow-hidden relative shadow-inner">
-                                {currentAlert.termination_photo_url ? (
-                                    <img 
-                                        src={currentAlert.termination_photo_url} 
-                                        alt="Evidência de Encerramento" 
-                                        className="w-full h-full object-contain"
-                                    />
-                                ) : (
-                                    <div className="text-gray-400 flex flex-col items-center">
-                                        <User size={48} />
-                                        <p>Sem foto disponível</p>
-                                        <p className="text-xs mt-2">Aguardando envio do motorista...</p>
-                                    </div>
-                                )}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1 text-center">
-                                Foto capturada em: {currentAlert.termination_requested_at ? new Date(currentAlert.termination_requested_at).toLocaleString() : '---'}
-                            </p>
-                        </div>
-
-                        {/* Mapa (Miniatura) */}
-                        <div className="flex flex-col h-[300px]">
-                             <div className="flex justify-between items-center mb-2">
-                                <h4 className="font-bold text-gray-700 flex items-center gap-2">
-                                    <Map size={18}/> Geolocalização
-                                </h4>
-                                <button 
-                                    onClick={() => setIsMapExpanded(true)}
-                                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-bold flex items-center gap-1 transition-colors"
-                                >
-                                    <Maximize2 size={12} /> AMPLIAR MAPA
-                                </button>
-                             </div>
-                             <div className="bg-gray-100 rounded-lg border border-gray-300 flex-1 overflow-hidden relative shadow-inner">
-                                <TrackingMap 
-                                    lat={currentLat} 
-                                    lng={currentLng} 
-                                    alertId={currentAlert.id} 
-                                />
-                             </div>
-                        </div>
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                            Foto capturada em: {currentAlert.termination_requested_at ? new Date(currentAlert.termination_requested_at).toLocaleString() : '---'}
+                        </p>
                     </div>
 
-                    {/* Coluna Direita: Justificativa e Ações */}
-                    <div className="w-full md:w-7/12 flex flex-col space-y-4 overflow-y-auto">
+                    {/* Justificativa e Ações */}
+                    <div className="w-full md:w-1/2 flex flex-col space-y-6">
                         <div>
                             <h4 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><FileText size={18}/> Justificativa do Usuário</h4>
-                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-gray-800 italic text-lg leading-relaxed shadow-sm">
+                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-gray-800 italic text-lg leading-relaxed">
                                 "{currentAlert.termination_reason || 'Sem justificativa informada.'}"
                             </div>
                         </div>
 
-                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-sm text-blue-900 space-y-2 shadow-sm">
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-sm text-blue-900 space-y-2">
                             <h5 className="font-bold flex items-center gap-2"><Shield size={16}/> Protocolo de Validação</h5>
                             <ul className="list-disc pl-5 space-y-1">
                                 <li>Verifique se a foto corresponde ao usuário.</li>
@@ -298,144 +208,125 @@ export default function ValidationModal({ alert: alertData, currentLat, currentL
                         </div>
 
                         <div className="space-y-3 pt-2">
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <label className="block text-sm font-bold text-gray-700 mb-3 border-b border-gray-200 pb-2">Identificação do Oficial (PM/Autoridade)</label>
-                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                    <div>
-                                        <label className="block text-xs text-gray-500 mb-1">Posto/Graduação</label>
-                                        <select 
-                                            value={officerRank} 
-                                            onChange={e => setOfficerRank(e.target.value)}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
-                                        >
-                                            <option value="">Selecione...</option>
-                                            <option value="Soldado">Soldado</option>
-                                            <option value="Cabo">Cabo</option>
-                                            <option value="Sargento">Sargento</option>
-                                            <option value="Subtenente">Subtenente</option>
-                                            <option value="Aspirante">Aspirante</option>
-                                            <option value="Tenente">Tenente</option>
-                                            <option value="Capitão">Capitão</option>
-                                            <option value="Major">Major</option>
-                                            <option value="Tenente-Coronel">Tenente-Coronel</option>
-                                            <option value="Coronel">Coronel</option>
-                                            <option value="Delegado">Delegado</option>
-                                            <option value="Agente">Agente PC</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 mb-1">Nome de Guerra</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Ex: SGT PEIXOTO"
-                                            value={officerName}
-                                            onChange={(e) => setOfficerName(e.target.value)}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                    <div>
-                                        <label className="block text-xs text-gray-500 mb-1">Matrícula</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Ex: 123.456-7"
-                                            value={officerMatricula}
-                                            onChange={(e) => setOfficerMatricula(e.target.value)}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-500 mb-1">Telefone (Obrigatório)</label>
-                                        <input 
-                                            type="tel" 
-                                            placeholder="(61) 99999-9999"
-                                            value={officerPhone}
-                                            onChange={handlePhoneChange}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-gray-500 mb-1">Batalhão / Unidade</label>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Identificação do Oficial (PM/Autoridade)</label>
+                                <div className="grid grid-cols-2 gap-2 mb-2">
                                     <select 
-                                        value={officerBattalion}
-                                        onChange={(e) => setOfficerBattalion(e.target.value)}
+                                        value={officerRank} 
+                                        onChange={e => setOfficerRank(e.target.value)}
                                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
                                     >
-                                        <option value="">Selecione o Batalhão...</option>
-                                        <optgroup label="Batalhões de Policiamento de Área (BPM)">
-                                            <option value="1º BPM – Asa Sul">1º BPM – Asa Sul</option>
-                                            <option value="2º BPM – Taguatinga">2º BPM – Taguatinga</option>
-                                            <option value="3º BPM – Ceilândia">3º BPM – Ceilândia</option>
-                                            <option value="4º BPM – Guará">4º BPM – Guará</option>
-                                            <option value="5º BPM – Asa Norte">5º BPM – Asa Norte</option>
-                                            <option value="6º BPM – Esplanada dos Ministérios">6º BPM – Esplanada dos Ministérios</option>
-                                            <option value="7º BPM – Lago Sul">7º BPM – Lago Sul</option>
-                                            <option value="8º BPM – Ceilândia">8º BPM – Ceilândia</option>
-                                            <option value="9º BPM – Gama">9º BPM – Gama</option>
-                                            <option value="10º BPM – Ceilândia">10º BPM – Ceilândia</option>
-                                            <option value="11º BPM – Samambaia">11º BPM – Samambaia</option>
-                                            <option value="12º BPM – Judiciário">12º BPM – Judiciário (Tribunais)</option>
-                                            <option value="13º BPM – Sobradinho">13º BPM – Sobradinho</option>
-                                            <option value="14º BPM – Planaltina">14º BPM – Planaltina</option>
-                                            <option value="15º BPM – Ceilândia">15º BPM – Ceilândia</option>
-                                            <option value="16º BPM – Brazlândia">16º BPM – Brazlândia</option>
-                                            <option value="17º BPM – Águas Claras">17º BPM – Águas Claras</option>
-                                            <option value="18º BPM – Recanto das Emas">18º BPM – Recanto das Emas</option>
-                                            <option value="19º BPM – Ceilândia">19º BPM – Ceilândia</option>
-                                            <option value="20º BPM – Paranoá">20º BPM – Paranoá</option>
-                                            <option value="21º BPM – São Sebastião">21º BPM – São Sebastião</option>
-                                            <option value="22º BPM – Jardim Botânico">22º BPM – Jardim Botânico</option>
-                                            <option value="23º BPM – Ceilândia">23º BPM – Ceilândia</option>
-                                            <option value="24º BPM – Lago Norte">24º BPM – Lago Norte</option>
-                                            <option value="25º BPM – Samambaia">25º BPM – Samambaia</option>
-                                            <option value="26º BPM – Santa Maria">26º BPM – Santa Maria</option>
-                                            <option value="27º BPM – Recanto das Emas">27º BPM – Recanto das Emas</option>
-                                            <option value="28º BPM – Riacho Fundo">28º BPM – Riacho Fundo</option>
-                                            <option value="29º BPM – SIA/SCIA">29º BPM – SIA/SCIA</option>
-                                            <option value="30º BPM – Planaltina">30º BPM – Planaltina</option>
-                                            <option value="31º BPM – Fercal">31º BPM – Fercal (Ambiental)</option>
-                                            <option value="32º BPM – Ceilândia">32º BPM – Ceilândia</option>
-                                            <option value="33º BPM – Sol Nascente/Pôr do Sol">33º BPM – Sol Nascente/Pôr do Sol</option>
-                                        </optgroup>
-                                        <optgroup label="Batalhões Especializados e Operacionais">
-                                            <option value="BOPE">BOPE – Batalhão de Operações Especiais</option>
-                                            <option value="BPCHOQUE">BPCHOQUE – Batalhão de Polícia de Choque</option>
-                                            <option value="BPATAMO">BPATAMO – Batalhão de Polícia de Choque (Tático Motorizado)</option>
-                                            <option value="BPTRAN">BPTRAN – Batalhão de Polícia de Trânsito</option>
-                                            <option value="BPRV">BPRV – Batalhão de Polícia Rodoviária</option>
-                                            <option value="BPMA">BPMA – Batalhão de Polícia Militar Ambiental</option>
-                                            <option value="BPCÃES">BPCÃES – Batalhão de Policiamento com Cães</option>
-                                            <option value="BPGEP">BPGEP – Batalhão de Polícia de Guarda e Escolta</option>
-                                            <option value="BAvOp">BAvOp – Batalhão de Aviação Operacional</option>
-                                            <option value="BPESC">BPESC – Batalhão de Polícia Escolar</option>
-                                            <option value="BPChoque/RPon">BPChoque/RPon – Batalhão de Polícia Montada</option>
-                                        </optgroup>
+                                        <option value="">Posto/Graduação...</option>
+                                        <option value="Soldado">Soldado</option>
+                                        <option value="Cabo">Cabo</option>
+                                        <option value="Sargento">Sargento</option>
+                                        <option value="Subtenente">Subtenente</option>
+                                        <option value="Aspirante">Aspirante</option>
+                                        <option value="Tenente">Tenente</option>
+                                        <option value="Capitão">Capitão</option>
+                                        <option value="Major">Major</option>
+                                        <option value="Tenente-Coronel">Tenente-Coronel</option>
+                                        <option value="Coronel">Coronel</option>
+                                        <option value="Delegado">Delegado</option>
+                                        <option value="Agente">Agente PC</option>
                                     </select>
-                                </div>
-                            </div>
-
-                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Token de Segurança (Fornecido pelo Motorista)</label>
-                                <div className="flex gap-2">
                                     <input 
                                         type="text" 
-                                        placeholder="TOKEN"
-                                        maxLength={8}
-                                        value={validationToken}
-                                        onChange={(e) => setValidationToken(e.target.value.toUpperCase())}
-                                        className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-3 font-mono text-2xl tracking-widest text-center uppercase"
+                                        placeholder="Nome de Guerra"
+                                        value={officerName}
+                                        onChange={(e) => setOfficerName(e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
                                     />
-                                    <button
-                                        onClick={handlePasteToken}
-                                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 rounded-md font-bold flex flex-col items-center justify-center transition-colors border border-gray-300"
-                                        title="Colar da Área de Transferência"
-                                    >
-                                        <Clipboard size={20} />
-                                        <span className="text-xs">COLAR</span>
-                                    </button>
                                 </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Matrícula"
+                                        value={officerMatricula}
+                                        onChange={(e) => setOfficerMatricula(e.target.value)}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
+                                    />
+                                    <input 
+                                        type="tel" 
+                                        placeholder="Telefone (WhatsApp)"
+                                        value={officerPhone}
+                                        onChange={(e) => {
+                                            let val = e.target.value.replace(/\D/g, '');
+                                            if (val.length > 11) val = val.slice(0, 11);
+                                            setOfficerPhone(val);
+                                        }}
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Batalhão / Unidade</label>
+                                <select 
+                                    value={officerBattalion}
+                                    onChange={(e) => setOfficerBattalion(e.target.value)}
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2"
+                                >
+                                    <option value="">Selecione o Batalhão...</option>
+                                    <optgroup label="Batalhões de Policiamento de Área (BPM)">
+                                        <option value="1º BPM – Asa Sul">1º BPM – Asa Sul</option>
+                                        <option value="2º BPM – Taguatinga">2º BPM – Taguatinga</option>
+                                        <option value="3º BPM – Ceilândia">3º BPM – Ceilândia</option>
+                                        <option value="4º BPM – Guará">4º BPM – Guará</option>
+                                        <option value="5º BPM – Asa Norte">5º BPM – Asa Norte</option>
+                                        <option value="6º BPM – Esplanada dos Ministérios">6º BPM – Esplanada dos Ministérios</option>
+                                        <option value="7º BPM – Lago Sul">7º BPM – Lago Sul</option>
+                                        <option value="8º BPM – Ceilândia">8º BPM – Ceilândia</option>
+                                        <option value="9º BPM – Gama">9º BPM – Gama</option>
+                                        <option value="10º BPM – Ceilândia">10º BPM – Ceilândia</option>
+                                        <option value="11º BPM – Samambaia">11º BPM – Samambaia</option>
+                                        <option value="12º BPM – Judiciário">12º BPM – Judiciário (Tribunais)</option>
+                                        <option value="13º BPM – Sobradinho">13º BPM – Sobradinho</option>
+                                        <option value="14º BPM – Planaltina">14º BPM – Planaltina</option>
+                                        <option value="15º BPM – Ceilândia">15º BPM – Ceilândia</option>
+                                        <option value="16º BPM – Brazlândia">16º BPM – Brazlândia</option>
+                                        <option value="17º BPM – Águas Claras">17º BPM – Águas Claras</option>
+                                        <option value="18º BPM – Recanto das Emas">18º BPM – Recanto das Emas</option>
+                                        <option value="19º BPM – Ceilândia">19º BPM – Ceilândia</option>
+                                        <option value="20º BPM – Paranoá">20º BPM – Paranoá</option>
+                                        <option value="21º BPM – São Sebastião">21º BPM – São Sebastião</option>
+                                        <option value="22º BPM – Jardim Botânico">22º BPM – Jardim Botânico</option>
+                                        <option value="23º BPM – Ceilândia">23º BPM – Ceilândia</option>
+                                        <option value="24º BPM – Lago Norte">24º BPM – Lago Norte</option>
+                                        <option value="25º BPM – Samambaia">25º BPM – Samambaia</option>
+                                        <option value="26º BPM – Santa Maria">26º BPM – Santa Maria</option>
+                                        <option value="27º BPM – Recanto das Emas">27º BPM – Recanto das Emas</option>
+                                        <option value="28º BPM – Riacho Fundo">28º BPM – Riacho Fundo</option>
+                                        <option value="29º BPM – SIA/SCIA">29º BPM – SIA/SCIA</option>
+                                        <option value="30º BPM – Planaltina">30º BPM – Planaltina</option>
+                                        <option value="31º BPM – Fercal">31º BPM – Fercal (Ambiental)</option>
+                                        <option value="32º BPM – Ceilândia">32º BPM – Ceilândia</option>
+                                        <option value="33º BPM – Sol Nascente/Pôr do Sol">33º BPM – Sol Nascente/Pôr do Sol</option>
+                                    </optgroup>
+                                    <optgroup label="Batalhões Especializados e Operacionais">
+                                        <option value="BOPE">BOPE – Batalhão de Operações Especiais</option>
+                                        <option value="BPCHOQUE">BPCHOQUE – Batalhão de Polícia de Choque</option>
+                                        <option value="BPATAMO">BPATAMO – Batalhão de Polícia de Choque (Tático Motorizado)</option>
+                                        <option value="BPTRAN">BPTRAN – Batalhão de Polícia de Trânsito</option>
+                                        <option value="BPRV">BPRV – Batalhão de Polícia Rodoviária</option>
+                                        <option value="BPMA">BPMA – Batalhão de Polícia Militar Ambiental</option>
+                                        <option value="BPCÃES">BPCÃES – Batalhão de Policiamento com Cães</option>
+                                        <option value="BPGEP">BPGEP – Batalhão de Polícia de Guarda e Escolta</option>
+                                        <option value="BAvOp">BAvOp – Batalhão de Aviação Operacional</option>
+                                        <option value="BPESC">BPESC – Batalhão de Polícia Escolar</option>
+                                        <option value="BPChoque/RPon">BPChoque/RPon – Batalhão de Polícia Montada</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Token de Segurança (Fornecido pelo Motorista)</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Informe o token de 8 dígitos"
+                                    maxLength={8}
+                                    value={validationToken}
+                                    onChange={(e) => setValidationToken(e.target.value.toUpperCase())}
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 border p-2 font-mono text-lg tracking-widest text-center uppercase"
+                                />
                             </div>
                         </div>
                     </div>

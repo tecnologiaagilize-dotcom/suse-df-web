@@ -3,54 +3,29 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Mic, AlertCircle, PlayCircle, Square, CheckCircle, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import AudioFeatureExtractor from '../../services/AudioFeatureExtractor';
 
 export default function VoiceConfig() {
-  const [recordingStep, setRecordingStep] = useState(0); // 0-2 (Biometria), 3 (Frase), 4 (Score)
+  const [recordingStep, setRecordingStep] = useState(0); // 0, 1, 2 (Biometria), 3 (Frase Secreta)
   const [isRecording, setIsRecording] = useState(false);
-  const [qualityScore, setQualityScore] = useState(0);
-  const [scores, setScores] = useState([]); // Scores individuais de cada gravação
-  const [audioBlobs, setAudioBlobs] = useState({}); // Armazena os Blobs reais
+  const [recordings, setRecordings] = useState([]); // Array de booleanos para UI
+  const [audioBlobs, setAudioBlobs] = useState({}); // Armazena os Blobs reais: { 0: blob, 1: blob, 2: blob, 'emergency': blob }
   const [emergencyPhrase, setEmergencyPhrase] = useState('');
   const [phraseAudioRecorded, setPhraseAudioRecorded] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [configPhrases, setConfigPhrases] = useState([]);
   const [loadingPhrases, setLoadingPhrases] = useState(true);
-  const [currentTranscript, setCurrentTranscript] = useState('');
-  const [audioMetrics, setAudioMetrics] = useState({ rms: 0, zcr: 0 }); // Para visualização em tempo real
   
   const mediaRecorderRef = useRef(null);
-  const recognitionRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const audioContextRef = useRef(null);
-  const featuresCollectionRef = useRef([]); // Armazena features durante a gravação
-  const metricsIntervalRef = useRef(null);
 
   const navigate = useNavigate();
   const { user } = useAuth(); 
-  const isMounted = useRef(true);
-
-  const [alreadyConfigured, setAlreadyConfigured] = useState(false);
-
-
 
   // Carregar frases de configuração do Supabase
   useEffect(() => {
-    async function checkStatusAndFetchPhrases() {
+    async function fetchPhrases() {
       try {
-        // Verificar se já está configurado
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('voice_biometry_1_url, voice_biometry_2_url, voice_biometry_3_url, secret_word_audio_url')
-            .eq('id', user.id)
-            .single();
-
-        if (!userError && userData) {
-            const isConfigured = !!(userData.voice_biometry_1_url && userData.voice_biometry_2_url && userData.voice_biometry_3_url && userData.secret_word_audio_url);
-            setAlreadyConfigured(isConfigured);
-        }
-
         const { data, error } = await supabase
           .from('voice_phrases')
           .select('*')
@@ -61,69 +36,37 @@ export default function VoiceConfig() {
         if (data && data.length > 0) {
           setConfigPhrases(data);
         } else {
-            // Fallback
-            setConfigPhrases([
-                { phrase_text: "O sistema de segurança está ativo" },
-                { phrase_text: "Minha voz é minha identidade" },
-                { phrase_text: "Autorização confirmada pelo motorista" }
-            ]);
+          setConfigPhrases([
+            { phrase_text: "O sistema de segurança está ativo" },
+            { phrase_text: "Minha voz é minha identidade" },
+            { phrase_text: "Autorização confirmada pelo motorista" }
+          ]);
         }
       } catch (err) {
-        console.error("Erro ao carregar dados:", err);
+        console.error("Erro ao carregar frases:", err);
+        setConfigPhrases([
+            { phrase_text: "O sistema de segurança está ativo" },
+            { phrase_text: "Minha voz é minha identidade" },
+            { phrase_text: "Autorização confirmada pelo motorista" }
+        ]);
       } finally {
         setLoadingPhrases(false);
       }
     }
     
-    checkStatusAndFetchPhrases();
-  }, [user.id]);
-
-  const toggleRecording = async () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      await startRecording();
-    }
-  };
+    fetchPhrases();
+  }, []);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // 1. Configurar AudioContext e Meyda para análise técnica
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      
-      // Inicializa o extrator de features (Meyda)
-      if (isMounted.current) {
-        AudioFeatureExtractor.initialize(audioContext, source);
-      }
-      featuresCollectionRef.current = [];
-
-      // Loop de coleta de métricas (a cada 100ms)
-      metricsIntervalRef.current = setInterval(() => {
-          if (!isMounted.current) return;
-          const features = AudioFeatureExtractor.getFeatures();
-          if (features) {
-              featuresCollectionRef.current.push(features);
-              // Atualiza estado para visualização simples (opcional)
-              if (isMounted.current) {
-                setAudioMetrics({ 
-                    rms: features.rms, 
-                    zcr: features.zcr 
-                });
-              }
-          }
-      }, 100);
-
-      // 2. Configurar MediaRecorder
+      // Tentar formatos suportados pelo navegador
       let options = { mimeType: 'audio/webm' };
       if (!MediaRecorder.isTypeSupported('audio/webm')) {
           if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
           else if (MediaRecorder.isTypeSupported('audio/ogg')) options = { mimeType: 'audio/ogg' };
-          else options = undefined;
+          else options = undefined; // Deixar o navegador decidir
       }
 
       mediaRecorderRef.current = new MediaRecorder(stream, options);
@@ -136,171 +79,59 @@ export default function VoiceConfig() {
       };
 
       mediaRecorderRef.current.onstop = () => {
-        // Parar coleta de métricas
-        if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
-        AudioFeatureExtractor.stop();
-        if (audioContextRef.current) audioContextRef.current.close();
-
+        // Criar blob com o tipo correto
         const blobType = mediaRecorderRef.current.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
         console.log(`Gravação finalizada. Tamanho: ${audioBlob.size}, Tipo: ${blobType}`);
         
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-        }
-        
-        if (audioBlob.size < 1000) { // < 1kb é muito pouco
+        if (audioBlob.size < 100) {
             alert("Áudio muito curto ou vazio. Por favor, tente novamente.");
             return;
         }
 
-        // Calcular Score REAL baseado em features acústicas (Meyda) e transcrição
-        const features = featuresCollectionRef.current;
-        let technicalScore = 10; // Começa com 10
-        let penalties = [];
-
-        // 1. Análise de Volume (RMS)
-        const avgRms = features.reduce((acc, f) => acc + f.rms, 0) / (features.length || 1);
-        const maxRms = Math.max(...features.map(f => f.rms));
-        
-        // Ajuste: Aumentar tolerância para silêncio
-        if (avgRms < 0.005) { // Era 0.02
-            technicalScore -= 4; 
-            penalties.push("Volume muito baixo");
-        } else if (avgRms < 0.02) { // Era 0.05
-            technicalScore -= 1.5; 
-        }
-        
-        if (maxRms > 0.98) { // Era 0.95
-            technicalScore -= 2; 
-            penalties.push("Áudio estourado/saturado");
-        }
-
-        // 2. Análise de Ruído (ZCR - Zero Crossing Rate)
-        const avgZcr = features.reduce((acc, f) => acc + f.zcr, 0) / (features.length || 1);
-        if (avgZcr > 0.4) { // Era 0.3
-            technicalScore -= 2;
-            penalties.push("Muito ruído de fundo");
-        }
-
-        // 3. Duração
-        const durationSec = features.length * 0.1; // aprox (100ms interval)
-        if (durationSec < 0.8) { // Era 1.0 - Reduzido para aceitar frases rápidas
-            technicalScore -= 3;
-            penalties.push("Muito curto");
-        }
-
-        // 4. Transcrição (Confirmação de inteligibilidade)
-        // Ajuste: Penalidade menor se não houver transcrição (Web Speech pode falhar)
-        const speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-        
-        if (speechSupported && (!currentTranscript || currentTranscript.length < 3)) {
-            // Se suporta mas não transcreveu, pequena penalidade
-            technicalScore -= 0.5; // Era 1
-            // penalties.push("Fala não reconhecida (WebSpeech)"); // Removido para não bloquear
-        } else if (!speechSupported) {
-            console.warn("Web Speech API não suportada neste navegador via VoiceConfig.");
-        }
-
-        // Clamp score 0-10
-        let finalStepScore = Math.max(0, Math.min(10, technicalScore));
-        
-        console.log("Meyda Analysis:", { avgRms, maxRms, avgZcr, durationSec, penalties, finalStepScore });
-
-        setScores(prev => [...prev, finalStepScore]);
-
         if (recordingStep < 3) {
+            // Biometria
             setAudioBlobs(prev => ({ ...prev, [recordingStep]: audioBlob }));
+            
+            // Avançar passo UI
+            const newRecordings = [...recordings];
+            newRecordings[recordingStep] = true;
+            setRecordings(newRecordings);
             setRecordingStep(recordingStep + 1);
         } else {
-            // Passo 4 (Frase Final)
-            setAudioBlobs(prev => ({ ...prev, 'emergency': audioBlob }));
+            // Frase Secreta
+            setAudioBlobs(prev => {
+                const newState = { ...prev, 'emergency': audioBlob };
+                return newState;
+            });
             setPhraseAudioRecorded(true);
-            
-            // Calcular Score Final Médio
-            const allScores = [...scores, finalStepScore];
-            const avgScore = allScores.reduce((a,b) => a+b, 0) / allScores.length;
-            setQualityScore(avgScore);
-            setRecordingStep(4); // Tela de Score
         }
         
+        // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
-        setIsRecording(false);
-        setCurrentTranscript('');
-        setAudioMetrics({ rms: 0, zcr: 0 });
+        setIsRecording(false); // Garantir estado
       };
 
-      // 3. Configurar SpeechRecognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-          const recognition = new SpeechRecognition();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = 'pt-BR';
-          
-          recognition.onresult = (event) => {
-              let interimTranscript = '';
-              for (let i = event.resultIndex; i < event.results.length; i++) {
-                  const transcript = event.results[i][0].transcript;
-                  if (event.results[i].isFinal) {
-                      interimTranscript += transcript;
-                  } else {
-                      interimTranscript += transcript;
-                  }
-              }
-              const text = interimTranscript.toLowerCase();
-              setCurrentTranscript(text);
-
-              // Auto-Stop na etapa 3 (Frase de Emergência) se coincidir
-              if (recordingStep === 3 && emergencyPhrase) {
-                  const target = emergencyPhrase.toLowerCase().trim();
-                  // Verifica se a frase alvo está contida no que foi dito
-                  if (text.includes(target) && isRecording) {
-                      console.log("Frase coincidiu! Parando automaticamente.");
-                      stopRecording();
-                      alert("Gravação de frase e voz realizada com sucesso!");
-                  }
-              }
-          };
-          
-          recognition.start();
-          recognitionRef.current = recognition;
-      }
-
+      // Gravar em chunks de 100ms para garantir dados mesmo em gravações curtas
       mediaRecorderRef.current.start(100); 
       setIsRecording(true);
-      setCurrentTranscript('Ouvindo...');
 
     } catch (err) {
       console.error("Erro ao acessar microfone:", err);
-      alert("Erro ao acessar microfone: " + err.message);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          alert("Permissão de microfone negada. Por favor, permita o acesso nas configurações do navegador.");
+      } else {
+          alert("Erro ao iniciar gravação: " + err.message);
+      }
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
+      // O estado isRecording será atualizado no onstop
     }
-    if (recognitionRef.current) {
-        recognitionRef.current.stop();
-    }
-    // Cleanup extra garantido
-    if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
   };
-
-  // Cleanup effect
-  useEffect(() => {
-      return () => {
-          isMounted.current = false;
-          if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
-          if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-             try {
-               audioContextRef.current.close().catch(e => console.warn("Erro ao fechar AudioContext:", e));
-             } catch (e) { console.warn("Erro ao fechar AudioContext:", e); }
-          }
-          AudioFeatureExtractor.stop();
-      };
-  }, []);
 
   const uploadAudio = async (blob, path) => {
       if (!blob) return null;
@@ -409,8 +240,6 @@ export default function VoiceConfig() {
         
         console.log("Configuração salva com sucesso (Metadata)!");
         setSuccess(true);
-        alert("Configuração de voz salva com sucesso!");
-        navigate('/driver/dashboard', { replace: true });
 
     } catch (error) {
         console.error("Erro ao salvar:", error);
@@ -421,16 +250,7 @@ export default function VoiceConfig() {
   };
 
   const handleFinish = () => {
-    navigate('/driver/dashboard', { replace: true });
-  };
-
-  const resetProcess = () => {
-      setRecordingStep(0);
-      setScores([]);
-      setQualityScore(0);
-      setAudioBlobs({});
-      setPhraseAudioRecorded(false);
-      setSuccess(false);
+    navigate('/driver/dashboard');
   };
 
   return (
@@ -438,174 +258,146 @@ export default function VoiceConfig() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Mic className="h-8 w-8 text-blue-600" />
+            <div className="p-3 bg-red-100 rounded-full">
+              <Mic className="h-8 w-8 text-red-600" />
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
-          <p className="text-xs text-gray-400 mb-4">Versão 1.3.0</p>
-          {!alreadyConfigured && recordingStep < 3 && !success && (
+          {recordingStep < 3 && !success && (
             <p className="mt-2 text-sm text-gray-600">
-              Passo {recordingStep + 1} de 4: Grave as frases indicadas para calibração.
+              Precisamos gravar 3 frases para criar seu perfil de segurança.
+            </p>
+          )}
+          {recordingStep === 3 && !success && (
+            <p className="mt-2 text-sm text-gray-600">
+              Agora, defina sua **Palavra ou Frase de Emergência**.
             </p>
           )}
         </div>
 
-        {alreadyConfigured && !success && recordingStep === 0 ? (
-            <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                    <CheckCircle className="h-16 w-16 text-blue-500" />
-                </div>
-                <h3 className="text-xl font-medium text-gray-900">Voz Configurada</h3>
-                <p className="text-gray-600">
-                    Você já possui 4 frases gravadas e sua biometria está ativa.
-                </p>
-                <div className="flex flex-col gap-3">
-                    <button
-                        onClick={handleFinish}
-                        className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                        Voltar ao Painel Principal
-                    </button>
-                    <button
-                        onClick={() => setAlreadyConfigured(false)}
-                        className="w-full py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                        Deseja gravar e configurar novamente?
-                    </button>
-                </div>
-            </div>
-        ) : success ? (
+        {success ? (
           <div className="text-center space-y-6">
             <div className="flex justify-center">
               <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
             <h3 className="text-xl font-medium text-gray-900">Configuração Concluída!</h3>
+            <p className="text-gray-500">Seu perfil biométrico e frase de emergência foram salvos e os áudios enviados para análise segura.</p>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm font-medium text-gray-700">Sua frase secreta:</p>
+              <p className="text-lg font-bold text-red-600">"{emergencyPhrase}"</p>
+            </div>
             <button
               onClick={handleFinish}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Ir para o Painel
             </button>
           </div>
-        ) : recordingStep === 4 ? (
-            // Tela de Resultado / Score
-            <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                    <div className={`p-6 rounded-full border-4 ${qualityScore >= 8 ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}`}>
-                        <span className="text-4xl font-bold">{qualityScore.toFixed(1)}</span>
-                    </div>
-                </div>
-                
-                <h3 className="text-lg font-bold text-gray-900">Qualidade da Gravação</h3>
-                
-                {qualityScore >= 8 ? (
-                    <>
-                        <p className="text-green-600 font-medium">Excelente! Suas gravações estão nítidas.</p>
-                        <button
-                            onClick={handleSavePhrase}
-                            disabled={isSaving}
-                            className="w-full py-3 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium shadow-md"
-                        >
-                            {isSaving ? 'Salvando...' : 'Salvar e Concluir'}
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <p className="text-red-600 font-medium">Qualidade Insuficiente (Mínimo 8.0)</p>
-                        <p className="text-sm text-gray-500">Por favor, vá para um local mais silencioso e fale com clareza.</p>
-                        <button
-                            onClick={resetProcess}
-                            className="w-full py-3 px-4 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-medium"
-                        >
-                            Refazer Gravações
-                        </button>
-                    </>
-                )}
-            </div>
         ) : recordingStep < 3 ? (
-          // Passos 1, 2, 3 (Frases de Treino)
           <div className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <h3 className="font-bold text-gray-900 mb-2">Frase {recordingStep + 1}</h3>
-              <p className="text-xl text-blue-800 font-serif text-center py-4">
-                "{configPhrases[recordingStep]?.phrase_text || "Carregando..."}"
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-medium text-gray-900 mb-2">Frase {recordingStep + 1} de 3 (Biometria)</h3>
+              <p className="text-gray-600 italic">
+                "{configPhrases[recordingStep]?.phrase_text || "Carregando frase..."}"
               </p>
             </div>
 
             <div className="flex justify-center">
               <button
-                onClick={toggleRecording}
-                className={`p-6 rounded-full transition-all shadow-lg ${
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                className={`p-6 rounded-full transition-all select-none touch-none ${
                   isRecording 
-                    ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-red-100 text-red-600 scale-110 ring-4 ring-red-200' 
+                    : 'bg-red-600 text-white hover:bg-red-700 shadow-lg'
                 }`}
               >
                 {isRecording ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
               </button>
             </div>
 
-            <p className="text-center text-sm font-medium text-gray-600">
-              {isRecording ? 'CLIQUE PARA PARAR E SALVAR' : 'CLIQUE PARA INICIAR GRAVAÇÃO'}
+            <p className="text-center text-sm text-gray-500">
+              {isRecording ? 'Solte para parar de gravar' : 'Segure o botão para gravar a frase'}
             </p>
-            
-            {currentTranscript && (
-                <div className="text-center text-xs text-gray-500 italic mt-2 bg-gray-100 p-2 rounded">
-                    Reconhecido: "{currentTranscript}"
-                </div>
-            )}
 
-            <div className="flex justify-center gap-2 mt-4">
+            <div className="flex justify-center space-x-2">
               {[0, 1, 2].map((step) => (
-                <div key={step} className={`h-2 w-8 rounded-full ${step <= recordingStep ? 'bg-blue-500' : 'bg-gray-200'}`} />
+                <div
+                  key={step}
+                  className={`h-2 w-2 rounded-full ${
+                    step < recordingStep || (step === recordingStep && recordings[step])
+                      ? 'bg-green-500'
+                      : step === recordingStep
+                      ? 'bg-red-500'
+                      : 'bg-gray-300'
+                  }`}
+                />
               ))}
+              <div className="h-2 w-2 rounded-full bg-gray-300" /> {/* Passo final da frase */}
             </div>
           </div>
         ) : (
-          // Passo 4 (Frase Secreta)
           <div className="space-y-6">
             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <h3 className="font-bold text-yellow-900 mb-2">Última Etapa: Frase de Socorro</h3>
+              <h3 className="font-medium text-yellow-900 mb-2">Definir Frase de Socorro</h3>
               <p className="text-sm text-yellow-800">
-                Digite sua frase secreta e grave o áudio. O sistema parará automaticamente se reconhecer a voz.
+                Esta é a frase que você dirá em caso de perigo real. Escolha algo que você lembre facilmente, mas que não use em conversas normais.
               </p>
             </div>
 
             <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Sua Frase:</label>
+                <label className="block text-sm font-medium text-gray-700">Digite sua frase (min. 2 palavras):</label>
                 <input
                  type="text"
-                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                 placeholder="Ex: socorro agora"
+                 className="appearance-none rounded-md block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                 placeholder="Ex: banana azul"
                  value={emergencyPhrase}
                  onChange={(e) => setEmergencyPhrase(e.target.value)}
                />
             </div>
 
-             <div className="flex justify-center py-4">
+             <div className="flex justify-center">
               <button
-                onClick={toggleRecording}
-                disabled={emergencyPhrase.length < 3}
-                className={`p-6 rounded-full transition-all shadow-lg flex items-center justify-center ${
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                disabled={isSaving || emergencyPhrase.length < 3}
+                className={`p-4 rounded-full transition-all flex items-center space-x-2 select-none touch-none ${
                   isRecording 
-                    ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                    ? 'bg-red-100 text-red-600 scale-105' 
+                    : phraseAudioRecorded
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {isRecording ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+                {isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                <span className="text-sm font-medium">
+                  {isRecording 
+                    ? 'Gravando...' 
+                    : phraseAudioRecorded 
+                      ? 'Áudio gravado (Segure para regravar)' 
+                      : 'Segure para gravar áudio (Obrigatório)'}
+                </span>
               </button>
             </div>
-            
-            <p className="text-center text-sm font-medium text-gray-600">
-              {isRecording ? 'FALE A FRASE AGORA...' : 'CLIQUE PARA GRAVAR A FRASE'}
-            </p>
 
-            {currentTranscript && (
-                <div className="text-center text-sm text-blue-600 italic font-medium border border-blue-100 bg-blue-50 p-3 rounded-lg">
-                    Ouvindo: "{currentTranscript}"
-                </div>
-            )}
+            <button
+              onClick={handleSavePhrase}
+              disabled={emergencyPhrase.trim().split(' ').length < 2 || (!phraseAudioRecorded && !audioBlobs['emergency']) || isSaving}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            >
+              {isSaving ? (
+                  <>
+                    <Loader className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                    Salvando e Enviando Áudios...
+                  </>
+              ) : (
+                  'Salvar e Finalizar'
+              )}
+            </button>
           </div>
         )}
       </div>

@@ -33,10 +33,6 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB
-        cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
@@ -77,29 +73,31 @@ export default defineConfig({
     keepNames: true
   },
   build: {
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 2000, // Aumentado para 2MB para evitar alertas falsos
     rollupOptions: {
       output: {
-        entryFileNames: `assets/[name].${Date.now()}.js`,
-        chunkFileNames: `assets/[name].${Date.now()}.js`,
-        assetFileNames: `assets/[name].[ext]`,
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Isola Face API (pesado)
             if (id.includes('face-api.js')) {
               return 'vendor-face-api';
             }
-            // Agrupa todo o resto para evitar erros de dependência circular
-            return 'vendor'; 
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('leaflet') || id.includes('react-leaflet') || id.includes('@react-google-maps')) {
+              return 'vendor-maps';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-ui';
+            }
+            // Outras dependências menores ficam num chunk genérico ou no index se forem muito pequenas
+            return 'vendor-utils'; 
           }
         }
       }
-    }
-  },
-  server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp'
     }
   }
 })
