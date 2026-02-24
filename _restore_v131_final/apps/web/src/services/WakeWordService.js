@@ -61,7 +61,7 @@ class WakeWordService {
             }
         }, {
             includeSpectrogram: false,
-            probabilityThreshold: this.confidenceThreshold,
+            probabilityThreshold: 0.75,
             invokeCallbackOnNoiseAndUnknown: false,
             overlapFactor: 0.50 // Processa a cada 500ms aprox
         });
