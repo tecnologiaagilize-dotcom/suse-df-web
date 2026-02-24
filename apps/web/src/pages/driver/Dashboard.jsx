@@ -22,7 +22,8 @@ export default function DriverDashboard() {
   // Estados de Voz e Token de Segurança
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [isAudioReady, setIsAudioReady] = useState(false); 
-  const [isShiftActive, setIsShiftActive] = useState(false); // Agora representa "Viagem Ativa"
+  // No Web, a viagem é sempre ativa automaticamente. No Mobile, espera o usuário.
+  const [isShiftActive, setIsShiftActive] = useState(!Capacitor.isNativePlatform()); 
   
   // Estado para o Modal de Preparação
   const [showPrepModal, setShowPrepModal] = useState(false);
