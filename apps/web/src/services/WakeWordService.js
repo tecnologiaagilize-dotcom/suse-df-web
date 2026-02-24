@@ -25,20 +25,27 @@ class WakeWordService {
             console.log('Modelo de Wake Word carregado (TensorFlow.js)');
             console.log('Vocabulário:', this.model.wordLabels());
         } catch (error) {
-            console.error('Erro ao carregar modelo de voz:', error);
-            throw error;
+            console.error('Erro CRÍTICO ao carregar modelo de voz (TFJS):', error);
+            // Não relançar erro para não quebrar o app inteiro, apenas desabilita a feature
+            this.model = null; 
         }
     }
 
     async startListening(callback, customPhrase = 'stop') {
-        if (!this.model) await this.loadModel();
-        if (this.isListening) return;
+        try {
+            if (!this.model) await this.loadModel();
+            if (!this.model) {
+                console.warn("WakeWordService: Modelo não carregado, abortando escuta.");
+                return;
+            }
+            
+            if (this.isListening) return;
 
-        this.onWakeWordDetected = callback;
-        this.isListening = true;
+            this.onWakeWordDetected = callback;
+            this.isListening = true;
 
-        // O modelo escuta em janelas sobrepostas
-        this.model.listen(result => {
+            // O modelo escuta em janelas sobrepostas
+            this.model.listen(result => {
             const scores = result.scores;
             // Pega o índice da palavra com maior score
             const bestIndex = scores.indexOf(Math.max(...scores));
@@ -65,6 +72,9 @@ class WakeWordService {
             invokeCallbackOnNoiseAndUnknown: false,
             overlapFactor: 0.50 // Processa a cada 500ms aprox
         });
+        } catch (err) {
+            console.error("WakeWordService: Erro ao iniciar escuta", err);
+        }
     }
 
     stopListening() {

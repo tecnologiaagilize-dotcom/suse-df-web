@@ -192,9 +192,14 @@ export default function VoiceConfig() {
 
         // 4. Transcrição (Confirmação de inteligibilidade)
         // Ajuste: Penalidade menor se não houver transcrição (Web Speech pode falhar)
-        if (!currentTranscript || currentTranscript.length < 3) {
-            technicalScore -= 1; // Era 2
-            penalties.push("Fala não reconhecida (WebSpeech)");
+        const speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+        
+        if (speechSupported && (!currentTranscript || currentTranscript.length < 3)) {
+            // Se suporta mas não transcreveu, pequena penalidade
+            technicalScore -= 0.5; // Era 1
+            // penalties.push("Fala não reconhecida (WebSpeech)"); // Removido para não bloquear
+        } else if (!speechSupported) {
+            console.warn("Web Speech API não suportada neste navegador via VoiceConfig.");
         }
 
         // Clamp score 0-10
