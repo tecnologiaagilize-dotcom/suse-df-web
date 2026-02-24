@@ -255,7 +255,7 @@ export default function VoiceConfig() {
           recognitionRef.current = recognition;
       }
 
-      mediaRecorderRef.current.start(100); 
+      mediaRecorderRef.current.start(); // Removido timeslice para compatibilidade (Safari/Mobile)
       setIsRecording(true);
       setCurrentTranscript('Ouvindo...');
 

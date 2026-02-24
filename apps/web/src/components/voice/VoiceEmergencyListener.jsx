@@ -96,11 +96,22 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
           setIsOfflineMode(true); 
 
           const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioContext({ sampleRate: 16000 }); 
+          const ctx = new AudioContext(); // Deixa o navegador escolher o sampleRate nativo (evita erros em iOS/Android)
           audioContextRef.current = ctx;
 
-          // Carregar módulo
-          await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
+          // Resume context se estiver suspenso (Comum em navegadores modernos)
+          if (ctx.state === 'suspended') {
+              await ctx.resume();
+          }
+
+          // Carregar módulo com caminho absoluto seguro
+          try {
+              await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
+          } catch (e) {
+              console.warn("Falha ao carregar Worklet, tentando caminho relativo:", e);
+              // Fallback para dev/local
+              await ctx.audioWorklet.addModule('./workers/suse-audio-processor.js');
+          }
 
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           streamRef.current = stream;

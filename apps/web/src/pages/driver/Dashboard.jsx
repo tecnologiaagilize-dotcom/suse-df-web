@@ -12,7 +12,7 @@ import { Capacitor } from '@capacitor/core';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.5.6 - Vercel Config Update");
+  console.log("SUSE-DF DriverDashboard V1.5.7 - Voice Fix Web");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -70,9 +70,26 @@ export default function DriverDashboard() {
       }).catch(console.error);
   };
 
-  const startAudioSmart = () => {
+  const startAudioSmart = async () => {
       // Tenta ativar áudio automaticamente se possível, senão deixa manual
-      setIsAudioReady(true); 
+      console.log("Iniciando Áudio Inteligente (Smart Audio)...");
+      
+      // No Web, precisamos garantir que o AudioContext possa iniciar (User Gesture já ocorreu no StartTrip)
+      try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AudioContext();
+          if (ctx.state === 'suspended') {
+              await ctx.resume();
+          }
+          ctx.close(); // Apenas teste
+          
+          setIsAudioReady(true);
+          console.log("Áudio Inteligente Ativo.");
+      } catch (e) {
+          console.warn("Falha ao pré-aquecer AudioContext:", e);
+          // Mesmo com erro, tentamos ativar para que o Listener trate
+          setIsAudioReady(true);
+      }
   };
 
   // FLUXO DE INICIALIZAÇÃO REMOVIDO DO useEffect AUTOMÁTICO
@@ -563,7 +580,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Condutor
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.6 (Vercel Fix)</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.7 (Voice Fix)</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
