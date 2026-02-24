@@ -12,7 +12,7 @@ import { Capacitor } from '@capacitor/core';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.5.3 - Checklist Fix Final");
+  console.log("SUSE-DF DriverDashboard V1.5.6 - Vercel Config Update");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -563,7 +563,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Condutor
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.4 (Checklist)</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.6 (Vercel Fix)</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
