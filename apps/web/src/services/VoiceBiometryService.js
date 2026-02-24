@@ -55,54 +55,69 @@ const VoiceBiometryService = {
         try {
             console.log("[Biometria] Iniciando verificação real no servidor...");
             
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                console.warn("[Biometria] Usuário não autenticado. Fail-Open.");
-                return { isVerified: true, score: 1.0, details: "Fail-Open (No User)" };
-            }
+            // 1. Preparar o áudio para envio (FormData ou Base64)
+            // Para Edge Functions, geralmente enviamos como Base64 ou Multipart
+            // Vamos converter para Base64 para facilitar o JSON payload
+            const reader = new FileReader();
+            const audioBase64 = await new Promise((resolve, reject) => {
+                reader.onloadend = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(audioBlob);
+            });
 
-            // URL do serviço Python (Railway)
-            // Se não estiver definida, usa Fallback Fail-Open para não bloquear emergência
-            const API_URL = import.meta.env.VITE_BIOMETRY_API_URL;
+            // AQUI ENTRA A MUDANÇA: Chamada direta ao serviço Python (Opção B)
+            // para contornar a limitação de não poder fazer deploy da Edge Function via CLI.
+            // O serviço Python deve ter CORS habilitado para '*'.
+            
+            const BIOMETRY_SERVICE_URL = import.meta.env.VITE_BIOMETRY_SERVICE_URL;
 
-            if (API_URL) {
-                console.log(`[Biometria] Enviando áudio para IA: ${API_URL}`);
+            if (BIOMETRY_SERVICE_URL) {
+                // 2a. Chamada direta ao Railway
+                console.log(`[Biometria] Chamando Railway direto: ${BIOMETRY_SERVICE_URL}`);
                 
-                const formData = new FormData();
-                formData.append('audio_file', audioBlob, 'emergency.wav');
-                formData.append('user_id', user.id);
-                formData.append('reference_type', 'secret_word');
-
-                const response = await fetch(`${API_URL}/verify`, {
+                // Precisamos do ID do usuário. O frontend deve passar ou pegamos do supabase.auth
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                const response = await fetch(`${BIOMETRY_SERVICE_URL}/verify`, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        audio_base64: audioBase64, 
+                        user_id: user?.id 
+                    })
                 });
 
-                if (!response.ok) {
-                    console.error("[Biometria] Erro no servidor:", await response.text());
-                    // Fail-Open em caso de erro 500 do servidor de IA
-                    return { isVerified: true, score: 1.0, details: "Fail-Open (Server Error)" };
-                }
-
+                if (!response.ok) throw new Error("Erro no serviço de biometria externo");
                 const data = await response.json();
-                console.log("[Biometria] Resultado IA:", data);
                 
-                return { 
-                    isVerified: data.verified, 
-                    score: data.score, 
-                    details: data.details 
-                };
+                console.log("[Biometria] Resultado Railway:", data);
+                return { isVerified: data.is_verified, score: data.score, details: data.details };
 
             } else {
-                console.warn("[Biometria] VITE_BIOMETRY_API_URL não definida. Modo Fail-Closed (Segurança Ativa).");
-                // MUDANÇA: Fail-Closed para evitar falsos positivos sem backend
-                return { isVerified: false, score: 0.0, details: "Fail-Closed (Backend Missing)" };
+                // 2b. Fallback para Edge Function (se um dia for configurada)
+                const { data, error } = await supabase.functions.invoke('verify-biometry', {
+                    body: { audio: audioBase64 }
+                });
+
+                if (error) {
+                    // MODO FAIL-OPEN DE EMERGÊNCIA
+                    // Se não tem backend configurado, mas a palavra chave bateu,
+                    // em emergência real nós APROVAMOS para não bloquear o socorro.
+                    console.warn("[Biometria] Backend inacessível. Fail-Open ativado.");
+                    return { isVerified: true, score: 1.0, details: "Fail-Open (Backend Offline)" };
+                }
+
+                return { isVerified: data.isVerified, score: data.score, details: data };
             }
 
         } catch (error) {
-            console.error("[Biometria] Erro de rede/cliente:", error);
-            // MUDANÇA: Fail-Closed em erro de rede também para evitar bypass
-            return { isVerified: false, score: 0.0, details: "Fail-Closed (Network Error)" };
+            console.error("[Biometria] Erro fatal na verificação:", error);
+            // Relançar o erro para que o componente consumidor (Listener)
+            // possa aplicar a política de Fail-Open (acionar emergência mesmo com erro)
+            throw error;
         }
     },
 

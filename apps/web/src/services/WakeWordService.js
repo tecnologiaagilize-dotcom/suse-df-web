@@ -1,6 +1,5 @@
-/* global tf, speechCommands */
-// import * as speechCommands from '@tensorflow-models/speech-commands';
-// import * as tf from '@tensorflow/tfjs';
+import * as speechCommands from '@tensorflow-models/speech-commands';
+import * as tf from '@tensorflow/tfjs';
 
 class WakeWordService {
     constructor() {
@@ -20,28 +19,14 @@ class WakeWordService {
             // Para este MVP, usaremos "YES" ou "STOP" como gatilho de teste, ou detectaremos som alto.
             
             // Nota: Em produção, usaríamos um modelo customizado hospedado no servidor.
-            
-            // Access global variable injected via CDN in index.html
-            // Wait for window load if needed or check repeatedly
-            if (typeof window.speechCommands === 'undefined' && typeof speechCommands === 'undefined') {
-                console.warn('TensorFlow Speech Commands not ready yet. Retrying in 1s...');
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                if (typeof window.speechCommands === 'undefined' && typeof speechCommands === 'undefined') {
-                     console.error('TensorFlow Speech Commands failed to load via CDN');
-                     return;
-                }
-            }
-            
-            const sc = window.speechCommands || speechCommands;
-
-            this.model = await sc.create('BROWSER_FFT');
+            this.model = await speechCommands.create('BROWSER_FFT');
             await this.model.ensureModelLoaded();
             
             console.log('Modelo de Wake Word carregado (TensorFlow.js)');
             console.log('Vocabulário:', this.model.wordLabels());
         } catch (error) {
             console.error('Erro ao carregar modelo de voz:', error);
-            // throw error; // Don't crash the app if voice model fails
+            throw error;
         }
     }
 

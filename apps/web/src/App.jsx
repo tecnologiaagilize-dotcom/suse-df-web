@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Driver Pages
@@ -191,9 +191,9 @@ function App() {
             </PrivateRoute>
           } />
           
-          {/* Default Redirect - Trocado para Driver */}
-          <Route path="/" element={<Navigate to="/driver/login" replace />} />
-          <Route path="*" element={<Navigate to="/driver/login" replace />} />
+          {/* Default Redirect */}
+          <Route path="/" element={<Navigate to="/passenger/login" replace />} />
+          <Route path="*" element={<Navigate to="/passenger/login" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

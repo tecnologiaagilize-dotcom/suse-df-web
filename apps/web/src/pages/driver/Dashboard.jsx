@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse } from 'lucide-react';
@@ -7,95 +7,33 @@ import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
-import { Geolocation } from '@capacitor/geolocation';
-import { Capacitor } from '@capacitor/core';
+
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.5.7 - Voice Fix Web");
+  console.log("SUSE-DF DriverDashboard V1.3.0 - Dead Zones");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Estado manual de Geolocalização (Substituindo Hook para evitar conflito)
-  const [geoPosition, setGeoPosition] = useState(null);
+  // Estado para Modal de Cerca Virtual
+  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
+
+  // Estados de Emergência e Alerta
+  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const [activeAlertId, setActiveAlertId] = useState(null);
+  const [terminationStatus, setTerminationStatus] = useState('idle'); // 'idle', 'pending_validation', 'resolved_success'
+  const [trackingId, setTrackingId] = useState(null);
+  
+  // Estados de Localização
+  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 }); // Padrão: Brasília
+  
+  // Estados para Finalização e Modais
+  const [showTerminationModal, setShowTerminationModal] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
   
   // Estados de Voz e Token de Segurança
   const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [isAudioReady, setIsAudioReady] = useState(false); 
-  // No Web, a viagem é sempre ativa automaticamente. No Mobile, espera o usuário.
-  const [isShiftActive, setIsShiftActive] = useState(!Capacitor.isNativePlatform()); 
-  
-  // Estado para o Modal de Preparação
-  const [showPrepModal, setShowPrepModal] = useState(false);
-
-  const handleStartTrip = () => {
-      // SEPARAÇÃO CRÍTICA: WEB vs MOBILE
-      if (!Capacitor.isNativePlatform()) {
-          // MODO WEB: Início imediato (Navegador gerencia permissões)
-          console.log("Modo Web detectado: Iniciando direto...");
-          setIsShiftActive(true);
-          startGPS();
-          startAudioSmart();
-      } else {
-          // MODO ANDROID/NATIVE: Usa Checklist para evitar crash de Foreground Service
-          setShowPrepModal(true);
-      }
-  };
-
-  const onPrepComplete = () => {
-      setShowPrepModal(false);
-      setIsShiftActive(true);
-      
-      // Inicia GPS Real
-      startGPS();
-      
-      // Inicia Audio (Inteligente)
-      startAudioSmart();
-  };
-
-  const startGPS = () => {
-      Geolocation.watchPosition({ 
-          enableHighAccuracy: true, 
-          timeout: 10000, 
-          maximumAge: 0 
-      }, (pos, err) => {
-          if (pos) {
-              setGeoPosition({
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                  speed: pos.coords.speed,
-                  heading: pos.coords.heading,
-                  accuracy: pos.coords.accuracy
-              });
-          }
-      }).catch(console.error);
-  };
-
-  const startAudioSmart = async () => {
-      // Tenta ativar áudio automaticamente se possível, senão deixa manual
-      console.log("Iniciando Áudio Inteligente (Smart Audio)...");
-      
-      // No Web, precisamos garantir que o AudioContext possa iniciar (User Gesture já ocorreu no StartTrip)
-      try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioContext();
-          if (ctx.state === 'suspended') {
-              await ctx.resume();
-          }
-          ctx.close(); // Apenas teste
-          
-          setIsAudioReady(true);
-          console.log("Áudio Inteligente Ativo.");
-      } catch (e) {
-          console.warn("Falha ao pré-aquecer AudioContext:", e);
-          // Mesmo com erro, tentamos ativar para que o Listener trate
-          setIsAudioReady(true);
-      }
-  };
-
-  // FLUXO DE INICIALIZAÇÃO REMOVIDO DO useEffect AUTOMÁTICO
-  // useEffect(() => { ... }, []); // REMOVIDO PARA EVITAR CRASH NO LOGIN
-
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
@@ -111,27 +49,21 @@ export default function DriverDashboard() {
     }
   };
 
-  const [currentLocation, setCurrentLocation] = useState({ lat: -15.793889, lng: -47.882778 });
-  
-  // Atualizar currentLocation sempre que o hook trouxer nova posição
-  useEffect(() => {
-      if (geoPosition) {
-          setCurrentLocation({ 
-              lat: geoPosition.latitude, 
-              lng: geoPosition.longitude,
-              speed: geoPosition.speed,
-              heading: geoPosition.heading,
-              accuracy: geoPosition.accuracy
-          });
-      }
-  }, [geoPosition]);
-
   // Função para enviar atualização de localização (Rastreamento)
   const sendLocationUpdate = async (alertId) => {
-    if (!alertId || !geoPosition) return; // Só envia se tiver posição válida do hook
+    if (!alertId) return;
     
     try {
-        const { latitude, longitude, speed, heading, accuracy } = geoPosition;
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        });
+
+        const { latitude, longitude, speed, heading, accuracy } = position.coords;
+        setCurrentLocation({ lat: latitude, lng: longitude });
 
         // Enviar para tabela de rastreamento (location_updates)
         const { error } = await supabase.from('location_updates').insert({
@@ -248,8 +180,10 @@ export default function DriverDashboard() {
       })
       .subscribe();
     
-    // Localização inicial removida do useEffect para evitar crash no Android
-    // A localização será obtida apenas quando o usuário clicar em "INICIAR PLANTÃO"
+    // Localização inicial
+    navigator.geolocation.getCurrentPosition((pos) => {
+        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    }, null, { enableHighAccuracy: true });
 
     return () => {
         subscription.unsubscribe();
@@ -579,9 +513,9 @@ export default function DriverDashboard() {
             <div className="flex flex-col">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <ShieldAlert className="text-red-600" />
-                SUSE - Condutor
+                SUSE - Motorista
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.5.7 (Voice Fix)</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.1</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -701,32 +635,6 @@ export default function DriverDashboard() {
                     </div>
                 )}
              </div>
-          ) : !isShiftActive ? (
-              // TELA DE INÍCIO DE TURNO (PARA EVITAR CRASH NO MOUNT)
-              <div className="flex flex-col items-center justify-center h-[80vh] space-y-8 p-6">
-                  <div className="text-center">
-                      <ShieldAlert className="h-24 w-24 text-gray-400 mx-auto mb-4" />
-                      <h2 className="text-2xl font-bold text-gray-900">Bem-vindo, {user?.user_metadata?.name || 'Motorista'}</h2>
-                      <p className="text-gray-500 mt-2">Você está offline. Inicie sua viagem para ativar o monitoramento de segurança.</p>
-                  </div>
-                  
-                  <button 
-                      onClick={handleStartTrip}
-                      className="w-full max-w-sm py-5 bg-green-600 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3"
-                  >
-                      <Navigation className="h-8 w-8" />
-                      INICIAR VIAGEM
-                  </button>
-                  
-                  <div className="w-full max-w-sm mt-8 border-t pt-8">
-                     <button 
-                        onClick={handleSignOut}
-                        className="w-full py-3 text-gray-500 hover:text-red-600 font-medium flex items-center justify-center gap-2"
-                     >
-                        <LogOut size={20} /> Sair do Sistema
-                     </button>
-                  </div>
-              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
                 <div className="text-center">
@@ -734,24 +642,10 @@ export default function DriverDashboard() {
                   <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
 
                   {/* Monitoramento de Voz Ativo */}
-                  <div className="mt-4 flex flex-col items-center justify-center">
-                    {!isAudioReady && Capacitor.isNativePlatform() && (
-                        <div className="flex flex-col items-center gap-2 mb-4">
-                            <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded border border-yellow-200 text-center max-w-xs">
-                                ⚠️ O monitoramento de voz precisa da sua permissão.
-                            </p>
-                            <button 
-                                onClick={() => setIsAudioReady(true)}
-                                className="px-6 py-3 bg-blue-600 text-white rounded-full text-sm font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-2"
-                            >
-                                <Zap size={16} /> ATIVAR MICROFONE
-                            </button>
-                        </div>
-                    )}
-
+                  <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive && isAudioReady} // Só escuta se não estiver em emergência e permissões ok
+                      isActive={!isEmergencyActive} // Só escuta se não estiver em emergência
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onEmergencyDetected={() => {
                         // Feedback imediato antes mesmo de chamar o backend
@@ -825,13 +719,6 @@ export default function DriverDashboard() {
           )}
         </div>
       </main>
-
-      {/* Modal de Checklist de Preparação */}
-      <PreparationModal 
-        isOpen={showPrepModal}
-        onClose={() => setShowPrepModal(false)}
-        onComplete={onPrepComplete}
-      />
 
       {/* Modal de Cerca Virtual */}
       <GeofenceModal 
@@ -931,158 +818,3 @@ export default function DriverDashboard() {
     </div>
   );
 }
-
-const PreparationModal = ({ isOpen, onClose, onComplete }) => {
-    const [steps, setSteps] = useState({
-        gps: 'pending', // pending, loading, success, error
-        audio: 'pending',
-        server: 'pending'
-    });
-
-    useEffect(() => {
-        if (isOpen) {
-            runChecklist();
-        }
-    }, [isOpen]);
-
-    const runChecklist = async () => {
-        // Passo 1: GPS
-        setSteps(s => ({ ...s, gps: 'loading' }));
-        try {
-            if (Capacitor.isNativePlatform()) {
-                const status = await Geolocation.checkPermissions();
-                if (status.location !== 'granted') {
-                    const req = await Geolocation.requestPermissions();
-                    if (req.location !== 'granted') throw new Error("Permissão GPS negada");
-                }
-            }
-            // Teste rápido de GPS
-            await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => resolve(true), 3000); // Fallback se demorar
-                Geolocation.getCurrentPosition({ timeout: 2000 }).then(resolve).catch(resolve);
-            });
-            setSteps(s => ({ ...s, gps: 'success' }));
-        } catch (e) {
-            console.error("Erro GPS:", e);
-            setSteps(s => ({ ...s, gps: 'error' }));
-            return; // Para aqui
-        }
-
-        // Delay visual
-        await new Promise(r => setTimeout(r, 500));
-
-        // Passo 2: Áudio
-        setSteps(s => ({ ...s, audio: 'loading' }));
-        try {
-            if (Capacitor.isNativePlatform()) {
-                // Tenta checar permissão sem travar
-                try {
-                    const micStatus = await navigator.permissions.query({ name: 'microphone' });
-                    if (micStatus.state !== 'granted') {
-                         // Apenas loga, o componente principal vai pedir se precisar
-                         console.log("Mic permission pending");
-                    }
-                } catch(e) {}
-            }
-            setSteps(s => ({ ...s, audio: 'success' }));
-        } catch (e) {
-            setSteps(s => ({ ...s, audio: 'error' }));
-        }
-
-        // Delay visual
-        await new Promise(r => setTimeout(r, 500));
-
-        // Passo 3: Servidor
-        setSteps(s => ({ ...s, server: 'loading' }));
-        if (navigator.onLine) {
-            setSteps(s => ({ ...s, server: 'success' }));
-        } else {
-             setSteps(s => ({ ...s, server: 'warning' })); // Permite offline
-        }
-
-        // Finaliza
-        setTimeout(() => {
-            onComplete();
-        }, 1000);
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6">
-                <h3 className="text-xl font-bold text-center mb-6 text-gray-800">Iniciando Viagem...</h3>
-                
-                <div className="space-y-4">
-                    {/* Item GPS */}
-                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                        <div className={`p-2 rounded-full ${
-                            steps.gps === 'loading' ? 'bg-blue-100 text-blue-600 animate-spin' :
-                            steps.gps === 'success' ? 'bg-green-100 text-green-600' :
-                            steps.gps === 'error' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-400'
-                        }`}>
-                            {steps.gps === 'loading' ? <Zap size={20}/> : 
-                             steps.gps === 'success' ? <Check size={20}/> : 
-                             steps.gps === 'error' ? <X size={20}/> : <MapPin size={20}/>}
-                        </div>
-                        <div className="flex-1">
-                            <p className="font-bold text-sm">Localização (GPS)</p>
-                            <p className="text-xs text-gray-500">
-                                {steps.gps === 'pending' ? 'Aguardando...' :
-                                 steps.gps === 'loading' ? 'Ativando satélites...' :
-                                 steps.gps === 'success' ? 'Sinal Estabelecido' : 'Falha ao conectar'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Item Audio */}
-                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                        <div className={`p-2 rounded-full ${
-                            steps.audio === 'loading' ? 'bg-blue-100 text-blue-600 animate-pulse' :
-                            steps.audio === 'success' ? 'bg-green-100 text-green-600' :
-                            steps.audio === 'error' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-400'
-                        }`}>
-                             {steps.audio === 'loading' ? <Mic size={20}/> : 
-                             steps.audio === 'success' ? <Check size={20}/> : 
-                             steps.audio === 'error' ? <X size={20}/> : <Mic size={20}/>}
-                        </div>
-                        <div className="flex-1">
-                            <p className="font-bold text-sm">Monitoramento de Voz</p>
-                            <p className="text-xs text-gray-500">
-                                {steps.audio === 'pending' ? 'Aguardando...' :
-                                 steps.audio === 'loading' ? 'Verificando microfone...' :
-                                 steps.audio === 'success' ? 'Pronto para uso' : 'Indisponível'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Item Servidor */}
-                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                        <div className={`p-2 rounded-full ${
-                            steps.server === 'loading' ? 'bg-blue-100 text-blue-600 animate-pulse' :
-                            steps.server === 'success' ? 'bg-green-100 text-green-600' :
-                            steps.server === 'warning' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-400'
-                        }`}>
-                             {steps.server === 'success' ? <Check size={20}/> : 
-                              steps.server === 'warning' ? <AlertTriangle size={20}/> : <Zap size={20}/>}
-                        </div>
-                        <div className="flex-1">
-                            <p className="font-bold text-sm">Conexão com a Central</p>
-                            <p className="text-xs text-gray-500">
-                                {steps.server === 'pending' ? 'Aguardando...' :
-                                 steps.server === 'loading' ? 'Conectando...' :
-                                 steps.server === 'success' ? 'Conectado e Seguro' : 'Modo Offline Ativo'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {steps.gps === 'error' && (
-                    <button onClick={onClose} className="mt-6 w-full py-3 bg-red-600 text-white rounded-lg font-bold">
-                        Cancelar e Tentar Novamente
-                    </button>
-                )}
-            </div>
-        </div>
-    );
-};

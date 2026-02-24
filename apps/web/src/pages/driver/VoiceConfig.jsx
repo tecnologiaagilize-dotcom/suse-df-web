@@ -88,47 +88,33 @@ export default function VoiceConfig() {
 
   const startRecording = async () => {
     try {
-      console.log("Solicitando permissão de microfone...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("Microfone autorizado.");
       
       // 1. Configurar AudioContext e Meyda para análise técnica
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
-      
-      // GARANTIA: Resumir contexto se estiver suspenso (comum no Chrome)
-      if (audioContext.state === 'suspended') {
-          await audioContext.resume();
-          console.log("AudioContext resumido.");
-      }
-
       const source = audioContext.createMediaStreamSource(stream);
       
-      // Inicializa o extrator de features (Meyda) com try-catch
-      try {
-          if (isMounted.current) {
-            AudioFeatureExtractor.initialize(audioContext, source);
-          }
-      } catch (e) {
-          console.warn("Falha ao iniciar Meyda (Feature Extractor), usando fallback básico:", e);
+      // Inicializa o extrator de features (Meyda)
+      if (isMounted.current) {
+        AudioFeatureExtractor.initialize(audioContext, source);
       }
-      
       featuresCollectionRef.current = [];
 
       // Loop de coleta de métricas (a cada 100ms)
       metricsIntervalRef.current = setInterval(() => {
           if (!isMounted.current) return;
-          try {
-              const features = AudioFeatureExtractor.getFeatures();
-              if (features) {
-                  featuresCollectionRef.current.push(features);
-                  if (isMounted.current) {
-                    setAudioMetrics({ rms: features.rms || 0, zcr: features.zcr || 0 });
-                  }
+          const features = AudioFeatureExtractor.getFeatures();
+          if (features) {
+              featuresCollectionRef.current.push(features);
+              // Atualiza estado para visualização simples (opcional)
+              if (isMounted.current) {
+                setAudioMetrics({ 
+                    rms: features.rms, 
+                    zcr: features.zcr 
+                });
               }
-          } catch (e) {
-              // Ignorar erros de coleta se Meyda falhou
           }
       }, 100);
 
@@ -137,79 +123,100 @@ export default function VoiceConfig() {
       if (!MediaRecorder.isTypeSupported('audio/webm')) {
           if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
           else if (MediaRecorder.isTypeSupported('audio/ogg')) options = { mimeType: 'audio/ogg' };
-          else options = undefined; // Deixa o navegador escolher o padrão
+          else options = undefined;
       }
 
-      console.log("Iniciando MediaRecorder com mimeType:", options?.mimeType || 'default');
       mediaRecorderRef.current = new MediaRecorder(stream, options);
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
-          console.log("Chunk de áudio recebido:", event.data.size);
         }
       };
 
       mediaRecorderRef.current.onstop = () => {
-        console.log("MediaRecorder parou.");
         // Parar coleta de métricas
         if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
-        try { AudioFeatureExtractor.stop(); } catch(e){}
+        AudioFeatureExtractor.stop();
         if (audioContextRef.current) audioContextRef.current.close();
 
         const blobType = mediaRecorderRef.current.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
-        console.log(`Gravação finalizada. Tamanho Total: ${audioBlob.size}, Tipo: ${blobType}`);
+        console.log(`Gravação finalizada. Tamanho: ${audioBlob.size}, Tipo: ${blobType}`);
         
         if (recognitionRef.current) {
             recognitionRef.current.stop();
         }
         
-        if (audioBlob.size < 1000) { // < 1kb
-            alert("Áudio muito curto ou vazio. Fale mais alto e tente novamente.");
+        if (audioBlob.size < 1000) { // < 1kb é muito pouco
+            alert("Áudio muito curto ou vazio. Por favor, tente novamente.");
             return;
         }
 
-        // Calcular Score (COM FALLBACK ROBUSTO)
+        // Calcular Score REAL baseado em features acústicas (Meyda) e transcrição
         const features = featuresCollectionRef.current;
-        let finalStepScore = 0;
+        let technicalScore = 10; // Começa com 10
+        let penalties = [];
 
-        if (features && features.length > 5) {
-            // Lógica Meyda (se funcionou)
-            let technicalScore = 10;
-            const avgRms = features.reduce((acc, f) => acc + (f.rms||0), 0) / features.length;
-            
-            if (avgRms < 0.005) technicalScore -= 3;
-            if (features.length * 0.1 < 0.8) technicalScore -= 2;
-            
-            finalStepScore = Math.max(0, Math.min(10, technicalScore));
-            console.log("Score calculado via Meyda:", finalStepScore);
-        } else {
-            // FALLBACK: Se Meyda falhou, usar tamanho do arquivo como proxy de qualidade
-            console.warn("Meyda falhou ou poucos dados. Usando tamanho do arquivo para score.");
-            if (audioBlob.size > 5000) finalStepScore = 9; // > 5KB = Bom
-            else if (audioBlob.size > 2000) finalStepScore = 7; // > 2KB = Ok
-            else finalStepScore = 4; // Muito pequeno
+        // 1. Análise de Volume (RMS)
+        const avgRms = features.reduce((acc, f) => acc + f.rms, 0) / (features.length || 1);
+        const maxRms = Math.max(...features.map(f => f.rms));
+        
+        // Ajuste: Aumentar tolerância para silêncio
+        if (avgRms < 0.005) { // Era 0.02
+            technicalScore -= 4; 
+            penalties.push("Volume muito baixo");
+        } else if (avgRms < 0.02) { // Era 0.05
+            technicalScore -= 1.5; 
         }
+        
+        if (maxRms > 0.98) { // Era 0.95
+            technicalScore -= 2; 
+            penalties.push("Áudio estourado/saturado");
+        }
+
+        // 2. Análise de Ruído (ZCR - Zero Crossing Rate)
+        const avgZcr = features.reduce((acc, f) => acc + f.zcr, 0) / (features.length || 1);
+        if (avgZcr > 0.4) { // Era 0.3
+            technicalScore -= 2;
+            penalties.push("Muito ruído de fundo");
+        }
+
+        // 3. Duração
+        const durationSec = features.length * 0.1; // aprox (100ms interval)
+        if (durationSec < 0.8) { // Era 1.0 - Reduzido para aceitar frases rápidas
+            technicalScore -= 3;
+            penalties.push("Muito curto");
+        }
+
+        // 4. Transcrição (Confirmação de inteligibilidade)
+        // Ajuste: Penalidade menor se não houver transcrição (Web Speech pode falhar)
+        if (!currentTranscript || currentTranscript.length < 3) {
+            technicalScore -= 1; // Era 2
+            penalties.push("Fala não reconhecida (WebSpeech)");
+        }
+
+        // Clamp score 0-10
+        let finalStepScore = Math.max(0, Math.min(10, technicalScore));
+        
+        console.log("Meyda Analysis:", { avgRms, maxRms, avgZcr, durationSec, penalties, finalStepScore });
 
         setScores(prev => [...prev, finalStepScore]);
 
-        // AVANÇAR ETAPA (IMPORTANTE: Forçar avanço se o áudio for válido)
         if (recordingStep < 3) {
             setAudioBlobs(prev => ({ ...prev, [recordingStep]: audioBlob }));
-            console.log(`Avançando para passo ${recordingStep + 1} com áudio salvo.`);
-            setRecordingStep(prev => prev + 1); // Usar callback para garantir estado atual
+            setRecordingStep(recordingStep + 1);
         } else {
             // Passo 4 (Frase Final)
             setAudioBlobs(prev => ({ ...prev, 'emergency': audioBlob }));
             setPhraseAudioRecorded(true);
             
-            // Calcular média final
+            // Calcular Score Final Médio
             const allScores = [...scores, finalStepScore];
             const avgScore = allScores.reduce((a,b) => a+b, 0) / allScores.length;
             setQualityScore(avgScore);
-            setRecordingStep(4);
+            setRecordingStep(4); // Tela de Score
         }
         
         stream.getTracks().forEach(track => track.stop());
@@ -255,7 +262,7 @@ export default function VoiceConfig() {
           recognitionRef.current = recognition;
       }
 
-      mediaRecorderRef.current.start(); // Removido timeslice para compatibilidade (Safari/Mobile)
+      mediaRecorderRef.current.start(100); 
       setIsRecording(true);
       setCurrentTranscript('Ouvindo...');
 
@@ -327,9 +334,9 @@ export default function VoiceConfig() {
   const handleSavePhrase = async () => {
     console.log("Botão Salvar clicado. Estado atual:", { emergencyPhrase, phraseAudioRecorded, audioBlobs });
 
-    // Validação relaxada para testes
-    if (!emergencyPhrase.trim()) {
-      alert("Digite a frase de emergência.");
+    // Validações
+    if (emergencyPhrase.trim().split(' ').length < 2) {
+      alert("A frase deve ter pelo menos 2 palavras.");
       return;
     }
     
@@ -350,14 +357,12 @@ export default function VoiceConfig() {
             if (audioBlobs[i]) {
                 const url = await uploadAudio(audioBlobs[i], `${user.id}/biometry_${i+1}.webm`);
                 if (url) biometryUrls[`voice_biometry_${i+1}_url`] = url;
-                else throw new Error(`Falha no upload da biometria ${i+1}`);
             }
         }
 
         let emergencyAudioUrl = null;
         if (audioBlobs['emergency']) {
             emergencyAudioUrl = await uploadAudio(audioBlobs['emergency'], `${user.id}/emergency_phrase.webm`);
-            if (!emergencyAudioUrl) throw new Error("Falha no upload do áudio da frase");
         }
 
         // 2. Atualizar tabela users

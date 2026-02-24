@@ -1,106 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse, Copy, Zap } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse, Copy } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
-import { Geolocation } from '@capacitor/geolocation';
-import { Capacitor } from '@capacitor/core';
 
 export default function PassengerDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-
-  // Estado manual de Geolocalização (Substituindo Hook para evitar conflito)
-  const [geoPosition, setGeoPosition] = useState(null);
-  
-  // Estados de Voz e Controle de Sessão
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [isAudioReady, setIsAudioReady] = useState(false); 
-  const [isMonitoringActive, setIsMonitoringActive] = useState(false); // Novo Estado: Monitoramento Ativo
-
-  const startMonitoring = async () => {
-      console.log("[System] Iniciando monitoramento passageiro...");
-      setIsMonitoringActive(true); // Ativa UI primeiro para feedback visual
-      
-      let watchId;
-      let mounted = true;
-
-      try {
-          // PASSO 1: Verificar Permissões com Cuidado (Sem travar a UI)
-          if (Capacitor.isNativePlatform()) {
-              try {
-                  const status = await Geolocation.checkPermissions();
-                  if (status.location !== 'granted') {
-                      const request = await Geolocation.requestPermissions();
-                      if (request.location !== 'granted') {
-                          alert("Precisamos da sua localização para ativar a segurança. Por favor, permita o acesso nas configurações.");
-                          setIsMonitoringActive(false); // Reverte se negar
-                          return;
-                      }
-                  }
-              } catch (permError) {
-                  console.warn("[System] Erro ao verificar permissões (pode ser ignorado em alguns dispositivos):", permError);
-              }
-          }
-
-          // PASSO 2: Iniciar Rastreamento Protegido
-          if (mounted) {
-              try {
-                  watchId = await Geolocation.watchPosition({ 
-                      enableHighAccuracy: true, 
-                      timeout: 10000, 
-                      maximumAge: 0 
-                  }, (pos, err) => {
-                      if (!mounted) return;
-                      if (err) {
-                          console.warn("[System] Erro no watchPosition:", err);
-                          return;
-                      }
-                      if (pos) {
-                          setGeoPosition({
-                              latitude: pos.coords.latitude,
-                              longitude: pos.coords.longitude,
-                              speed: pos.coords.speed,
-                              heading: pos.coords.heading,
-                              accuracy: pos.coords.accuracy
-                          });
-                      }
-                  });
-              } catch (watchError) {
-                  console.error("[System] Falha crítica ao iniciar GPS:", watchError);
-                  alert("Erro ao iniciar GPS. Verifique se a localização está ativada.");
-                  setIsMonitoringActive(false);
-              }
-          }
-
-      } catch (error) {
-          console.error("[System] Erro geral na inicialização:", error);
-          alert("Erro ao iniciar sistema de segurança: " + error.message);
-          setIsMonitoringActive(false);
-      } finally {
-          // PASSO 3: Liberar Áudio com Proteção Extra
-          if (mounted) {
-              try {
-                  if (Capacitor.isNativePlatform()) {
-                      // No Android, esperamos 2s para garantir que o diálogo de permissão fechou
-                      setTimeout(() => {
-                          if (mounted) setIsAudioReady(true);
-                      }, 2000);
-                  } else {
-                      // Na Web, liberamos imediatamente
-                      setIsAudioReady(true);
-                  }
-              } catch (audioError) {
-                  console.error("[System] Erro ao preparar áudio:", audioError);
-                  // Não revertemos isMonitoringActive aqui para não "desligar" o app por causa do áudio
-              }
-          }
-      }
-  };
 
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
@@ -119,7 +29,8 @@ export default function PassengerDashboard() {
   const [isTerminating, setIsTerminating] = useState(false);
   const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
   
-  // Estados de Voz e Token de Segurança (voiceTranscript movido para cima)
+  // Estados de Voz e Token de Segurança
+  const [voiceTranscript, setVoiceTranscript] = useState('');
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
@@ -157,25 +68,21 @@ export default function PassengerDashboard() {
       }
   };
 
-  // Atualizar currentLocation sempre que o hook trouxer nova posição
-  useEffect(() => {
-      if (geoPosition) {
-          setCurrentLocation({ 
-              lat: geoPosition.latitude, 
-              lng: geoPosition.longitude,
-              speed: geoPosition.speed,
-              heading: geoPosition.heading,
-              accuracy: geoPosition.accuracy
-          });
-      }
-  }, [geoPosition]);
-
   // Função para enviar atualização de localização (Rastreamento)
   const sendLocationUpdate = async (alertId) => {
-    if (!alertId || !geoPosition) return;
+    if (!alertId) return;
     
     try {
-        const { latitude, longitude, speed, heading, accuracy } = geoPosition;
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        });
+
+        const { latitude, longitude, speed, heading, accuracy } = position.coords;
+        setCurrentLocation({ lat: latitude, lng: longitude });
 
         // Enviar para tabela de rastreamento (location_updates)
         const { error } = await supabase.from('location_updates').insert({
@@ -289,10 +196,10 @@ export default function PassengerDashboard() {
       })
       .subscribe();
     
-    // Localização inicial removida do useEffect para evitar crash
-    // navigator.geolocation.getCurrentPosition((pos) => {
-    //    setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    // }, null, { enableHighAccuracy: true });
+    // Localização inicial
+    navigator.geolocation.getCurrentPosition((pos) => {
+        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    }, null, { enableHighAccuracy: true });
 
     return () => {
         subscription.unsubscribe();
@@ -631,32 +538,6 @@ export default function PassengerDashboard() {
                     )}
                 </div>
              </div>
-          ) : !isMonitoringActive ? (
-              // TELA DE INÍCIO DE MONITORAMENTO (PARA EVITAR CRASH NO MOUNT)
-              <div className="flex flex-col items-center justify-center h-[80vh] space-y-8 p-6">
-                  <div className="text-center">
-                      <ShieldAlert className="h-24 w-24 text-gray-400 mx-auto mb-4" />
-                      <h2 className="text-2xl font-bold text-gray-900">Bem-vindo, {user?.user_metadata?.name || 'Passageiro'}</h2>
-                      <p className="text-gray-500 mt-2">Você está offline. Inicie o monitoramento para ativar sua segurança.</p>
-                  </div>
-                  
-                  <button 
-                      onClick={startMonitoring}
-                      className="w-full max-w-sm py-5 bg-green-600 text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3"
-                  >
-                      <Zap className="h-8 w-8" />
-                      ATIVAR SEGURANÇA
-                  </button>
-                  
-                  <div className="w-full max-w-sm mt-8 border-t pt-8">
-                     <button 
-                        onClick={handleSignOut}
-                        className="w-full py-3 text-gray-500 hover:text-red-600 font-medium flex items-center justify-center gap-2"
-                     >
-                        <LogOut size={20} /> Sair do Sistema
-                     </button>
-                  </div>
-              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
                 <div className="text-center">
@@ -666,7 +547,7 @@ export default function PassengerDashboard() {
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive && isAudioReady} 
+                      isActive={!isEmergencyActive} 
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onEmergencyDetected={() => {
                         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);

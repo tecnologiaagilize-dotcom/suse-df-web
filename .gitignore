@@ -5,3 +5,5 @@ apps/web/node_modules/
 .DS_Store
 *.zip
 node_modules
+
+_backups/

@@ -8,7 +8,6 @@ import AudioFeatureExtractor from '../../services/AudioFeatureExtractor';
 import IraSusiCore from '../../services/IraSusiCore';
 import SensorContextService from '../../services/SensorContextService';
 import IraDebugPanel from '../debug/IraDebugPanel';
-import useWakeLock from '../../hooks/useWakeLock'; // Novo Hook
 
 export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDetected, isActive = true, onTranscriptChange }) {
   const [isListening, setIsListening] = useState(false);
@@ -29,51 +28,10 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
   const workletNodeRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Hook Anti-Standby (Tela)
-  const { isLocked, requestWakeLock, releaseWakeLock } = useWakeLock();
-  
-  // Hack Audio Background (Áudio Silencioso)
-  const silenceAudioRef = useRef(null);
-
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
-
-  // Gerenciar Wake Lock e Áudio de Background
-  useEffect(() => {
-    if (isActive) {
-        requestWakeLock();
-        
-        // Iniciar áudio silencioso para manter processamento em background (Android/iOS workaround)
-        if (!silenceAudioRef.current) {
-            // MP3 de 1 segundo de silêncio
-            const silenceBase64 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjIwLjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAP//OEAAAAAAAAAAAAAAAAAAAAAAAAMwAAAANHUAICAAACAAICAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAP//OEAAAAAAAAAAAAAAAAAAAAAAAAMwAAAANHUAICAAACAAICAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAP//OEAAAAAAAAAAAAAAAAAAAAAAAAMwAAAANHUAICAAACAAICAAAAAAAAAAA';
-            const audio = new Audio(silenceBase64);
-            audio.loop = true;
-            audio.volume = 0.01; // Mínimo volume para ser considerado "ativo"
-            
-            // Tentar tocar (pode exigir interação do usuário antes)
-            audio.play().then(() => {
-                console.log("[Background] Áudio silencioso ativo (Keep-Alive).");
-            }).catch(e => {
-                console.warn("[Background] Falha ao iniciar áudio silencioso (Autoplay policy):", e);
-            });
-            
-            silenceAudioRef.current = audio;
-        }
-    } else {
-        releaseWakeLock();
-        if (silenceAudioRef.current) {
-            silenceAudioRef.current.pause();
-            silenceAudioRef.current = null;
-        }
-    }
-    return () => {
-        releaseWakeLock();
-        if (silenceAudioRef.current) silenceAudioRef.current.pause();
-    };
-  }, [isActive, requestWakeLock, releaseWakeLock]);
 
   // Inicializar AudioWorklet (Core v2) e Wake Word
   const initAudioCore = async () => {
@@ -96,22 +54,11 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
           setIsOfflineMode(true); 
 
           const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioContext(); // Deixa o navegador escolher o sampleRate nativo (evita erros em iOS/Android)
+          const ctx = new AudioContext({ sampleRate: 16000 }); 
           audioContextRef.current = ctx;
 
-          // Resume context se estiver suspenso (Comum em navegadores modernos)
-          if (ctx.state === 'suspended') {
-              await ctx.resume();
-          }
-
-          // Carregar módulo com caminho absoluto seguro
-          try {
-              await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
-          } catch (e) {
-              console.warn("Falha ao carregar Worklet, tentando caminho relativo:", e);
-              // Fallback para dev/local
-              await ctx.audioWorklet.addModule('./workers/suse-audio-processor.js');
-          }
+          // Carregar módulo
+          await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
 
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           streamRef.current = stream;
@@ -220,20 +167,17 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
       try {
         const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
         
-        // CORREÇÃO CRÍTICA: Só aciona se verificado ou se for erro de sistema (Fail-Open)
-        // Se a IA disser explicitamente "verified: false", nós REJEITAMOS.
-        if (result && (result.isVerified || result.details?.startsWith("Fail-Open"))) {
-            console.log("Biometria Aprovada/Fail-Open. Acionando emergência.");
+        // Se verificado ou se o backend estiver offline (fail-open no service), aciona
+        if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
             onEmergencyDetected();
         } else {
-            console.warn("Biometria Rejeitada: Voz não corresponde ao usuário. Score:", result?.score);
-            setError("Voz não reconhecida. Acesso negado.");
-            // Não aciona onEmergencyDetected()
+            // Em modo offline/crítico, a detecção da Wake Word tem peso alto.
+            console.warn("Biometria inconclusiva, mas Wake Word detectada. ACIONANDO (Política de Segurança Máxima).");
+            onEmergencyDetected();
         }
       } catch (err) {
           console.error("Erro na verificação biométrica:", err);
-          // Fail-Safe: Se deu erro CRÍTICO (exceção não tratada), ACIONA a emergência
-          // Isso cobre casos onde o serviço nem respondeu
+          // Fail-Safe: Se deu erro no serviço, ACIONA a emergência
           onEmergencyDetected();
       } finally {
           // Garante que a UI destrave
@@ -349,17 +293,15 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
-                if (result && (result.isVerified || result.details?.startsWith("Fail-Open"))) {
-                    console.log("Biometria Aprovada/Fail-Open. Acionando emergência.");
+                if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
                     onEmergencyDetected();
                 } else {
-                    console.warn("Biometria Rejeitada (Frase Detectada): Score:", result?.score);
-                    setError("Voz não autorizada. Alerta bloqueado.");
-                    // NADA MAIS ACONTECE.
+                    console.warn("Biometria inconclusiva (phrase match). ACIONANDO (Política de Segurança Máxima).");
+                    onEmergencyDetected();
                 }
             } catch (err) {
-                console.error("Erro CRÍTICO na verificação biométrica:", err);
-                // Fail-Safe: Se o serviço quebrou totalmente, ACIONA.
+                console.error("Erro na verificação biométrica (phrase match):", err);
+                // Fail-Safe
                 onEmergencyDetected();
             } finally {
                 setTimeout(() => {

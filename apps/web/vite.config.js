@@ -4,22 +4,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: './',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'manual', // Controle manual para evitar erro no Capacitor
-      devOptions: {
-        enabled: true
-      },
       includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'SUSE-DF Emergência',
         short_name: 'SUSE-DF',
         description: 'Sistema Unificado de Segurança e Emergência do Distrito Federal',
-        theme_color: '#dc2626',
-        background_color: '#1f2937',
+        theme_color: '#dc2626', // Vermelho emergência
+        background_color: '#1f2937', // Cinza escuro
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -38,41 +33,63 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // Aumentado para 10MB (Modelos TF)
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*$/,
+            // Cache para tiles do mapa (OpenStreetMap) para funcionar offline
+            urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'cdn-libs',
+              cacheName: 'osm-tiles',
               expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 ano
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 dias
               },
               cacheableResponse: {
                 statuses: [0, 200]
               }
+            }
+          },
+          {
+            // Estratégia para API (Background Sync seria ideal aqui, mas requer SW customizado)
+            // Para 'generateSW', vamos garantir que não cacheie API calls críticas
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
+            handler: 'NetworkOnly',
+            options: {
+                backgroundSync: {
+                    name: 'supabase-queue',
+                    options: {
+                        maxRetentionTime: 24 * 60 // Tentar reenviar por 24 horas
+                    }
+                }
             }
           }
         ]
       }
     })
   ],
+  esbuild: {
+    // Preserva nomes para evitar erro "H is not a function" em produção
+    keepNames: true
+  },
   build: {
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      external: ['@tensorflow/tfjs', '@tensorflow-models/speech-commands'],
       output: {
-        globals: {
-          '@tensorflow/tfjs': 'tf',
-          '@tensorflow-models/speech-commands': 'speechCommands'
-        },
+        entryFileNames: `assets/[name].${Date.now()}.js`,
+        chunkFileNames: `assets/[name].${Date.now()}.js`,
+        assetFileNames: `assets/[name].[ext]`,
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Isola Face API (pesado)
             if (id.includes('face-api.js')) {
               return 'vendor-face-api';
             }
+            // Agrupa todo o resto para evitar erros de dependência circular
             return 'vendor'; 
           }
         }
