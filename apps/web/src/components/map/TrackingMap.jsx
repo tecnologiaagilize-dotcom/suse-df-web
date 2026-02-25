@@ -48,8 +48,12 @@ const defaultCenter = [-15.793889, -47.882778]; // Brasília (Leaflet usa [lat, 
 function TrackingMap({ lat, lng, alertId }) {
   const [routePath, setRoutePath] = useState([]);
   
-  // Garantir coordenadas válidas
-  const center = (lat && lng) ? [Number(lat), Number(lng)] : defaultCenter;
+  // Garantir coordenadas válidas com verificação robusta
+  const safeLat = Number(lat);
+  const safeLng = Number(lng);
+  const isValid = !isNaN(safeLat) && !isNaN(safeLng) && lat !== null && lng !== null && safeLat !== 0 && safeLng !== 0;
+  
+  const center = isValid ? [safeLat, safeLng] : defaultCenter;
 
   // Buscar histórico de rota
   useEffect(() => {

@@ -688,14 +688,14 @@ export default function Dashboard() {
 
                               {/* Coluna da Direita: Mapa */}
                               {/* Lógica de Minimização do Mapa durante Validação */}
-                              <div className={`transition-all duration-300 bg-gray-200 relative ${
+                              <div className={`bg-gray-200 relative h-full ${
                                   expandedMapId === activeWindow.id 
-                                      ? 'fixed inset-0 z-50 w-full h-full' 
-                                      : (validationModalAlert && validationModalAlert.id === activeWindow.id ? 'w-0 h-full overflow-hidden opacity-0' : 'w-2/3 h-full')
+                                      ? 'fixed inset-0 z-50 w-full' 
+                                      : (validationModalAlert && validationModalAlert.id === activeWindow.id ? 'hidden' : 'w-2/3')
                               }`}>
                                    <button
                                       onClick={() => setExpandedMapId(expandedMapId === activeWindow.id ? null : activeWindow.id)}
-                                      className="absolute top-4 right-4 z-[60] bg-white text-gray-800 px-3 py-2 rounded shadow-md font-bold text-xs uppercase hover:bg-gray-50 flex items-center gap-2 border border-gray-300 transition-transform hover:scale-105"
+                                      className="absolute top-4 right-4 z-[400] bg-white text-gray-800 px-3 py-2 rounded shadow-md font-bold text-xs uppercase hover:bg-gray-50 flex items-center gap-2 border border-gray-300 transition-transform hover:scale-105"
                                    >
                                       {expandedMapId === activeWindow.id ? (
                                           <>
@@ -709,6 +709,7 @@ export default function Dashboard() {
                                    </button>
 
                                    <TrackingMap 
+                                        key={activeWindow.id}
                                         lat={activeWindow.current_lat}
                                         lng={activeWindow.current_lng}
                                         alertId={activeWindow.id}
