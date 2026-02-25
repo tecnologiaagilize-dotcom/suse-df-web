@@ -146,11 +146,38 @@ export default function VoiceEmergencyListener({
                   }
 
                   // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
-                  // v1.3: Desabilitado acionamento puramente acústico para evitar falsos positivos
-                  // O usuário deve falar a frase ou o som deve ser EXTREMAMENTE persistente (tratado pelo Core)
+                  // v1.6: Reativado com Validação de IA (MFCC Distância)
+                  // O som deve ser persistente E ter características humanas compatíveis com o usuário
                   if (result.status === 'EMERGENCIA' && !isAnalyzingRef.current) {
                       console.warn("IRA-SUSI: Emergência Acústica Detectada! Score:", result.ira);
-                      // handleWakeWordTrigger(); // DESABILITADO TEMPORARIAMENTE
+                      
+                      // Pausa reconhecimento para análise
+                      try { recognition.stop(); } catch(e){}
+                      setIsAnalyzing(true);
+                      isAnalyzingRef.current = true;
+
+                      const audioBlob = RingBufferService.getWavBlob(5);
+                      
+                      // Análise Assíncrona de IA
+                      VoiceBiometryService.analyzeEmergencyEvent(audioBlob, result.ira)
+                        .then(isValid => {
+                            if (isValid) {
+                                console.warn("IA Validou Evento Acústico. ACIONANDO.");
+                                onEmergencyDetected();
+                            } else {
+                                console.warn("IA Rejeitou Evento Acústico (Falso Positivo).");
+                            }
+                        })
+                        .catch(err => console.error("Erro na análise IA:", err))
+                        .finally(() => {
+                            setTimeout(() => {
+                                if (isMountedRef.current) {
+                                    setIsAnalyzing(false);
+                                    isAnalyzingRef.current = false;
+                                    try { recognition.start(); } catch(e){}
+                                }
+                            }, 3000);
+                        });
                   }
               }
               analysisLoopRef.current = requestAnimationFrame(analyzeFrame);

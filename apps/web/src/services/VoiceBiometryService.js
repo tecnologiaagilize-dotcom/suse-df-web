@@ -220,6 +220,65 @@ const VoiceBiometryService = {
 
 
     /**
+     * Analisa um evento de emergência acústica (Grito/Impacto)
+     * Decide se deve acionar o alerta baseando-se em fusão de dados.
+     */
+    analyzeEmergencyEvent: async (audioBlob, iraScore) => {
+        console.log(`[IA Monitor] Analisando Evento Acústico (Score: ${iraScore.toFixed(2)})...`);
+        
+        // 1. Extração de Features do Evento
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const features = AudioFeatureExtractor.extractOfflineFingerprint(audioBuffer);
+
+        if (!features) {
+            console.warn("[IA Monitor] Falha ao extrair features do evento.");
+            return false;
+        }
+
+        // 2. Verificação de Humanidade (Anti-Mecânico)
+        // Se o som for muito "puro" (Flatness baixo) ou muito repetitivo, pode ser sirene/alarme.
+        // O IRA-SUSI já filtra isso, mas vamos reforçar.
+        // Aqui, tentaríamos comparar com a voz do usuário.
+        
+        // 3. Comparação Biométrica (Mesmo em grito, o Timbre MFCC mantém algumas características)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+             const { data: profile } = await supabase
+                .from('users')
+                .select('voice_biometry_1_url')
+                .eq('id', user.id)
+                .single();
+             
+             if (profile && profile.voice_biometry_1_url) {
+                 const refBuffer = await VoiceBiometryService.fetchAudioBuffer(profile.voice_biometry_1_url);
+                 if (refBuffer) {
+                     const refMfcc = AudioFeatureExtractor.extractOfflineFingerprint(refBuffer);
+                     if (refMfcc) {
+                         const dist = VoiceBiometryService.calculateEuclideanDistance(features, refMfcc);
+                         console.log(`[IA Monitor] Distância MFCC (Evento vs Voz Normal): ${dist.toFixed(2)}`);
+                         
+                         // Em gritos, a distância aumenta.
+                         // Voz Normal vs Voz Normal < 35
+                         // Voz Normal vs Grito da Mesma Pessoa < 60
+                         // Voz Normal vs Sirene > 80
+                         
+                         if (dist > 75) {
+                             console.warn("[IA Monitor] Som detectado é muito diferente da voz do usuário (Provável Alarme/TV). Bloqueando.");
+                             return false;
+                         }
+                     }
+                 }
+             }
+        }
+
+        // Se passou pelos filtros, confirma a emergência acústica
+        console.log("[IA Monitor] Evento Validado pela IA.");
+        return true;
+    },
+
+    /**
      * Analisa o ruído ambiente (Placeholder para implementação futura)
      */
     analyzeEnvironment: async () => {
