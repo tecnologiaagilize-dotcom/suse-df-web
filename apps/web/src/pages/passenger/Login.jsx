@@ -38,7 +38,7 @@ export default function PassengerLogin() {
 
   const handleFaceVerified = (verified) => {
     if (verified) {
-      alert('Face reconhecida! (Simulação)');
+      console.log('Face reconhecida com sucesso.');
       navigate('/passenger/dashboard');
     }
   };

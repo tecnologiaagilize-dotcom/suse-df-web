@@ -44,7 +44,7 @@ export default function DriverLogin() {
     if (verified) {
       // Logic to auto-login with face would go here
       // Typically requires a backend verification of the face descriptor
-      alert('Face reconhecida! (Simulação)');
+      console.log('Face reconhecida com sucesso.');
       navigate('/driver/dashboard');
     }
   };

@@ -34,6 +34,8 @@ export default function PassengerVoiceConfig() {
   const isMounted = useRef(true);
 
   const [alreadyConfigured, setAlreadyConfigured] = useState(false);
+  const [showStepResult, setShowStepResult] = useState(false);
+  const [currentStepScore, setCurrentStepScore] = useState(0);
 
 
 
@@ -282,27 +284,23 @@ export default function PassengerVoiceConfig() {
         
         console.log("Meyda Analysis:", { avgRms, maxRms, avgZcr, durationSec, penalties, finalStepScore });
 
-        setScores(prev => [...prev, finalStepScore]);
-
-        if (recordingStep < 3) {
-            setAudioBlobs(prev => ({ ...prev, [recordingStep]: audioBlob }));
-            setRecordingStep(recordingStep + 1);
-        } else {
-            // Passo 4 (Frase Final)
-            setAudioBlobs(prev => ({ ...prev, 'emergency': audioBlob }));
-            setPhraseAudioRecorded(true);
-            
-            // Calcular Score Final Médio
-            const allScores = [...scores, finalStepScore];
-            const avgScore = allScores.reduce((a,b) => a+b, 0) / allScores.length;
-            setQualityScore(avgScore);
-            setRecordingStep(4); // Tela de Score
+        // Armazenar temporariamente o resultado deste passo
+        setCurrentStepScore(finalStepScore);
+        
+        // Armazenar o blob temporariamente
+        setAudioBlobs(prev => ({ ...prev, [recordingStep === 3 ? 'emergency' : recordingStep]: audioBlob }));
+        
+        if (recordingStep === 3) {
+             setPhraseAudioRecorded(true);
         }
         
         stream.getTracks().forEach(track => track.stop());
         setIsRecording(false);
         setCurrentTranscript('');
         setAudioMetrics({ rms: 0, zcr: 0 });
+        
+        // Mostrar tela de resultado do passo
+        setShowStepResult(true);
       };
 
       // 3. Configurar SpeechRecognition
@@ -361,6 +359,27 @@ export default function PassengerVoiceConfig() {
     }
     // Cleanup extra garantido
     if (metricsIntervalRef.current) clearInterval(metricsIntervalRef.current);
+  };
+
+  const handleNextStep = () => {
+      setScores(prev => [...prev, currentStepScore]);
+      setShowStepResult(false);
+      
+      if (recordingStep < 3) {
+          setRecordingStep(recordingStep + 1);
+      } else {
+          // Passo 4 (Final)
+          // Calcular Score Final Médio
+          const allScores = [...scores, currentStepScore];
+          const avgScore = allScores.reduce((a,b) => a+b, 0) / allScores.length;
+          setQualityScore(avgScore);
+          setRecordingStep(4); // Tela de Score Final
+      }
+  };
+
+  const handleRetryStep = () => {
+      setShowStepResult(false);
+      // Não avança o passo, permite gravar novamente
   };
 
   // Cleanup effect
@@ -514,14 +533,44 @@ export default function PassengerVoiceConfig() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
           <p className="text-xs text-gray-400 mb-4">Versão 1.3.0</p>
-          {!alreadyConfigured && recordingStep < 3 && !success && (
+          {!alreadyConfigured && recordingStep < 3 && !success && !showStepResult && (
             <p className="mt-2 text-sm text-gray-600">
               Passo {recordingStep + 1} de 4: Grave as frases indicadas para calibração.
             </p>
           )}
         </div>
 
-        {alreadyConfigured && !success && recordingStep === 0 ? (
+        {showStepResult ? (
+            <div className="text-center space-y-6">
+                <h3 className="text-lg font-bold text-gray-900">Resultado da Gravação</h3>
+                <div className="flex justify-center">
+                    <div className={`p-6 rounded-full border-4 ${currentStepScore >= 5.0 ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}`}>
+                        <span className="text-4xl font-bold">{currentStepScore.toFixed(1)}</span>
+                    </div>
+                </div>
+                
+                {currentStepScore >= 5.0 ? (
+                    <p className="text-green-600 font-medium">Qualidade Aceitável</p>
+                ) : (
+                    <p className="text-red-600 font-medium">Qualidade Baixa - Tente falar mais claro e perto do microfone.</p>
+                )}
+
+                <div className="flex flex-col gap-3">
+                    <button
+                        onClick={handleNextStep}
+                        className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+                    >
+                        {recordingStep === 3 ? 'Ver Resultado Final' : 'Próxima Frase'}
+                    </button>
+                    <button
+                        onClick={handleRetryStep}
+                        className="w-full py-3 px-4 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-medium"
+                    >
+                        Tentar Novamente
+                    </button>
+                </div>
+            </div>
+        ) : alreadyConfigured && !success && recordingStep === 0 ? (
             <div className="text-center space-y-6">
                 <div className="flex justify-center">
                     <CheckCircle className="h-16 w-16 text-blue-500" />
