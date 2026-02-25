@@ -137,12 +137,12 @@ class IraSusiCore {
             keyword: 0 
         };
 
-        // Detecção Heurística de Grito (Refinada v1.1)
+        // Detecção Heurística de Grito (Refinada v1.2 - Hardened)
         // Grito de Pânico: Energia alta, Pitch agudo, mas com "Roughness" (Jitter/Shimmer elevados).
         // Diferencia de Sirenes/Música (que são tonais e estáveis).
-        const isScream = features.dbfs > -15 && 
-                         features.pitch > 250 && 
-                         (features.jitter > 0.2 || features.shimmer > 5);
+        const isScream = features.dbfs > -10 && 
+                         features.pitch > 300 && 
+                         (features.jitter > 0.3 || features.shimmer > 10);
                          
         phi.scream = isScream ? 1.0 : 0.0;
 
@@ -198,8 +198,8 @@ class IraSusiCore {
 
         // 8. Suavização Temporal (Smoothing)
         const alpha = cfg.smoothing.alpha;
-        // Se subir, sobe moderadamente (ataque controlado). Se descer, desce devagar.
-        const effectiveAlpha = rawIRA > this.state.iraHat ? 0.50 : alpha;
+        // Se subir, sobe moderadamente (ataque controlado - v1.2: 0.30). Se descer, desce devagar.
+        const effectiveAlpha = rawIRA > this.state.iraHat ? 0.30 : alpha;
         
         this.state.iraHat = (effectiveAlpha * rawIRA) + ((1 - effectiveAlpha) * this.state.iraHat);
 

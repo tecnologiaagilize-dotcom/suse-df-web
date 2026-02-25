@@ -146,10 +146,11 @@ export default function VoiceEmergencyListener({
                   }
 
                   // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
-                  // Mesmo sem a palavra-chave (Segurança Redundante)
+                  // v1.3: Desabilitado acionamento puramente acústico para evitar falsos positivos
+                  // O usuário deve falar a frase ou o som deve ser EXTREMAMENTE persistente (tratado pelo Core)
                   if (result.status === 'EMERGENCIA' && !isAnalyzingRef.current) {
                       console.warn("IRA-SUSI: Emergência Acústica Detectada! Score:", result.ira);
-                      handleWakeWordTrigger(); // Reusa a lógica de trigger
+                      // handleWakeWordTrigger(); // DESABILITADO TEMPORARIAMENTE
                   }
               }
               analysisLoopRef.current = requestAnimationFrame(analyzeFrame);
@@ -350,6 +351,7 @@ export default function VoiceEmergencyListener({
                  console.log(`Fuzzy Match: "${recentPhrase}" vs "${normalizedPhrase}" = ${similarity.toFixed(2)}`);
                  
                  // Aumentado threshold para 0.85 para evitar falsos positivos
+                 // v1.3: Se for Fuzzy Match (não exato), exige biometria rigorosa
                  if (similarity >= 0.85) { 
                      match = true;
                  }
@@ -357,52 +359,47 @@ export default function VoiceEmergencyListener({
          }
 
          if (match) {
-            console.log("Frase de emergência detectada (Exata ou Fuzzy)! Iniciando análise biométrica...");
+            console.log("Frase de emergência detectada! Tipo:", normalizedText.includes(normalizedPhrase) ? "EXATA" : "FUZZY");
             
-            // Pausa reconhecimento para evitar loop
+            // Pausa reconhecimento
             try { recognition.stop(); } catch(e){}
             setIsAnalyzing(true);
             isAnalyzingRef.current = true;
 
-            // Recupera áudio do Ring Buffer (últimos 5 segundos)
             const audioBlob = RingBufferService.getWavBlob(5);
+            const isExactMatch = normalizedText.includes(normalizedPhrase);
             
             if (audioBlob.size < 1000) {
-                console.warn("Buffer de áudio vazio ou insuficiente.");
-                // Se o áudio falhou, mas a frase foi detectada, ACIONA APENAS SE FOR MATCH EXATO
-                if (normalizedText.includes(normalizedPhrase)) {
-                     console.warn("Áudio corrompido, mas Match Exato de texto. Acionando.");
+                console.warn("Buffer vazio.");
+                if (isExactMatch) {
                      onEmergencyDetected();
-                } else {
-                     console.warn("Áudio corrompido e Fuzzy Match. Ignorando por segurança (Falso Positivo).");
                 }
                 setIsAnalyzing(false);
                 return;
             }
 
-            // Verifica Biometria
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
+                // LÓGICA DE DECISÃO REFINADA (v1.3)
                 if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
+                    // Biometria OK (ou offline permitido) -> ACIONA
                     onEmergencyDetected();
                 } else {
-                    // Se a biometria falhar:
-                    // 1. Se foi Match Exato de texto -> Aciona (Assume que a transcrição está correta)
-                    // 2. Se foi Fuzzy Match -> Ignora (Assume que a transcrição alucinou uma palavra parecida)
-                    
-                    if (normalizedText.includes(normalizedPhrase)) {
-                        console.warn("Biometria falhou, mas frase exata detectada. ACIONANDO (Match Exato Prioritário).");
+                    // Biometria FALHOU
+                    if (isExactMatch) {
+                        // Se a frase foi EXATA, confiamos na transcrição mesmo sem biometria
+                        console.warn("Biometria falhou, mas frase EXATA detectada. ACIONANDO.");
                         onEmergencyDetected();
                     } else {
-                        console.warn("Biometria falhou e foi apenas Fuzzy Match. IGNORANDO (Provável Falso Positivo).");
-                        // Não aciona onEmergencyDetected()
+                        // Se foi FUZZY e biometria falhou -> NÃO ACIONA (Falso Positivo provável)
+                        console.warn("Biometria falhou e foi Fuzzy Match. IGNORANDO.");
                     }
                 }
             } catch (err) {
-                console.error("Erro na verificação biométrica (phrase match):", err);
-                // Fail-Safe: Em caso de erro técnico no serviço, mantemos comportamento conservador se for Fuzzy
-                if (normalizedText.includes(normalizedPhrase)) {
+                console.error("Erro biometria:", err);
+                // Fail-Safe apenas para Match Exato
+                if (isExactMatch) {
                     onEmergencyDetected();
                 }
             } finally {
