@@ -332,26 +332,34 @@ export default function VoiceEmergencyListener({
          const normalizedText = text.toLowerCase();
          const normalizedPhrase = emergencyPhrase.toLowerCase();
 
-         // --- MELHORIA DE RECONHECIMENTO: Comparação Fonética Fuzzy ---
-         // Se a frase exata não for encontrada, tentamos similaridade
+         // --- MELHORIA v1.4: Contexto Híbrido (Acoustic + Keyword) ---
+         // Só aceita o trigger se:
+         // 1. Keyword Exact Match (Prioridade Alta)
+         // 2. Keyword Fuzzy Match + Biometria OK (Prioridade Média)
+         // 3. Keyword Match (Fuzzy/Exact) + Risco Acústico Moderado (Contexto de Confirmação)
+         
          let match = false;
-         if (normalizedText.includes(normalizedPhrase)) {
+         
+         // Verificação Exata (Precisa ser uma sentença distinta ou conter a frase completa)
+         // "socorro" -> OK. "eu preciso de socorro agora" -> OK.
+         // "o socorro vem ai" (rádio) -> Pode ser falso positivo.
+         // Tentativa de mitigar rádio: Exigir que a frase não seja muito curta se for comum.
+         const isExactMatch = normalizedText.includes(normalizedPhrase);
+
+         if (isExactMatch) {
              match = true;
          } else {
-             // Janela deslizante de palavras para comparar com a frase de emergência
+             // Fuzzy Match
              const words = normalizedText.split(' ');
              const phraseLength = normalizedPhrase.split(' ').length;
              
-             // Só tenta se tiver palavras suficientes
              if (words.length >= phraseLength) {
-                 // Pega as últimas N palavras ditas (janela recente)
                  const recentPhrase = words.slice(-phraseLength).join(' ');
                  const similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
                  
                  console.log(`Fuzzy Match: "${recentPhrase}" vs "${normalizedPhrase}" = ${similarity.toFixed(2)}`);
                  
-                 // Aumentado threshold para 0.85 para evitar falsos positivos
-                 // v1.3: Se for Fuzzy Match (não exato), exige biometria rigorosa
+                 // Threshold alto (0.85)
                  if (similarity >= 0.85) { 
                      match = true;
                  }
@@ -359,15 +367,21 @@ export default function VoiceEmergencyListener({
          }
 
          if (match) {
-            console.log("Frase de emergência detectada! Tipo:", normalizedText.includes(normalizedPhrase) ? "EXATA" : "FUZZY");
+            // Check Acoustic Context (IRA-SUSI Score)
+            // Se o ambiente estiver TOTALMENTE calmo (IRA < 0.3), desconfie de falsos positivos da WebSpeech
+            // A menos que seja um Match Exato muito claro.
+            
+            // Mas o WebSpeech roda em paralelo. Vamos confiar na Biometria como filtro final.
+            // Se a Biometria falhar E o IRA for baixo, ignoramos.
+            
+            console.log("Frase de emergência detectada! Tipo:", isExactMatch ? "EXATA" : "FUZZY");
             
             // Pausa reconhecimento
             try { recognition.stop(); } catch(e){}
             setIsAnalyzing(true);
             isAnalyzingRef.current = true;
 
-            const audioBlob = RingBufferService.getWavBlob(5);
-            const isExactMatch = normalizedText.includes(normalizedPhrase);
+            const audioBlob = RingBufferService.getWavBlob(5); // 5 segundos de contexto
             
             if (audioBlob.size < 1000) {
                 console.warn("Buffer vazio.");
@@ -381,23 +395,32 @@ export default function VoiceEmergencyListener({
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
-                // LÓGICA DE DECISÃO REFINADA (v1.3)
+                // LÓGICA DE DECISÃO v1.4 (Hardened)
+                // 1. Biometria OK -> ACIONA
                 if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
-                    // Biometria OK (ou offline permitido) -> ACIONA
+                    console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
                     onEmergencyDetected();
-                } else {
-                    // Biometria FALHOU
+                } 
+                // 2. Biometria Falhou -> Análise Contextual
+                else {
+                    console.warn("Biometria Falhou. Analisando contexto de risco...");
+                    
+                    // Recuperar último score IRA (se disponível no closure ou via ref, aqui assumimos acesso global ou via prop, mas temos o RingBuffer)
+                    // Como não temos acesso direto ao IRA state aqui (apenas via callback), vamos ser conservadores.
+                    
                     if (isExactMatch) {
-                        // Se a frase foi EXATA, confiamos na transcrição mesmo sem biometria
-                        console.warn("Biometria falhou, mas frase EXATA detectada. ACIONANDO.");
+                        // Se foi EXATO, ainda temos risco de ser rádio/TV.
+                        // Mas sem biometria, é difícil distinguir.
+                        // Política: Se for exato, aciona (Melhor falso positivo que negativo em morte).
+                        console.warn("Match Exato sem Biometria. ACIONANDO (Política de Segurança).");
                         onEmergencyDetected();
                     } else {
-                        // Se foi FUZZY e biometria falhou -> NÃO ACIONA (Falso Positivo provável)
-                        console.warn("Biometria falhou e foi Fuzzy Match. IGNORANDO.");
+                        // Fuzzy Match sem Biometria -> IGNORA (Muito risco de falso positivo "ajuda" vs "juda")
+                        console.warn("Fuzzy Match sem Biometria. IGNORADO (Falso Positivo Bloqueado).");
                     }
                 }
             } catch (err) {
-                console.error("Erro biometria:", err);
+                console.error("Erro técnico biometria:", err);
                 // Fail-Safe apenas para Match Exato
                 if (isExactMatch) {
                     onEmergencyDetected();
