@@ -9,6 +9,7 @@ import AudioFeatureExtractor from '../../services/AudioFeatureExtractor';
 import IraSusiCore from '../../services/IraSusiCore';
 import SensorContextService from '../../services/SensorContextService';
 import IraDebugPanel from '../debug/IraDebugPanel';
+import stringSimilarity from 'string-similarity'; // Comparação fonética
 
 export default function VoiceEmergencyListener({ 
     emergencyPhrase, 
@@ -69,7 +70,16 @@ export default function VoiceEmergencyListener({
           // Carregar módulo
           await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
 
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // --- MELHORIA DE CAPTAÇÃO: Noise Suppression & Echo Cancellation ---
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+              audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                  channelCount: 1,
+                  sampleRate: 16000
+              } 
+          });
           streamRef.current = stream;
           const source = ctx.createMediaStreamSource(stream);
 
@@ -77,6 +87,13 @@ export default function VoiceEmergencyListener({
           AudioFeatureExtractor.initialize(ctx, source);
           SensorContextService.start();
           IraSusiCore.reset();
+
+          // --- FIX: Resume AudioContext se estiver suspenso (Autoplay Policy) ---
+          if (ctx.state === 'suspended') {
+              console.log("VoiceEmergencyListener: AudioContext suspenso, tentando retomar...");
+              await ctx.resume();
+          }
+          // ---------------------------------------------------------------------
 
           // --- Carregar Baseline Personalizado IRA-SUSI ---
           if (user?.user_metadata?.ira_baseline) {
@@ -102,8 +119,8 @@ export default function VoiceEmergencyListener({
                   if (onAnalysisUpdate) onAnalysisUpdate(fullData);
 
                   // Atualiza dados de debug interno (com throttle para não matar a UI)
-                  // Só atualiza a cada 5 frames (aprox 100ms) se o painel estiver ativo
-                  if (showDebugPanel && Math.random() > 0.8) {
+                  // FIX: Reduzido o throttle para 0.5 (50%) para ver atualizações mais frequentes
+                  if (showDebugPanel && Math.random() > 0.5) {
                       setDebugData(fullData);
                   }
 
@@ -292,8 +309,32 @@ export default function VoiceEmergencyListener({
          const normalizedText = text.toLowerCase();
          const normalizedPhrase = emergencyPhrase.toLowerCase();
 
+         // --- MELHORIA DE RECONHECIMENTO: Comparação Fonética Fuzzy ---
+         // Se a frase exata não for encontrada, tentamos similaridade
+         let match = false;
          if (normalizedText.includes(normalizedPhrase)) {
-            console.log("Frase de emergência detectada! Iniciando análise biométrica...");
+             match = true;
+         } else {
+             // Janela deslizante de palavras para comparar com a frase de emergência
+             const words = normalizedText.split(' ');
+             const phraseLength = normalizedPhrase.split(' ').length;
+             
+             // Só tenta se tiver palavras suficientes
+             if (words.length >= phraseLength) {
+                 // Pega as últimas N palavras ditas (janela recente)
+                 const recentPhrase = words.slice(-phraseLength).join(' ');
+                 const similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
+                 
+                 console.log(`Fuzzy Match: "${recentPhrase}" vs "${normalizedPhrase}" = ${similarity.toFixed(2)}`);
+                 
+                 if (similarity > 0.75) { // 75% de similaridade aceita (ex: "socoorro" vs "socorro")
+                     match = true;
+                 }
+             }
+         }
+
+         if (match) {
+            console.log("Frase de emergência detectada (Exata ou Fuzzy)! Iniciando análise biométrica...");
             
             // Pausa reconhecimento para evitar loop
             try { recognition.stop(); } catch(e){}

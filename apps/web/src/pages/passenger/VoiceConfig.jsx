@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Mic, AlertCircle, PlayCircle, Square, CheckCircle, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import AudioFeatureExtractor from '../../services/AudioFeatureExtractor';
+import stringSimilarity from 'string-similarity'; // Importação
 
 export default function PassengerVoiceConfig() {
   const [recordingStep, setRecordingStep] = useState(0); // 0-2 (Biometria), 3 (Frase), 4 (Score)
@@ -89,7 +90,16 @@ export default function PassengerVoiceConfig() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // --- MELHORIA DE CAPTAÇÃO: Noise Suppression & Echo Cancellation ---
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+              sampleRate: 48000 // Alta qualidade para armazenamento
+          } 
+      });
       
       // 1. Configurar AudioContext e Meyda para análise técnica
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -120,10 +130,10 @@ export default function PassengerVoiceConfig() {
       }, 100);
 
       // 2. Configurar MediaRecorder
-      let options = { mimeType: 'audio/webm' };
-      if (!MediaRecorder.isTypeSupported('audio/webm')) {
-          if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
-          else if (MediaRecorder.isTypeSupported('audio/ogg')) options = { mimeType: 'audio/ogg' };
+      let options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 };
+      if (!MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4', audioBitsPerSecond: 128000 };
+          else if (MediaRecorder.isTypeSupported('audio/ogg')) options = { mimeType: 'audio/ogg', audioBitsPerSecond: 128000 };
           else options = undefined;
       }
 
@@ -214,11 +224,30 @@ export default function PassengerVoiceConfig() {
             penalties.push("Muito curto");
         }
 
-        // 4. Transcrição (Confirmação de inteligibilidade)
-        // Ajuste: Penalidade menor se não houver transcrição (Web Speech pode falhar)
-        if (!currentTranscript || currentTranscript.length < 3) {
-            technicalScore -= 1; // Era 2
-            penalties.push("Fala não reconhecida (WebSpeech)");
+        // 4. Validação Fonética (Frase Escrita vs Falada)
+        const speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+        let similarityScore = 0;
+
+        if (speechSupported) {
+             const targetPhrase = recordingStep < 3 
+                ? configPhrases[recordingStep]?.phrase_text?.toLowerCase() 
+                : emergencyPhrase.toLowerCase();
+             
+             // Usa biblioteca de similaridade (Dice Coefficient / Levenshtein)
+             const match = stringSimilarity.compareTwoStrings(currentTranscript || "", targetPhrase || "");
+             similarityScore = match * 10; // Escala 0-10
+             
+             console.log(`Validação Fonética: "${currentTranscript}" vs "${targetPhrase}" = ${match.toFixed(2)}`);
+
+             if (match < 0.4) { // Menos de 40% de similaridade
+                 technicalScore -= 3;
+                 penalties.push(`Frase incorreta (Similaridade: ${(match*100).toFixed(0)}%)`);
+             } else if (match < 0.7) {
+                 technicalScore -= 1;
+             }
+        } else {
+             // Fallback se não tiver WebSpeech (não penaliza tanto)
+             console.warn("Web Speech API não suportada. Pulo validação fonética.");
         }
 
         // Clamp score 0-10

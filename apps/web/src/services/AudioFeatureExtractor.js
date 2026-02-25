@@ -109,10 +109,12 @@ class AudioFeatureExtractor {
 
         // Conversão RMS Linear [0, 1] para dBFS [-120, 0]
         // dBFS = 20 * log10(rms)
-        const dbfs = features.rms > 0.000001 ? 20 * Math.log10(features.rms) : -120;
+        // FIX: Evita log(0) = -Infinity
+        const safeRms = Math.max(features.rms, 0.000001);
+        const dbfs = 20 * Math.log10(safeRms);
 
         return {
-            rms: features.rms,
+            rms: safeRms,
             dbfs: dbfs, // Adicionado campo dBFS
             zcr: features.zcr,
             spectralCentroid: features.spectralCentroid,
