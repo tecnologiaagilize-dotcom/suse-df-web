@@ -621,8 +621,49 @@ export default function PassengerDashboard() {
                   </p>
                 </div>
 
-                {/* Painel IRA-SUSI Fixo */}
-                <div className="w-full max-w-md">
+                {/* Painel IRA-SUSI Fixo - STATUS */}
+                <div className="w-full max-w-md bg-gray-900 rounded-lg p-4 shadow-lg border border-gray-700">
+                     <h4 className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-3 border-b border-gray-700 pb-2">
+                         Status IRA-SUSI™
+                     </h4>
+                     
+                     <div className="flex items-center justify-between">
+                         <div className="flex flex-col">
+                             <span className="text-xs text-gray-500">Nível de Risco</span>
+                             <span className={`text-2xl font-black ${
+                                 iraData?.status === 'EMERGENCIA' ? 'text-red-500 animate-pulse' :
+                                 iraData?.status === 'RISCO' ? 'text-orange-500' :
+                                 iraData?.status === 'ATENCAO' ? 'text-yellow-500' :
+                                 'text-green-500'
+                             }`}>
+                                 {iraData?.status || 'NORMAL'}
+                             </span>
+                         </div>
+                         
+                         <div className="text-right">
+                             <span className="text-xs text-gray-500 block">Score Acústico</span>
+                             <span className="text-xl font-mono text-white">
+                                 {iraData?.ira ? (iraData.ira * 100).toFixed(0) : '0'}%
+                             </span>
+                         </div>
+                     </div>
+
+                     {/* Barra de Progresso do Risco */}
+                     <div className="w-full bg-gray-800 h-2 rounded-full mt-3 overflow-hidden">
+                         <div 
+                            className={`h-full transition-all duration-500 ${
+                                iraData?.status === 'EMERGENCIA' ? 'bg-red-600' :
+                                iraData?.status === 'RISCO' ? 'bg-orange-500' :
+                                iraData?.status === 'ATENCAO' ? 'bg-yellow-500' :
+                                'bg-green-500'
+                            }`}
+                            style={{ width: `${(iraData?.ira || 0) * 100}%` }}
+                         ></div>
+                     </div>
+                </div>
+
+                {/* Painel Debug (Expandível se necessário, mas mantido discreto) */}
+                <div className="w-full max-w-md hidden">
                     <IraDebugPanel data={iraData} mode="embed" />
                 </div>
              </div>
