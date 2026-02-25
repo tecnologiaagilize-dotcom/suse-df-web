@@ -1,0 +1,71 @@
+{
+  "version": "1.0-official",
+  "description": "Configuração Oficial do IRA-SUSI (Índice de Risco Acústico) v1.0",
+  "updateInterval": 1000,
+  "globalParams": {
+    "bias": -1.2,
+    "beta_biometrics": 0.60,
+    "eta_history": 0.55,
+    "baseline_lambda": 0.995,
+    "noise_reference_N0": -45,
+    "snr_reference": 12
+  },
+  "audioWeights": {
+    "energy": 0.25,
+    "deltaEnergy": 0.35,
+    "pitchZScore": 0.25,
+    "deltaPitch": 0.30,
+    "jitter": 0.20,
+    "shimmer": 0.15,
+    "hnrInverted": 0.20,
+    "scream": 1.20,
+    "keyword": 0.60
+  },
+  "transformations": {
+    "energy": { "offset": 45, "scale": 30, "unit": "dBFS" },
+    "deltaEnergy": { "scale": 12, "unit": "dB" },
+    "pitchZScore": { "scale": 3, "unit": "std_dev" },
+    "deltaPitch": { "offset": 25, "scale": 35, "unit": "Hz" },
+    "jitter": { "offset": 0.2, "scale": 1.0, "unit": "%" },
+    "shimmer": { "offset": 1.0, "scale": 5.0, "unit": "%" },
+    "hnr": { "offset": 20, "scale": 15, "inverted": true, "unit": "dB" }
+  },
+  "gates": {
+    "vadThreshold": 0.25,
+    "screamThreshold": 0.60,
+    "activityPenalty": 0.15,
+    "noiseAlpha": 0.08,
+    "snrMinClip": 0.25,
+    "snrScale": 12
+  },
+  "scenarios": {
+    "vehicle": {
+      "condition": "speed > 15",
+      "thresholds": { "attention": 0.62, "risk": 0.78, "emergency": 0.90 },
+      "persistence": { "attention": 4, "risk": 3, "emergency": 1 }
+    },
+    "urban": {
+      "condition": "default",
+      "thresholds": { "attention": 0.56, "risk": 0.72, "emergency": 0.86 },
+      "persistence": { "attention": 3, "risk": 2, "emergency": 2 }
+    },
+    "indoor": {
+      "condition": "speed <= 15 && noise < -45",
+      "thresholds": { "attention": 0.50, "risk": 0.66, "emergency": 0.82 },
+      "persistence": { "attention": 2, "risk": 2, "emergency": 1 }
+    }
+  },
+  "baselineDefaults": {
+    "energy": { "mu": -30, "sigma": 6 },
+    "deltaEnergy": { "mu": 2, "sigma": 2 },
+    "pitch": { "mu": 170, "sigma": 40 },
+    "deltaPitch": { "mu": 20, "sigma": 12 },
+    "jitter": { "mu": 0.5, "sigma": 0.25 },
+    "shimmer": { "mu": 3, "sigma": 1.5 },
+    "hnr": { "mu": 15, "sigma": 5 }
+  },
+  "smoothing": {
+    "alpha": 0.15,
+    "freezeDuration": 1800000 
+  }
+}

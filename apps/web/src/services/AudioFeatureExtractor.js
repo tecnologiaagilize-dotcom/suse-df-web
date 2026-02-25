@@ -6,9 +6,15 @@ import Meyda from 'meyda';
  */
 class AudioFeatureExtractor {
     constructor() {
-        this.bufferSize = 512; // Tamanho do frame para análise (potência de 2)
+        this.bufferSize = 2048; // Aumentado para melhor resolução de frequência (necessário para Pitch/HNR)
         this.sampleRate = 16000; // Taxa de amostragem padrão do SUSI
         this.meydaAnalyzer = null;
+        
+        // Buffers para cálculo de Jitter/Shimmer (Janela de 10 frames ~ 0.5s)
+        this.historySize = 10;
+        this.rmsHistory = new Float32Array(this.historySize);
+        this.centroidHistory = new Float32Array(this.historySize);
+        this.historyIndex = 0;
     }
 
     /**
@@ -33,20 +39,39 @@ class AudioFeatureExtractor {
                 bufferSize: this.bufferSize,
                 featureExtractors: [
                     'rms',              // Energia (Volume)
-                    'zcr',              // Taxa de Cruzamento por Zero (Ruído vs Tom)
-                    'spectralCentroid', // Brilho (Gritos são agudos)
-                    'spectralFlatness', // Tonalidade (Grito é tonal, Vento é flat)
-                    'energy'            // Energia total
+                    'zcr',              // Taxa de Cruzamento por Zero
+                    'spectralCentroid', // Brilho (Proxy de Pitch)
+                    'spectralFlatness', // Tonalidade (Inverso de HNR)
+                    'energy',           // Energia total
+                    'loudness',         // Percepção de volume (ISO 532-1)
+                    'perceptualSpread', // Largura de banda percebida
+                    'spectralRolloff'   // Frequência de corte (95% energia)
                 ],
                 callback: (features) => {
-                    // Callback opcional, preferimos pull manual via getFeatures()
+                    // Callback opcional
                 }
             });
             this.meydaAnalyzer.start();
-            console.log("AudioFeatureExtractor: DSP Iniciado com Meyda");
+            console.log("AudioFeatureExtractor: DSP Iniciado com Meyda (Extended Features)");
         } catch (err) {
             console.error("AudioFeatureExtractor: Erro ao iniciar Meyda", err);
         }
+    }
+
+    /**
+     * Calcula desvio padrão relativo (Coeficiente de Variação)
+     */
+    calculateCV(buffer) {
+        let sum = 0;
+        for(let i=0; i<buffer.length; i++) sum += buffer[i];
+        const mean = sum / buffer.length;
+        if (mean === 0) return 0;
+
+        let sqDiffSum = 0;
+        for(let i=0; i<buffer.length; i++) sqDiffSum += Math.pow(buffer[i] - mean, 2);
+        const stdDev = Math.sqrt(sqDiffSum / buffer.length);
+        
+        return stdDev / mean;
     }
 
     /**
@@ -56,24 +81,51 @@ class AudioFeatureExtractor {
     getFeatures() {
         if (!this.meydaAnalyzer) return null;
         
-        // Meyda.get() retorna as features do último frame processado
         const features = this.meydaAnalyzer.get([
             'rms', 
             'zcr', 
             'spectralCentroid', 
             'spectralFlatness',
-            'energy'
+            'energy',
+            'loudness',
+            'perceptualSpread',
+            'spectralRolloff'
         ]);
 
         if (!features) return null;
 
-        // Normalização básica para o IRA-SUSI (pré-processamento)
+        // Atualizar histórico para Jitter/Shimmer
+        this.rmsHistory[this.historyIndex] = features.rms;
+        this.centroidHistory[this.historyIndex] = features.spectralCentroid;
+        this.historyIndex = (this.historyIndex + 1) % this.historySize;
+
+        // Calcular proxies
+        const shimmerProxy = this.calculateCV(this.rmsHistory); // Variação de amplitude
+        const jitterProxy = this.calculateCV(this.centroidHistory); // Variação de frequência (centroid)
+        
+        // HNR Proxy: Inverso do Flatness (Flatness 1.0 = Ruído puro, 0.0 = Tom puro)
+        // HNR ~ (1 - Flatness) * 20 (escala arbitrária 0-20dB)
+        const hnrProxy = (1 - features.spectralFlatness) * 20;
+
+        // Conversão RMS Linear [0, 1] para dBFS [-120, 0]
+        // dBFS = 20 * log10(rms)
+        const dbfs = features.rms > 0.000001 ? 20 * Math.log10(features.rms) : -120;
+
         return {
-            rms: features.rms, // [0, 1]
-            zcr: features.zcr / (this.bufferSize / 2), // Normaliza [0, 1]
-            spectralCentroid: features.spectralCentroid, // Hz
-            spectralFlatness: features.spectralFlatness, // [0, 1]
+            rms: features.rms,
+            dbfs: dbfs, // Adicionado campo dBFS
+            zcr: features.zcr,
+            spectralCentroid: features.spectralCentroid,
+            spectralFlatness: features.spectralFlatness,
             energy: features.energy,
+            loudness: features.loudness ? features.loudness.total : 0,
+            
+            // Features Sintetizadas para IRA-SUSI
+            pitch: features.spectralCentroid, // Proxy de F0
+            shimmer: shimmerProxy * 100, // Converter para % (0.03 -> 3%) - Ajuste de escala
+            jitter: jitterProxy * 100, // Converter para %
+            hnr: hnrProxy,
+
             timestamp: Date.now()
         };
     }

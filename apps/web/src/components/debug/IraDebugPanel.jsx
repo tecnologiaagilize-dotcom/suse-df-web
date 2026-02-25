@@ -7,7 +7,7 @@ export default function IraDebugPanel({ data }) {
 
     if (!data || !isVisible) return null;
 
-    const { score, status, features, context, debug } = data;
+    const { ira, status, features, context, debug, raw, frozen } = data;
     
     // Cores baseadas no status
     const statusColors = {
@@ -33,7 +33,7 @@ export default function IraDebugPanel({ data }) {
             >
                 <h3 className="font-bold flex items-center gap-2 text-xs">
                     <Shield size={14} className={status === 'EMERGENCIA' ? 'text-white' : 'text-blue-600'}/>
-                    IRA-SUSI™ v1.3
+                    IRA-SUSI™ v1.0 {frozen && <span className="bg-blue-500 text-white px-1 rounded text-[9px]">FROZEN</span>}
                 </h3>
                 
                 <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -69,35 +69,54 @@ export default function IraDebugPanel({ data }) {
                     {/* Score Principal */}
                     <div>
                         <div className="flex justify-between mb-1">
-                            <span>Risco Acústico</span>
-                            <span className="font-bold">{(score || 0).toFixed(3)}</span>
+                            <span>Risco Acústico (IRA)</span>
+                            <span className="font-bold">{(ira || 0).toFixed(3)} <span className="text-[9px] text-gray-400">Raw: {(raw || 0).toFixed(2)}</span></span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2 relative">
+                            {/* Marcadores de Threshold */}
+                            <div className="absolute top-0 bottom-0 w-0.5 bg-green-500/50" style={{left: '50%'}} title="Atenção"></div>
+                            <div className="absolute top-0 bottom-0 w-0.5 bg-orange-500/50" style={{left: '70%'}} title="Risco"></div>
+                            <div className="absolute top-0 bottom-0 w-0.5 bg-red-500/50" style={{left: '85%'}} title="Emergência"></div>
+                            
                             <div 
                                 className={`h-2 rounded-full transition-all duration-200 ${
-                                    score > 0.85 ? 'bg-red-600' : score > 0.5 ? 'bg-yellow-500' : 'bg-green-500'
+                                    ira > 0.85 ? 'bg-red-600' : ira > 0.7 ? 'bg-orange-500' : ira > 0.5 ? 'bg-yellow-500' : 'bg-green-500'
                                 }`} 
-                                style={{ width: `${Math.min(100, (score || 0) * 100)}%` }}
+                                style={{ width: `${Math.min(100, (ira || 0) * 100)}%` }}
                             ></div>
                         </div>
                     </div>
 
-                    {/* Features Acústicas */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-gray-50 p-2 rounded border border-gray-200">
-                            <div className="flex items-center gap-1 text-gray-500 mb-1">
-                                <Volume2 size={12}/> RMS
-                            </div>
-                            <div className="font-bold text-base">{(features?.rms || 0).toFixed(3)}</div>
-                            <div className="text-[9px] text-gray-400">Base: {(debug?.baseline || 0).toFixed(3)}</div>
+                    {/* Features Acústicas Detalhadas */}
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 text-gray-500 mb-1 text-[10px]">RMS</div>
+                            <div className="font-bold">{(features?.rms || 0).toFixed(3)}</div>
                         </div>
                         
-                        <div className="bg-gray-50 p-2 rounded border border-gray-200">
-                            <div className="flex items-center gap-1 text-gray-500 mb-1">
-                                <Zap size={12}/> Brilho
-                            </div>
-                            <div className="font-bold text-base">{(features?.spectralCentroid || 0).toFixed(0)}</div>
-                            <div className="text-[9px] text-gray-400">Hz</div>
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 text-gray-500 mb-1 text-[10px]">Pitch</div>
+                            <div className="font-bold">{(features?.pitch || 0).toFixed(0)}</div>
+                        </div>
+
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 text-gray-500 mb-1 text-[10px]">HNR</div>
+                            <div className="font-bold">{(features?.hnr || 0).toFixed(1)}</div>
+                        </div>
+
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 text-gray-500 mb-1 text-[10px]">Jitter</div>
+                            <div className="font-bold">{(features?.jitter || 0).toFixed(3)}</div>
+                        </div>
+
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 text-gray-500 mb-1 text-[10px]">Shimmer</div>
+                            <div className="font-bold">{(features?.shimmer || 0).toFixed(3)}</div>
+                        </div>
+                        
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 text-gray-500 mb-1 text-[10px]">Base</div>
+                            <div className="font-bold">{(debug?.baseline || 0).toFixed(3)}</div>
                         </div>
                     </div>
 
@@ -127,7 +146,7 @@ export default function IraDebugPanel({ data }) {
             {/* Minimized View Info */}
             {isMinimized && (
                 <div className="px-3 py-1 flex justify-between items-center text-[10px] bg-white">
-                    <span className="font-bold">Risco: {(score || 0).toFixed(2)}</span>
+                    <span className="font-bold">IRA: {(ira || 0).toFixed(2)}</span>
                     <span className={status === 'EMERGENCIA' ? 'text-red-600 font-bold' : 'text-gray-500'}>{status}</span>
                 </div>
             )}

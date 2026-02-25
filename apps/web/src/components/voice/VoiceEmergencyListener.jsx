@@ -88,7 +88,7 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
                   // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
                   // Mesmo sem a palavra-chave (Segurança Redundante)
                   if (result.status === 'EMERGENCIA' && !isAnalyzingRef.current) {
-                      console.warn("IRA-SUSI: Emergência Acústica Detectada! Score:", result.score);
+                      console.warn("IRA-SUSI: Emergência Acústica Detectada! Score:", result.ira);
                       handleWakeWordTrigger(); // Reusa a lógica de trigger
                   }
               }
