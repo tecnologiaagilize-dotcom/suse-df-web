@@ -83,8 +83,29 @@ export default function VoiceEmergencyListener({
           streamRef.current = stream;
           const source = ctx.createMediaStreamSource(stream);
 
-          // Inicializar Extrator de Features DSP (Meyda) e Sensores
-          AudioFeatureExtractor.initialize(ctx, source);
+          // --- PIPELINE DE PROCESSAMENTO DE ÁUDIO (Igual ao VoiceConfig) ---
+          // 1. Filtro High-Pass (Remove ruídos graves/rumble abaixo de 85Hz)
+          const lowCutFilter = ctx.createBiquadFilter();
+          lowCutFilter.type = 'highpass';
+          lowCutFilter.frequency.value = 85;
+
+          // 2. Compressor (Normaliza o volume e evita picos)
+          const compressor = ctx.createDynamicsCompressor();
+          compressor.threshold.value = -20;
+          compressor.knee.value = 30;
+          compressor.ratio.value = 12;
+          compressor.attack.value = 0.003;
+          compressor.release.value = 0.25;
+
+          // Conectar grafo: Source -> Filter -> Compressor
+          source.connect(lowCutFilter);
+          lowCutFilter.connect(compressor);
+          
+          const processedSource = compressor; // O sinal limpo sai daqui
+          // ----------------------------------------------------------------
+
+          // Inicializar Extrator de Features DSP (Meyda) com sinal PROCESSADO
+          AudioFeatureExtractor.initialize(ctx, processedSource);
           SensorContextService.start();
           IraSusiCore.reset();
 
@@ -144,7 +165,8 @@ export default function VoiceEmergencyListener({
               }
           };
 
-          source.connect(workletNode);
+          // Conectar sinal PROCESSADO ao Worklet (RingBuffer e VAD)
+          processedSource.connect(workletNode);
           workletNode.connect(ctx.destination); 
           
           workletNodeRef.current = workletNode;
