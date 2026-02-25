@@ -19,6 +19,7 @@ export default function VoiceConfig() {
   const [loadingPhrases, setLoadingPhrases] = useState(true);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [audioMetrics, setAudioMetrics] = useState({ rms: 0, zcr: 0 }); // Para visualização em tempo real
+  const [baselineData, setBaselineData] = useState([]); // Armazena estatísticas de cada gravação para o IRA-SUSI
   
   const mediaRecorderRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -158,6 +159,29 @@ export default function VoiceConfig() {
         const features = featuresCollectionRef.current;
         let technicalScore = 10; // Começa com 10
         let penalties = [];
+
+        // --- IRA-SUSI Baseline Capture ---
+        if (features.length > 5) {
+            const computeStat = (key) => {
+                const values = features.map(f => f[key]);
+                const mean = values.reduce((a,b) => a+b, 0) / values.length;
+                const variance = values.reduce((a,b) => a + Math.pow(b-mean, 2), 0) / values.length;
+                return { mu: mean, sigma: Math.sqrt(variance) };
+            };
+            
+            const stats = {
+                energy: computeStat('dbfs'), // Usar dBFS para baseline de energia
+                pitch: computeStat('pitch'),
+                jitter: computeStat('jitter'),
+                shimmer: computeStat('shimmer'),
+                hnr: computeStat('hnr')
+            };
+            
+            // Armazena estatísticas desta gravação
+            setBaselineData(prev => [...prev, stats]);
+            console.log("IRA-SUSI Stats Capturados:", stats);
+        }
+        // ---------------------------------
 
         // 1. Análise de Volume (RMS)
         const avgRms = features.reduce((acc, f) => acc + f.rms, 0) / (features.length || 1);
@@ -394,11 +418,28 @@ export default function VoiceConfig() {
         }
         
         // 3. Salvar TUDO no Auth Metadata (Garantia de funcionamento sem migração de banco)
+        
+        // --- IRA-SUSI: Calcular Baseline Médio ---
+        let iraBaseline = null;
+        if (baselineData.length > 0) {
+            iraBaseline = {};
+            ['energy', 'pitch', 'jitter', 'shimmer', 'hnr'].forEach(key => {
+                 const mus = baselineData.map(d => d[key]?.mu || 0);
+                 const sigmas = baselineData.map(d => d[key]?.sigma || 0);
+                 iraBaseline[key] = {
+                     mu: mus.reduce((a,b)=>a+b,0) / mus.length,
+                     sigma: sigmas.reduce((a,b)=>a+b,0) / sigmas.length
+                 };
+            });
+            console.log("IRA-SUSI: Salvando Baseline Personalizado:", iraBaseline);
+        }
+
         const metadataUpdates = {
             emergency_phrase: emergencyPhrase,
             ...biometryUrls,
             emergency_audio_url: emergencyAudioUrl,
-            voice_config_completed: true
+            voice_config_completed: true,
+            ira_baseline: iraBaseline // Novo campo
         };
 
         const { error: authError } = await supabase.auth.updateUser({

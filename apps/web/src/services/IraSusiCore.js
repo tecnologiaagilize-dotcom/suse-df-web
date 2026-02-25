@@ -260,6 +260,24 @@ class IraSusiCore {
         }
     }
 
+    /**
+     * Define o baseline inicial personalizado do usuário
+     * @param {Object} customBaseline Objeto com {energy, pitch, etc}
+     */
+    setBaseline(customBaseline) {
+        if (!customBaseline) return;
+        
+        // Merge seguro
+        const keys = ['energy', 'pitch', 'jitter', 'shimmer', 'hnr'];
+        keys.forEach(key => {
+            if (customBaseline[key]) {
+                if (customBaseline[key].mu !== undefined) this.state.baseline[key].mu = customBaseline[key].mu;
+                if (customBaseline[key].sigma !== undefined) this.state.baseline[key].sigma = customBaseline[key].sigma;
+            }
+        });
+        console.log("IRA-SUSI: Baseline personalizado carregado.", this.state.baseline);
+    }
+
     transitionTo(newStatus, now) {
         if (this.state.status === newStatus) return;
 

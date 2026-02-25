@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useAuth } from '../../contexts/AuthContext'; // Importar AuthContext
 import { Mic, MicOff, Activity, ShieldCheck, WifiOff, Zap, Volume2 } from 'lucide-react';
 import VoiceBiometryService from '../../services/VoiceBiometryService';
 import RingBufferService from '../../services/RingBufferService';
@@ -17,6 +18,7 @@ export default function VoiceEmergencyListener({
     onAnalysisUpdate, // Callback para expor dados do IRA-SUSI
     showDebugPanel = true // Se true, mostra o painel flutuante interno
 }) {
+  const { user } = useAuth(); // Hook para acessar metadados do usuário
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
@@ -75,6 +77,15 @@ export default function VoiceEmergencyListener({
           AudioFeatureExtractor.initialize(ctx, source);
           SensorContextService.start();
           IraSusiCore.reset();
+
+          // --- Carregar Baseline Personalizado IRA-SUSI ---
+          if (user?.user_metadata?.ira_baseline) {
+              console.log("VoiceEmergencyListener: Carregando baseline personalizado do usuário.");
+              IraSusiCore.setBaseline(user.user_metadata.ira_baseline);
+          } else {
+              console.log("VoiceEmergencyListener: Usando baseline padrão (não configurado).");
+          }
+          // -----------------------------------------------
 
           // Iniciar Loop de Análise IRA-SUSI
           const analyzeFrame = () => {
