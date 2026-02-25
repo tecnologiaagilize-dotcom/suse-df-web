@@ -44,13 +44,18 @@ export default function VoiceConfig() {
         // Verificar se já está configurado
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('voice_biometry_1_url, voice_biometry_2_url, voice_biometry_3_url, secret_word_audio_url')
+            .select('voice_biometry_1_url, voice_biometry_2_url, voice_biometry_3_url, secret_word_audio_url, secret_word')
             .eq('id', user.id)
             .single();
 
         if (!userError && userData) {
             const isConfigured = !!(userData.voice_biometry_1_url && userData.voice_biometry_2_url && userData.voice_biometry_3_url && userData.secret_word_audio_url);
             setAlreadyConfigured(isConfigured);
+            
+            // Se já tiver uma frase configurada, preenche o estado
+            if (userData.secret_word) {
+                setEmergencyPhrase(userData.secret_word);
+            }
         }
 
         const { data, error } = await supabase
@@ -547,6 +552,12 @@ export default function VoiceConfig() {
                 <p className="text-gray-600">
                     Você já possui 4 frases gravadas e sua biometria está ativa.
                 </p>
+                {emergencyPhrase && (
+                    <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 inline-block px-6">
+                        <span className="text-xs text-yellow-600 uppercase font-bold tracking-wider">Sua Frase de Emergência:</span>
+                        <p className="text-lg font-bold text-gray-800 mt-1">"{emergencyPhrase}"</p>
+                    </div>
+                )}
                 <div className="flex flex-col gap-3">
                     <button
                         onClick={handleFinish}
