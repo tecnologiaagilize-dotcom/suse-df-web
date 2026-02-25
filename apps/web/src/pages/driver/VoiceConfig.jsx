@@ -101,15 +101,36 @@ export default function VoiceConfig() {
           } 
       });
       
-      // 1. Configurar AudioContext e Meyda para análise técnica
+      // 1. Configurar AudioContext e Pipeline de Processamento de Áudio (Web Audio API)
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
       const source = audioContext.createMediaStreamSource(stream);
+
+      // Filtro High-Pass (Remove ruídos graves/rumble abaixo de 85Hz)
+      const lowCutFilter = audioContext.createBiquadFilter();
+      lowCutFilter.type = 'highpass';
+      lowCutFilter.frequency.value = 85;
+
+      // Compressor (Normaliza o volume e evita picos)
+      const compressor = audioContext.createDynamicsCompressor();
+      compressor.threshold.value = -20;
+      compressor.knee.value = 30;
+      compressor.ratio.value = 12;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
+
+      // Destino do Stream Processado
+      const destination = audioContext.createMediaStreamDestination();
+
+      // Conectar o grafo: Source -> Filter -> Compressor -> Destination
+      source.connect(lowCutFilter);
+      lowCutFilter.connect(compressor);
+      compressor.connect(destination);
       
-      // Inicializa o extrator de features (Meyda)
+      // Inicializa o extrator de features (Meyda) com o sinal processado (mais limpo)
       if (isMounted.current) {
-        AudioFeatureExtractor.initialize(audioContext, source);
+        AudioFeatureExtractor.initialize(audioContext, compressor);
       }
       featuresCollectionRef.current = [];
 
@@ -129,7 +150,7 @@ export default function VoiceConfig() {
           }
       }, 100);
 
-      // 2. Configurar MediaRecorder
+      // 2. Configurar MediaRecorder com o Stream Processado
       let options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 };
       if (!MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
           if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4', audioBitsPerSecond: 128000 };
@@ -137,7 +158,8 @@ export default function VoiceConfig() {
           else options = undefined;
       }
 
-      mediaRecorderRef.current = new MediaRecorder(stream, options);
+      // Usar o stream processado (destination.stream) em vez do raw (stream)
+      mediaRecorderRef.current = new MediaRecorder(destination.stream, options);
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
