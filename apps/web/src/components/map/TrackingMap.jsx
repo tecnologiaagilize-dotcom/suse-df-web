@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
-import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Corrigir ícone padrão do Leaflet (Problema comum com Webpack/Vite)
@@ -12,12 +11,35 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Componente auxiliar para recentralizar o mapa quando as coordenadas mudam
-function ChangeView({ center }) {
+// Componente para lidar com redimensionamento e centralização
+function MapController({ center }) {
   const map = useMap();
+
   useEffect(() => {
     map.setView(center);
   }, [center, map]);
+
+  useEffect(() => {
+    // Forçar atualização do tamanho do mapa quando o componente monta ou redimensiona
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    
+    const container = map.getContainer();
+    if (container) {
+        resizeObserver.observe(container);
+    }
+
+    // Fallback inicial
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+
+    return () => {
+        resizeObserver.disconnect();
+    };
+  }, [map]);
+
   return null;
 }
 
@@ -63,14 +85,15 @@ function TrackingMap({ lat, lng, alertId }) {
   }, [lat, lng]);
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative z-0">
         <MapContainer 
             center={center} 
             zoom={15} 
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: '100%', height: '100%', minHeight: '100%' }}
             scrollWheelZoom={true}
+            className="h-full w-full"
         >
-            <ChangeView center={center} />
+            <MapController center={center} />
             
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
