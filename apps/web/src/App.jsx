@@ -55,21 +55,25 @@ const PrivateRoute = ({ children, role }) => {
 
      // Se for staff acessando rota de staff, permite
      if (isStaff && requiredAdminAccess) {
-         // Permite acesso
+         return children;
      } else if (isProfessional && role === 'professional') {
-         // Permite acesso profissional
+         return children;
+     } else if (userRole === 'driver' && role === 'driver') {
+         return children;
+     } else if (userRole === 'passenger' && role === 'passenger') {
+         return children;
      } else {
         console.warn(`Acesso negado. Requer: ${role}, Usuário é: ${userRole}`);
         
         // Redireciona para o dashboard correto
         if (isStaff) {
-            // Evita loop infinito: Se já está tentando ir para o admin, não redireciona de volta
             return <Navigate to="/admin/dashboard" replace />;
         } else if (userRole === 'passenger') {
             return <Navigate to="/passenger/dashboard" replace />;
-        } else if (isProfessional) {
+        } else if (userRole === 'professional') {
             return <Navigate to="/professional/dashboard" replace />;
         } else {
+            // Default fallback para driver se não identificado
             return <Navigate to="/driver/dashboard" replace />;
         }
      }
