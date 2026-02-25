@@ -579,16 +579,16 @@ export default function VoiceConfig() {
             // Tela de Resultado / Score
             <div className="text-center space-y-6">
                 <div className="flex justify-center">
-                    <div className={`p-6 rounded-full border-4 ${qualityScore >= 8 ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}`}>
+                    <div className={`p-6 rounded-full border-4 ${qualityScore >= 5.0 ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}`}>
                         <span className="text-4xl font-bold">{qualityScore.toFixed(1)}</span>
                     </div>
                 </div>
                 
                 <h3 className="text-lg font-bold text-gray-900">Qualidade da Gravação</h3>
                 
-                {qualityScore >= 8 ? (
+                {qualityScore >= 5.0 ? (
                     <>
-                        <p className="text-green-600 font-medium">Excelente! Suas gravações estão nítidas.</p>
+                        <p className="text-green-600 font-medium">Qualidade Aceitável.</p>
                         <button
                             onClick={handleSavePhrase}
                             disabled={isSaving}
@@ -599,7 +599,7 @@ export default function VoiceConfig() {
                     </>
                 ) : (
                     <>
-                        <p className="text-red-600 font-medium">Qualidade Insuficiente (Mínimo 8.0)</p>
+                        <p className="text-red-600 font-medium">Qualidade Insuficiente (Mínimo 5.0)</p>
                         <p className="text-sm text-gray-500">Por favor, vá para um local mais silencioso e fale com clareza.</p>
                         <button
                             onClick={resetProcess}
