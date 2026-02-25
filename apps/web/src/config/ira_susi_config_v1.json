@@ -11,14 +11,14 @@
     "snr_reference": 12
   },
   "audioWeights": {
-    "energy": 0.25,
-    "deltaEnergy": 0.35,
+    "energy": 0.20,
+    "deltaEnergy": 0.30,
     "pitchZScore": 0.25,
     "deltaPitch": 0.30,
     "jitter": 0.20,
     "shimmer": 0.15,
     "hnrInverted": 0.20,
-    "scream": 1.20,
+    "scream": 0.90,
     "keyword": 0.60
   },
   "transformations": {
@@ -31,8 +31,8 @@
     "hnr": { "offset": 20, "scale": 15, "inverted": true, "unit": "dB" }
   },
   "gates": {
-    "vadThreshold": 0.25,
-    "screamThreshold": 0.60,
+    "vadThreshold": 0.30,
+    "screamThreshold": 0.75,
     "activityPenalty": 0.15,
     "noiseAlpha": 0.08,
     "snrMinClip": 0.25,
@@ -41,13 +41,13 @@
   "scenarios": {
     "vehicle": {
       "condition": "speed > 15",
-      "thresholds": { "attention": 0.62, "risk": 0.78, "emergency": 0.90 },
-      "persistence": { "attention": 4, "risk": 3, "emergency": 1 }
+      "thresholds": { "attention": 0.65, "risk": 0.80, "emergency": 0.92 },
+      "persistence": { "attention": 5, "risk": 4, "emergency": 3 }
     },
     "urban": {
       "condition": "default",
-      "thresholds": { "attention": 0.56, "risk": 0.72, "emergency": 0.86 },
-      "persistence": { "attention": 3, "risk": 2, "emergency": 2 }
+      "thresholds": { "attention": 0.60, "risk": 0.75, "emergency": 0.88 },
+      "persistence": { "attention": 4, "risk": 3, "emergency": 3 }
     },
     "indoor": {
       "condition": "speed <= 15 && noise < -45",
