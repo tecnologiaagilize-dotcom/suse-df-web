@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SUSE DF</string>
+    <string name="title_activity_main">SUSE DF</string>
+    <string name="package_name">com.suse.df</string>
+    <string name="custom_url_scheme">com.suse.df</string>
+</resources>
