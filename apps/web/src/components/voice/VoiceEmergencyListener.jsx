@@ -349,7 +349,8 @@ export default function VoiceEmergencyListener({
                  
                  console.log(`Fuzzy Match: "${recentPhrase}" vs "${normalizedPhrase}" = ${similarity.toFixed(2)}`);
                  
-                 if (similarity > 0.75) { // 75% de similaridade aceita (ex: "socoorro" vs "socorro")
+                 // Aumentado threshold para 0.85 para evitar falsos positivos
+                 if (similarity >= 0.85) { 
                      match = true;
                  }
              }
@@ -368,8 +369,13 @@ export default function VoiceEmergencyListener({
             
             if (audioBlob.size < 1000) {
                 console.warn("Buffer de áudio vazio ou insuficiente.");
-                // Fail-safe: Aciona mesmo sem biometria se o áudio falhou
-                onEmergencyDetected();
+                // Se o áudio falhou, mas a frase foi detectada, ACIONA APENAS SE FOR MATCH EXATO
+                if (normalizedText.includes(normalizedPhrase)) {
+                     console.warn("Áudio corrompido, mas Match Exato de texto. Acionando.");
+                     onEmergencyDetected();
+                } else {
+                     console.warn("Áudio corrompido e Fuzzy Match. Ignorando por segurança (Falso Positivo).");
+                }
                 setIsAnalyzing(false);
                 return;
             }
@@ -381,13 +387,24 @@ export default function VoiceEmergencyListener({
                 if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
                     onEmergencyDetected();
                 } else {
-                    console.warn("Biometria inconclusiva (phrase match). ACIONANDO (Política de Segurança Máxima).");
-                    onEmergencyDetected();
+                    // Se a biometria falhar:
+                    // 1. Se foi Match Exato de texto -> Aciona (Assume que a transcrição está correta)
+                    // 2. Se foi Fuzzy Match -> Ignora (Assume que a transcrição alucinou uma palavra parecida)
+                    
+                    if (normalizedText.includes(normalizedPhrase)) {
+                        console.warn("Biometria falhou, mas frase exata detectada. ACIONANDO (Match Exato Prioritário).");
+                        onEmergencyDetected();
+                    } else {
+                        console.warn("Biometria falhou e foi apenas Fuzzy Match. IGNORANDO (Provável Falso Positivo).");
+                        // Não aciona onEmergencyDetected()
+                    }
                 }
             } catch (err) {
                 console.error("Erro na verificação biométrica (phrase match):", err);
-                // Fail-Safe
-                onEmergencyDetected();
+                // Fail-Safe: Em caso de erro técnico no serviço, mantemos comportamento conservador se for Fuzzy
+                if (normalizedText.includes(normalizedPhrase)) {
+                    onEmergencyDetected();
+                }
             } finally {
                 setTimeout(() => {
                     if (isMountedRef.current) {
