@@ -9,7 +9,14 @@ import IraSusiCore from '../../services/IraSusiCore';
 import SensorContextService from '../../services/SensorContextService';
 import IraDebugPanel from '../debug/IraDebugPanel';
 
-export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDetected, isActive = true, onTranscriptChange }) {
+export default function VoiceEmergencyListener({ 
+    emergencyPhrase, 
+    onEmergencyDetected, 
+    isActive = true, 
+    onTranscriptChange,
+    onAnalysisUpdate, // Callback para expor dados do IRA-SUSI
+    showDebugPanel = true // Se true, mostra o painel flutuante interno
+}) {
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
@@ -78,11 +85,15 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
 
               if (features) {
                   const result = IraSusiCore.processFrame(features, 0, context);
+                  const fullData = { ...result, features, context };
                   
-                  // Atualiza dados de debug (com throttle para não matar a UI)
-                  // Só atualiza a cada 5 frames (aprox 100ms)
-                  if (Math.random() > 0.8) {
-                      setDebugData({ ...result, features, context });
+                  // Atualiza callback externo (se houver) em tempo real
+                  if (onAnalysisUpdate) onAnalysisUpdate(fullData);
+
+                  // Atualiza dados de debug interno (com throttle para não matar a UI)
+                  // Só atualiza a cada 5 frames (aprox 100ms) se o painel estiver ativo
+                  if (showDebugPanel && Math.random() > 0.8) {
+                      setDebugData(fullData);
                   }
 
                   // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
@@ -389,8 +400,8 @@ export default function VoiceEmergencyListener({ emergencyPhrase, onEmergencyDet
           </span>
       </div>
       
-      {/* Painel de Calibração IRA-SUSI */}
-      <IraDebugPanel data={debugData} />
+      {/* Painel de Calibração IRA-SUSI (Opcional) */}
+      {showDebugPanel && <IraDebugPanel data={debugData} />}
     </div>
   );
 }

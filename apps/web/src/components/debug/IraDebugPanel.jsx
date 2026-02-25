@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Activity, Zap, Volume2, Shield, Navigation, AlertCircle, Minimize2, Maximize2, X, ChevronDown, ChevronUp } from 'lucide-react';
 
-export default function IraDebugPanel({ data }) {
+export default function IraDebugPanel({ data, mode = 'floating' }) {
     const [isVisible, setIsVisible] = useState(true);
     const [isMinimized, setIsMinimized] = useState(false);
 
     if (!data || !isVisible) return null;
 
     const { ira, status, features, context, debug, raw, frozen } = data;
+    const isEmbed = mode === 'embed';
     
     // Cores baseadas no status
     const statusColors = {
@@ -24,38 +25,44 @@ export default function IraDebugPanel({ data }) {
         'EMERGENCIA': 'bg-red-600 text-white'
     };
 
+    const containerClasses = isEmbed 
+        ? `w-full mt-4 rounded-lg overflow-hidden border ${statusColors[status] || 'bg-white border-gray-200'} shadow-sm`
+        : `fixed bottom-24 right-4 z-50 transition-all duration-300 shadow-2xl rounded-lg overflow-hidden border ${isMinimized ? 'w-64' : 'w-80'} ${statusColors[status] || 'bg-white border-gray-200'}`;
+
     return (
-        <div className={`fixed bottom-24 right-4 z-50 transition-all duration-300 shadow-2xl rounded-lg overflow-hidden border ${isMinimized ? 'w-64' : 'w-80'} ${statusColors[status] || 'bg-white border-gray-200'}`}>
+        <div className={containerClasses}>
             
             {/* Barra de Título / Header */}
             <div className={`flex justify-between items-center p-2 cursor-pointer ${headerColor[status] || 'bg-gray-100'} border-b border-black/10`}
-                 onClick={() => setIsMinimized(!isMinimized)}
+                 onClick={() => !isEmbed && setIsMinimized(!isMinimized)}
             >
                 <h3 className="font-bold flex items-center gap-2 text-xs">
                     <Shield size={14} className={status === 'EMERGENCIA' ? 'text-white' : 'text-blue-600'}/>
                     IRA-SUSI™ v1.0 {frozen && <span className="bg-blue-500 text-white px-1 rounded text-[9px]">FROZEN</span>}
                 </h3>
                 
-                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                    <button 
-                        onClick={() => setIsMinimized(!isMinimized)}
-                        className="p-1 hover:bg-black/10 rounded transition-colors"
-                        title={isMinimized ? "Expandir" : "Minimizar"}
-                    >
-                        {isMinimized ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-                    <button 
-                        onClick={() => setIsVisible(false)}
-                        className="p-1 hover:bg-red-500 hover:text-white rounded transition-colors"
-                        title="Fechar Monitor"
-                    >
-                        <X size={14} />
-                    </button>
-                </div>
+                {!isEmbed && (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <button 
+                            onClick={() => setIsMinimized(!isMinimized)}
+                            className="p-1 hover:bg-black/10 rounded transition-colors"
+                            title={isMinimized ? "Expandir" : "Minimizar"}
+                        >
+                            {isMinimized ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                        <button 
+                            onClick={() => setIsVisible(false)}
+                            className="p-1 hover:bg-red-500 hover:text-white rounded transition-colors"
+                            title="Fechar Monitor"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Conteúdo do Monitor (Oculto se minimizado) */}
-            {!isMinimized && (
+            {/* Conteúdo do Monitor (Oculto se minimizado e não embed) */}
+            {(!isMinimized || isEmbed) && (
                 <div className="p-3 bg-white/95 backdrop-blur space-y-3 text-xs font-mono">
                     
                     {/* Status Badge */}

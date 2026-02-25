@@ -5,6 +5,7 @@ import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, C
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
+import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
@@ -36,6 +37,9 @@ export default function PassengerDashboard() {
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Estado para Monitoramento IRA-SUSI (Visualização Fixa)
+  const [iraData, setIraData] = useState(null);
 
   // Função auxiliar para copiar token
   const handleCopyToken = () => {
@@ -549,6 +553,8 @@ export default function PassengerDashboard() {
                       emergencyPhrase={emergencyPhrase}
                       isActive={!isEmergencyActive} 
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
+                      onAnalysisUpdate={(data) => setIraData(data)} // Atualiza o painel fixo
+                      showDebugPanel={false} // Esconde o painel flutuante
                       onEmergencyDetected={() => {
                         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                         handleSOS('voice');
@@ -613,6 +619,11 @@ export default function PassengerDashboard() {
                   <p className="text-xs text-gray-400 text-center">
                     Sua localização está sendo monitorada para sua segurança.
                   </p>
+                </div>
+
+                {/* Painel IRA-SUSI Fixo */}
+                <div className="w-full max-w-md">
+                    <IraDebugPanel data={iraData} mode="embed" />
                 </div>
              </div>
           )}
