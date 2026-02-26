@@ -179,11 +179,13 @@ export default function VoiceEmergencyListener({
                   }
 
                   // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
-                  // v1.3: Desabilitado acionamento puramente acústico para evitar falsos positivos
-                  // O usuário deve falar a frase ou o som deve ser EXTREMAMENTE persistente (tratado pelo Core)
-                  if (result.status === 'EMERGENCIA' && !isAnalyzingRef.current) {
-                      console.warn("IRA-SUSI: Emergência Acústica Detectada! Score:", result.ira);
-                      // handleWakeWordTrigger(); // DESABILITADO TEMPORARIAMENTE
+                  // v2.2: Acionamento Automático Puramente Acústico (Sem Frase)
+                  // Regra: Apenas se ultrapassar 70% da métrica de Risco (IRA > 0.89)
+                  if (result.ira > 0.89 && !isAnalyzingRef.current) {
+                      console.warn("IRA-SUSI: Emergência Acústica Crítica Detectada! Score:", result.ira);
+                      // Pausa reconhecimento para evitar conflito
+                      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
+                      onEmergencyDetected();
                   }
               }
               analysisLoopRef.current = requestAnimationFrame(analyzeFrame);
