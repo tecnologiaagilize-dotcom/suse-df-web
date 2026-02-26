@@ -38,6 +38,12 @@
     "snrMinClip": 0.25,
     "snrScale": 12
   },
+  "emergencyContext": {
+    "riskDbfsThreshold": -25,
+    "riskPitchThreshold": 200,
+    "riskJitterThreshold": 0.1,
+    "silenceGhostThreshold": -40
+  },
   "scenarios": {
     "vehicle": {
       "condition": "speed > 15",

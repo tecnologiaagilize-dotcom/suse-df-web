@@ -450,26 +450,28 @@ export default function VoiceEmergencyListener({
                     // Recupera Features do IRA
                     const currentFeatures = AudioFeatureExtractor.getFeatures();
                     
-                    // Definição de Ambiente de Risco (Ajustado)
-                    // - dBFS > -25 (Voz alta/clara, não precisa ser grito extremo)
-                    // - Pitch > 200 (Voz tensa/aguda)
-                    // - Jitter > 0.1 (Instabilidade vocal)
-                    const isRiskContext = (currentFeatures?.dbfs > -25) || 
-                                          (currentFeatures?.pitch > 200) ||
-                                          (currentFeatures?.jitter > 0.1);
+                    // Definição de Ambiente de Risco (Parametrizado via IRA Config v1.0)
+                    const cfg = IraSusiCore.config.emergencyContext || {
+                        riskDbfsThreshold: -25,
+                        riskPitchThreshold: 200,
+                        riskJitterThreshold: 0.1,
+                        silenceGhostThreshold: -40
+                    };
+
+                    const isRiskContext = (currentFeatures?.dbfs > cfg.riskDbfsThreshold) || 
+                                          (currentFeatures?.pitch > cfg.riskPitchThreshold) ||
+                                          (currentFeatures?.jitter > cfg.riskJitterThreshold);
 
                     if (isExactMatch) {
                         // Match Exato + Biometria Falha
                         // Se houver QUALQUER indício de tensão vocal ou volume razoável, ACIONA.
-                        // O objetivo é evitar falso negativo (usuário falando baixo ou rouco).
-                        // Só ignora se for sussurro absoluto ou silêncio (provável erro de transcrição).
                         
                         if (isRiskContext || (result?.score > 50)) {
                             console.warn("Match Exato + Contexto de Risco Moderado. ACIONANDO (Anti-Falso Negativo).");
                             onEmergencyDetected();
                         } else {
-                            // Se for silêncio absoluto (dBFS < -40) e o transcritor pegou algo, é fantasma.
-                            if (currentFeatures?.dbfs < -40) {
+                            // Se for silêncio absoluto e o transcritor pegou algo, é fantasma.
+                            if (currentFeatures?.dbfs < cfg.silenceGhostThreshold) {
                                 console.warn("Match Exato em Silêncio Absoluto (Ghost). IGNORADO.");
                             } else {
                                 // Caso limítrofe: Ambiente calmo, voz normal, mas biometria falhou.
