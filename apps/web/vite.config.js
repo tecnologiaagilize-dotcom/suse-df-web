@@ -80,9 +80,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        entryFileNames: `assets/[name].${Date.now()}.js`,
-        chunkFileNames: `assets/[name].${Date.now()}.js`,
-        assetFileNames: `assets/[name].[ext]`,
         manualChunks(id) {
           if (id.includes('node_modules')) {
             // Isola Face API (pesado)
