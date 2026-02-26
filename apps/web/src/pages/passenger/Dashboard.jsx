@@ -624,7 +624,7 @@ export default function PassengerDashboard() {
                 {/* Painel IRA-SUSI Fixo - STATUS */}
                 <div className="w-full max-w-md bg-gray-900 rounded-lg p-4 shadow-lg border border-gray-700">
                      <h4 className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-3 border-b border-gray-700 pb-2">
-                         Status IRA-SUSI™
+                         Status IRA-SUSE™
                      </h4>
                      
                      <div className="flex items-center justify-between">
