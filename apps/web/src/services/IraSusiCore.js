@@ -67,6 +67,9 @@ class IraSusiCore {
      * σ²_t = λ * σ²_{t-1} + (1 - λ) * (x_t - μ_t)²
      */
     updateBaseline(features, deltas) {
+        // Correção de segurança para evitar NaN em inicializações
+        if (typeof features.dbfs !== 'number' || isNaN(features.dbfs)) return;
+        
         const lambda = this.config.globalParams.baseline_lambda;
         const oneMinusLambda = 1 - lambda;
 
@@ -84,12 +87,13 @@ class IraSusiCore {
         };
 
         updateFeature('energy', features.dbfs);
-        updateFeature('deltaEnergy', deltas.energy);
-        updateFeature('pitch', features.pitch);
-        updateFeature('deltaPitch', deltas.pitch);
-        updateFeature('jitter', features.jitter);
-        updateFeature('shimmer', features.shimmer);
-        updateFeature('hnr', features.hnr);
+        // Proteção contra undefined deltas na primeira execução
+        if (deltas.energy !== undefined) updateFeature('deltaEnergy', deltas.energy);
+        if (features.pitch !== undefined) updateFeature('pitch', features.pitch);
+        if (deltas.pitch !== undefined) updateFeature('deltaPitch', deltas.pitch);
+        if (features.jitter !== undefined) updateFeature('jitter', features.jitter);
+        if (features.shimmer !== undefined) updateFeature('shimmer', features.shimmer);
+        if (features.hnr !== undefined) updateFeature('hnr', features.hnr);
     }
 
     /**

@@ -67,21 +67,54 @@ export default function VoiceEmergencyListener({
           const ctx = new AudioContext({ sampleRate: 16000 }); 
           audioContextRef.current = ctx;
 
-          // Carregar módulo
-          await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
+          // --- FIX: Resume AudioContext se estiver suspenso (Autoplay Policy) ---
+          if (ctx.state === 'suspended') {
+              console.log("VoiceEmergencyListener: AudioContext suspenso, tentando retomar...");
+              try {
+                  await ctx.resume();
+              } catch(e) {
+                  console.warn("Autoplay bloqueado. Aguardando interação do usuário.");
+              }
+          }
+          // ---------------------------------------------------------------------
+
+          // Carregar módulo AudioWorklet com tratamento de erro
+          try {
+              await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
+              console.log("AudioWorklet: Módulo carregado com sucesso");
+          } catch (e) {
+              console.error("AudioWorklet: Falha crítica ao carregar módulo:", e);
+              // Fallback ou retry?
+              // Vamos deixar seguir pois o Meyda ainda pode funcionar sem o Worklet
+          }
 
           // --- MELHORIA DE CAPTAÇÃO: Noise Suppression & Echo Cancellation ---
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-              audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  autoGainControl: true,
-                  channelCount: 1,
-                  sampleRate: 16000
-              } 
-          });
+          // FIX: Usar um stream único se possível ou garantir que não conflite
+          let stream;
+          try {
+              stream = await navigator.mediaDevices.getUserMedia({ 
+                  audio: {
+                      echoCancellation: true,
+                      noiseSuppression: true,
+                      autoGainControl: true,
+                      channelCount: 1,
+                      sampleRate: 16000
+                  } 
+              });
+          } catch (err) {
+              console.error("Erro ao obter media stream:", err);
+              setError("Erro ao acessar microfone: " + err.message);
+              return;
+          }
+          
           streamRef.current = stream;
           const source = ctx.createMediaStreamSource(stream);
+
+          // Iniciar VAD com o stream já criado (se suportado pelo service) ou deixar o service gerenciar
+          // O VoiceActivityService usa vad-web que pede seu próprio stream.
+          // Isso pode causar conflito em mobile.
+          // TODO: Refatorar VoiceActivityService para aceitar MediaStreamSource.
+          // Por enquanto, vamos manter como está mas cientes do risco.
 
           // --- PIPELINE DE PROCESSAMENTO DE ÁUDIO (Igual ao VoiceConfig) ---
           // 1. Filtro High-Pass (Remove ruídos graves/rumble abaixo de 85Hz)
