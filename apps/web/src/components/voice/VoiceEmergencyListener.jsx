@@ -435,33 +435,44 @@ export default function VoiceEmergencyListener({
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
-                // LÓGICA DE DECISÃO v1.6 (Rebalanced)
-                // 1. Biometria OK -> ACIONA
+                // LÓGICA DE DECISÃO v2.0 (Biometria Mandatória + Contexto IRA)
+                
+                // 1. Biometria VERIFICADA -> ACIONA
+                // Esta é a regra de ouro. Se a voz bate, não importa o contexto.
                 if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
                     console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
                     onEmergencyDetected();
                 } 
-                // 2. Biometria Falhou -> Análise Contextual
+                
+                // 2. Biometria FALHOU ou INCONCLUSIVA -> ANÁLISE DE CONTEXTO IRA-SUSE
                 else {
-                    console.warn("Biometria Falhou. Analisando contexto de risco...");
+                    console.warn("Biometria Falhou/Inconclusiva. Iniciando Análise Contextual Profunda (v2.0)...");
                     
+                    // Recupera Score IRA Atual (Risco Acústico)
+                    // Se o ambiente estiver em PÂNICO (Gritos, Impacto, Frenagem), podemos reconsiderar
+                    // um Match Exato, mas NUNCA um Fuzzy.
+                    
+                    // Vamos acessar o último dado de análise via prop ou ref (idealmente o hook deveria expor)
+                    // Como fallback, usamos o AudioFeatureExtractor para uma estimativa rápida
+                    const currentFeatures = AudioFeatureExtractor.getFeatures();
+                    const isHighRiskEnvironment = (currentFeatures?.dbfs > -15) || // Muito alto
+                                                  (currentFeatures?.pitch > 300) || // Grito agudo
+                                                  (result?.score > 60); // Score parcial de biometria (se houver)
+
                     if (isExactMatch) {
-                        // Se foi EXATO, vamos dar um voto de confiança se o risco acústico não for zero.
-                        // O "Strict Mode" anterior estava matando tudo.
-                        // Vamos permitir Match Exato SE o usuário estiver logado e a frase for longa o suficiente (>1 palavra)
-                        
-                        const wordCount = normalizedPhrase.split(' ').length;
-                        
-                        if (wordCount > 1) {
-                             console.warn("Match Exato de Frase Composta. ACIONANDO (Risco Calculado).");
-                             onEmergencyDetected();
+                        // Match Exato + Biometria Falha
+                        // Só aciona se houver INDÍCIOS FORTES de emergência física (IRA Contextual)
+                        if (isHighRiskEnvironment) {
+                            console.warn("Match Exato + Biometria Falha + AMBIENTE DE RISCO (Gritos/Impacto). ACIONANDO.");
+                            onEmergencyDetected();
                         } else {
-                             // Palavra única (ex: "Socorro") sem biometria é muito arriscado.
-                             console.warn("Match Exato de Palavra Única sem Biometria. IGNORADO.");
+                            console.warn("Match Exato + Biometria Falha + Ambiente Calmo. IGNORADO (Provável Rádio/TV).");
                         }
                     } else {
-                        // Fuzzy Match sem Biometria -> IGNORA (Muito risco de falso positivo "ajuda" vs "juda")
-                        console.warn("Fuzzy Match sem Biometria. IGNORADO (Falso Positivo Bloqueado).");
+                        // Fuzzy Match (Frase Parecida)
+                        // Só aceita se Biometria for OK (já testado no if acima).
+                        // Se Biometria falhou, Fuzzy é descartado imediatamente.
+                        console.warn("Fuzzy Match sem Biometria. IGNORADO (Risco de Falso Positivo Extremo).");
                     }
                 }
             } catch (err) {
