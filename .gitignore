@@ -7,3 +7,9 @@ apps/web/node_modules/
 node_modules
 
 _backups/
+dist/
+apps/web/dist/
+build/
+.vercel
+.output
+coverage/
