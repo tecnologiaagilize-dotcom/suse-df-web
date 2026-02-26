@@ -183,7 +183,7 @@ export default function VoiceEmergencyListener({
                   // Regra: "Impacto crítico + silêncio/grito -> Central"
                   // Grito isolado (IRA > 0.89) NÃO aciona central (apenas log/WhatsApp futuro)
                   
-                  const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85 (simulado aqui pelo booleano do sensor)
+                  const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85
                   const isStressDetected = result.ira > 0.70; // Stress/Grito
                   const isSilencePostImpact = isCriticalImpact && features.dbfs < -50; // Silêncio absoluto pós-batida
                   
@@ -197,7 +197,6 @@ export default function VoiceEmergencyListener({
                   // Grito isolado (sem impacto) é ignorado para Central, conforme spec.
                   else if (result.ira > 0.89 && !isAnalyzingRef.current) {
                       console.warn("IRA-SUSI: Grito isolado detectado (Sem impacto). Registrando evento, mas NÃO acionando Central.");
-                      // TODO: Enviar para log ou WhatsApp no futuro
                   }
               }
               analysisLoopRef.current = requestAnimationFrame(analyzeFrame);
