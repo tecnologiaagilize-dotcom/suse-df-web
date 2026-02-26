@@ -231,16 +231,18 @@ export default function VoiceEmergencyListener({
         
         // Se verificado ou se o backend estiver offline (fail-open no service), aciona
         if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
+            console.log("Biometria Confirmada (Wake Word). ACIONANDO.");
             onEmergencyDetected();
         } else {
-            // Em modo offline/crítico, a detecção da Wake Word tem peso alto.
-            console.warn("Biometria inconclusiva, mas Wake Word detectada. ACIONANDO (Política de Segurança Máxima).");
-            onEmergencyDetected();
+            // Se a biometria falhar, NÃO ACIONA.
+            // O risco de falso positivo em Wake Word é alto.
+            console.warn("Biometria falhou na Wake Word. IGNORANDO (Segurança Estrita).");
+            // onEmergencyDetected(); // REMOVIDO
         }
       } catch (err) {
           console.error("Erro na verificação biométrica:", err);
-          // Fail-Safe: Se deu erro no serviço, ACIONA a emergência
-          onEmergencyDetected();
+          // Em erro técnico, assumimos segurança e não disparamos sem certeza
+          console.warn("Erro técnico na biometria. Ignorando para evitar falso positivo.");
       } finally {
           // Garante que a UI destrave
           setTimeout(() => {
@@ -395,7 +397,7 @@ export default function VoiceEmergencyListener({
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
-                // LÓGICA DE DECISÃO v1.4 (Hardened)
+                // LÓGICA DE DECISÃO v1.5 (Strict Mode)
                 // 1. Biometria OK -> ACIONA
                 if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
                     console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
@@ -405,15 +407,13 @@ export default function VoiceEmergencyListener({
                 else {
                     console.warn("Biometria Falhou. Analisando contexto de risco...");
                     
-                    // Recuperar último score IRA (se disponível no closure ou via ref, aqui assumimos acesso global ou via prop, mas temos o RingBuffer)
-                    // Como não temos acesso direto ao IRA state aqui (apenas via callback), vamos ser conservadores.
-                    
                     if (isExactMatch) {
                         // Se foi EXATO, ainda temos risco de ser rádio/TV.
                         // Mas sem biometria, é difícil distinguir.
-                        // Política: Se for exato, aciona (Melhor falso positivo que negativo em morte).
-                        console.warn("Match Exato sem Biometria. ACIONANDO (Política de Segurança).");
-                        onEmergencyDetected();
+                        // Política REVISADA: Se for exato mas biometria falhar, NÃO ACIONA AUTOMATICAMENTE
+                        // Apenas gera um log de alerta crítico (ou requer confirmação manual no app)
+                        console.warn("Match Exato sem Biometria. IGNORADO (Política de Falso Positivo Rígida).");
+                        // onEmergencyDetected(); // DESABILITADO PARA EVITAR FALSOS POSITIVOS
                     } else {
                         // Fuzzy Match sem Biometria -> IGNORA (Muito risco de falso positivo "ajuda" vs "juda")
                         console.warn("Fuzzy Match sem Biometria. IGNORADO (Falso Positivo Bloqueado).");
