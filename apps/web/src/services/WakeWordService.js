@@ -49,8 +49,10 @@ class WakeWordService {
             // console.log(`Ouvido: ${bestWord} (${(confidence * 100).toFixed(1)}%)`);
 
             // Mapeamento temporário para MVP (Simulando 'SOCORRO' com palavras do modelo padrão)
-            // 'stop' ou 'help' (se disponível) ou 'yes'
-            const triggerWords = ['stop', 'no', 'go']; 
+            // v3.2: Removido "stop", "no", "go" para evitar falsos positivos com música/conversas.
+            // O sistema agora dependerá exclusivamente da Web Speech API (Frase Completa)
+            // e da detecção de Grito/Impacto do IRA-SUSI Core.
+            const triggerWords = []; // Lista vazia desativa o trigger por palavras simples
             
             // Se a palavra detectada for uma das triggers e a confiança for alta
             if (triggerWords.includes(bestWord) && confidence > this.confidenceThreshold) {
