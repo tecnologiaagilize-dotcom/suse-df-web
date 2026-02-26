@@ -178,21 +178,26 @@ export default function VoiceEmergencyListener({
                       setDebugData(fullData);
                   }
 
-                  // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
-                  // v2.3: Política Definitiva IRA v1.1
-                  // 1. Acionamento Automático Puramente Acústico: IRA > 0.89 (Pânico Extremo)
-                  // 2. Acionamento Híbrido Físico-Acústico: Impacto Crítico + Stress (IRA > 0.70)
+                  // Loop de Análise Contínua (Sem Frase)
+                  // v3.0: Strict Compliance IRA v1.1
+                  // Regra: "Impacto crítico + silêncio/grito -> Central"
+                  // Grito isolado (IRA > 0.89) NÃO aciona central (apenas log/WhatsApp futuro)
                   
-                  const isCriticalPanic = result.ira > 0.89;
-                  const isImpactStress = context?.impactDetected && result.ira > 0.70;
-
-                  if ((isCriticalPanic || isImpactStress) && !isAnalyzingRef.current) {
-                      const cause = isCriticalPanic ? "Pânico Acústico (IRA > 0.89)" : "Impacto Crítico + Stress Vocal";
-                      console.warn(`IRA-SUSI: Emergência Automática Detectada! Motivo: ${cause} | Score: ${result.ira}`);
+                  const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85 (simulado aqui pelo booleano do sensor)
+                  const isStressDetected = result.ira > 0.70; // Stress/Grito
+                  const isSilencePostImpact = isCriticalImpact && features.dbfs < -50; // Silêncio absoluto pós-batida
+                  
+                  if (isCriticalImpact && (isStressDetected || isSilencePostImpact) && !isAnalyzingRef.current) {
+                      const cause = isStressDetected ? "Impacto + Grito/Stress" : "Impacto + Silêncio Total";
+                      console.warn(`IRA-SUSI: Emergência Automática (Matriz Final). Motivo: ${cause}`);
                       
-                      // Pausa reconhecimento para evitar conflito
                       if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
                       onEmergencyDetected();
+                  }
+                  // Grito isolado (sem impacto) é ignorado para Central, conforme spec.
+                  else if (result.ira > 0.89 && !isAnalyzingRef.current) {
+                      console.warn("IRA-SUSI: Grito isolado detectado (Sem impacto). Registrando evento, mas NÃO acionando Central.");
+                      // TODO: Enviar para log ou WhatsApp no futuro
                   }
               }
               analysisLoopRef.current = requestAnimationFrame(analyzeFrame);
