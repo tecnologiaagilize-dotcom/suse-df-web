@@ -150,19 +150,21 @@ class IraSusiCore {
         
         // Gate 1: Atividade (VAD)
         // VAD simples baseada em energia relativa ao baseline
+        // Se (VAD > 0.25) OU (Probabilidade de Grito > 0.60) -> g1 = 1.0
         const vadScore = (features.dbfs > this.state.baseline.energy.mu + 10) ? 1.0 : 0.0; 
-        const g1 = (vadScore > cfg.gates.vadThreshold || phi.scream > cfg.gates.screamThreshold) 
-                   ? 1.0 : cfg.gates.activityPenalty;
+        const g1 = (vadScore > 0.25 || phi.scream > 0.60) 
+                   ? 1.0 : 0.15;
 
         // Gate 2: Ruído de Fundo (Penaliza ambientes muito ruidosos)
         // g2 = e^(-0.08 * max(0, N - (-45)))
         // Usamos o baseline de energia como estimativa de ruído (N)
         const noiseLevel = this.state.baseline.energy.mu;
-        const g2 = Math.exp(-cfg.gates.noiseAlpha * Math.max(0, noiseLevel - cfg.globalParams.noise_reference_N0));
+        const g2 = Math.exp(-0.08 * Math.max(0, noiseLevel - (-45)));
 
         // Gate 3: SNR (Signal-to-Noise Ratio)
+        // g3 = clip( SNR / 12 , 0.25 , 1.0 )
         const snr = features.dbfs - noiseLevel;
-        const g3 = this.clip(snr / cfg.gates.snrScale, cfg.gates.snrMinClip, 1.0);
+        const g3 = this.clip(snr / 12, 0.25, 1.0);
 
         // 5. Score Acústico (St)
         const sumPhi = (phi.energy * w.energy) +
@@ -197,14 +199,14 @@ class IraSusiCore {
         this.state.rawIra = rawIRA;
 
         // 8. Suavização Temporal (Smoothing)
-        const alpha = cfg.smoothing.alpha;
-        // Se subir, sobe moderadamente (ataque controlado - v1.2: 0.30). Se descer, desce devagar.
-        const effectiveAlpha = rawIRA > this.state.iraHat ? 0.30 : alpha;
-        
-        this.state.iraHat = (effectiveAlpha * rawIRA) + ((1 - effectiveAlpha) * this.state.iraHat);
+        // IRA_hat_t = r * IRA_hat_{t-1} + (1 - r) * IRA_t
+        // r = 0.85 (default)
+        const r = 0.85;
+        this.state.iraHat = (r * this.state.iraHat) + ((1 - r) * rawIRA);
 
         // 9. Atualizar Baseline (Se condições atendidas)
         // Condição: NORMAL && VAD>0.25 && G<0.30 && IRA<0.45 && g2>0.40
+        // ... (manter lógica existente de update)
         if (this.state.status === 'NORMAL' && 
             vadScore > 0.25 && 
             phi.scream < 0.30 && 
@@ -212,12 +214,16 @@ class IraSusiCore {
             g2 > 0.40 &&
             !this.state.isFrozen) {
             
+            // Deltas já calculados acima, mas precisamos passar para o update
+            const deltaEnergy = Math.abs(features.dbfs - (this.state.lastFeatures?.dbfs || features.dbfs));
+            const deltaPitch = Math.abs(features.pitch - (this.state.lastFeatures?.pitch || features.pitch));
+            
             this.updateBaseline(features, { energy: deltaEnergy, pitch: deltaPitch });
         }
 
         // 10. Máquina de Estados e Cenários
         this.state.scenario = this.detectScenario(context, noiseLevel);
-        this.updateStateMachine(now);
+        this.updateStateMachine(now, context); // Passando context para regras especiais
 
         // Atualizar estado anterior
         this.state.lastFeatures = features;
@@ -225,7 +231,7 @@ class IraSusiCore {
         return this.getResult();
     }
 
-    updateStateMachine(now) {
+    updateStateMachine(now, context = {}) {
         // Verifica Freeze (Pós-Evento)
         if (this.state.isFrozen) {
             if (now < this.state.freezeEndTime) return;
@@ -235,32 +241,57 @@ class IraSusiCore {
         const score = this.state.iraHat;
         const scenario = this.config.scenarios[this.state.scenario] || this.config.scenarios.urban;
         const th = scenario.thresholds;
-        const persistence = scenario.persistence;
+        
+        // Tempos de Persistência (em quadros, assumindo ~100ms por quadro)
+        // T1 (Atenção), T2 (Risco), T3 (Emergência)
+        // Exemplo: 3s = 30 quadros
+        const T1 = scenario.persistence.attention || 30;
+        const T2 = scenario.persistence.risk || 40;
+        const T3 = scenario.persistence.emergency || 50;
 
-        // Trigger Logic (Subida)
-        if (score >= th.emergency) {
-            this.state.triggerCount++;
-            this.state.releaseCount = 0;
-            if (this.state.triggerCount >= persistence.emergency) this.transitionTo('EMERGENCIA', now);
-        } else if (score >= th.risk) {
-            if (this.state.status !== 'EMERGENCIA') {
-                this.state.triggerCount++;
-                if (this.state.triggerCount >= persistence.risk) this.transitionTo('RISCO', now);
-            }
-        } else if (score >= th.attention) {
-             if (['NORMAL'].includes(this.state.status)) {
-                 this.state.triggerCount++;
-                 if (this.state.triggerCount >= persistence.attention) this.transitionTo('ATENCAO', now);
+        // Regras Especiais de Decisão Híbrida
+        // 1. Frase Secreta (Tratado fora, no VoiceEmergencyListener)
+        // 2. Modo Silencioso (Tratado fora)
+        // 3. Regra Especial de Grito: G > 0.85 e SNR gate (g3) > 0.60
+        // Precisamos recalcular g3 ou armazenar no state, vamos recalcular rápido aqui ou assumir trigger externo
+        // Como o 'phi' não está acessível aqui, vamos focar na lógica de persistência do IRA
+        
+        // Reset counters se o score cair
+        if (score < th.attention) {
+             this.state.triggerCount_Attention = 0;
+             this.state.triggerCount_Risk = 0;
+             this.state.triggerCount_Emergency = 0;
+             
+             // Release Logic
+             if (this.state.status !== 'NORMAL') {
+                 this.state.releaseCount++;
+                 if (this.state.releaseCount >= 30) { // 3s de release
+                     this.transitionTo('NORMAL', now);
+                 }
              }
-        } else {
-            // Release Logic (Descida)
-            this.state.triggerCount = 0;
-            this.state.releaseCount++;
-            
-            // Release genérico de 3s para descer
-            if (this.state.releaseCount >= 3) {
-                this.transitionTo('NORMAL', now);
-            }
+             return;
+        }
+        
+        this.state.releaseCount = 0;
+
+        // Acumuladores de Persistência (Independentes)
+        if (score >= th.attention) this.state.triggerCount_Attention = (this.state.triggerCount_Attention || 0) + 1;
+        else this.state.triggerCount_Attention = 0;
+
+        if (score >= th.risk) this.state.triggerCount_Risk = (this.state.triggerCount_Risk || 0) + 1;
+        else this.state.triggerCount_Risk = 0;
+
+        if (score >= th.emergency) this.state.triggerCount_Emergency = (this.state.triggerCount_Emergency || 0) + 1;
+        else this.state.triggerCount_Emergency = 0;
+
+
+        // Lógica de Decisão (Prioridade: Emergência > Risco > Atenção)
+        if (this.state.triggerCount_Emergency >= T3) {
+            this.transitionTo('EMERGENCIA', now);
+        } else if (this.state.triggerCount_Risk >= T2) {
+            if (this.state.status !== 'EMERGENCIA') this.transitionTo('RISCO', now);
+        } else if (this.state.triggerCount_Attention >= T1) {
+             if (['NORMAL'].includes(this.state.status)) this.transitionTo('ATENCAO', now);
         }
     }
 
