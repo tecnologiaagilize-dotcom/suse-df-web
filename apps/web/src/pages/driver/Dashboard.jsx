@@ -823,6 +823,26 @@ export default function DriverDashboard() {
                                  {((1 - (iraData?.features?.jitter || 0)) * 100).toFixed(0)}%
                              </span>
                          </div>
+                         
+                         {/* Linha 2: Sensores Físicos (Adicionado v2.3) */}
+                         <div className={`bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center ${iraData?.context?.impactDetected ? 'bg-red-900/50 border-red-500 animate-pulse' : ''}`}>
+                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Colisão</span>
+                             <span className={`text-sm font-mono font-bold ${iraData?.context?.impactDetected ? 'text-red-500' : 'text-green-500'}`}>
+                                 {iraData?.context?.impactDetected ? 'DETECTADO' : 'OK'}
+                             </span>
+                         </div>
+                         <div className="bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center">
+                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Velocidade</span>
+                             <span className="text-sm font-mono font-bold text-white">
+                                 {(iraData?.context?.speed || 0).toFixed(0)} <span className="text-[9px] text-gray-500">km/h</span>
+                             </span>
+                         </div>
+                         <div className="bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center">
+                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Cenário</span>
+                             <span className="text-sm font-mono font-bold text-blue-400 uppercase">
+                                 {iraData?.scenario === 'vehicle' ? 'Veículo' : iraData?.scenario === 'indoor' ? 'Interno' : 'Urbano'}
+                             </span>
+                         </div>
                      </div>
                 </div>
 
