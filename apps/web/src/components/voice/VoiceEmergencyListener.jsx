@@ -435,44 +435,52 @@ export default function VoiceEmergencyListener({
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
-                // LÓGICA DE DECISÃO v2.0 (Biometria Mandatória + Contexto IRA)
+                // LÓGICA DE DECISÃO v2.1 (Anti-Falso Negativo Silencioso)
                 
                 // 1. Biometria VERIFICADA -> ACIONA
-                // Esta é a regra de ouro. Se a voz bate, não importa o contexto.
                 if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
                     console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
                     onEmergencyDetected();
                 } 
                 
-                // 2. Biometria FALHOU ou INCONCLUSIVA -> ANÁLISE DE CONTEXTO IRA-SUSE
+                // 2. Biometria FALHOU -> ANÁLISE DE CONTEXTO
                 else {
-                    console.warn("Biometria Falhou/Inconclusiva. Iniciando Análise Contextual Profunda (v2.0)...");
+                    console.warn("Biometria Falhou. Iniciando Análise Contextual Profunda (v2.1)...");
                     
-                    // Recupera Score IRA Atual (Risco Acústico)
-                    // Se o ambiente estiver em PÂNICO (Gritos, Impacto, Frenagem), podemos reconsiderar
-                    // um Match Exato, mas NUNCA um Fuzzy.
-                    
-                    // Vamos acessar o último dado de análise via prop ou ref (idealmente o hook deveria expor)
-                    // Como fallback, usamos o AudioFeatureExtractor para uma estimativa rápida
+                    // Recupera Features do IRA
                     const currentFeatures = AudioFeatureExtractor.getFeatures();
-                    const isHighRiskEnvironment = (currentFeatures?.dbfs > -15) || // Muito alto
-                                                  (currentFeatures?.pitch > 300) || // Grito agudo
-                                                  (result?.score > 60); // Score parcial de biometria (se houver)
+                    
+                    // Definição de Ambiente de Risco (Ajustado)
+                    // - dBFS > -25 (Voz alta/clara, não precisa ser grito extremo)
+                    // - Pitch > 200 (Voz tensa/aguda)
+                    // - Jitter > 0.1 (Instabilidade vocal)
+                    const isRiskContext = (currentFeatures?.dbfs > -25) || 
+                                          (currentFeatures?.pitch > 200) ||
+                                          (currentFeatures?.jitter > 0.1);
 
                     if (isExactMatch) {
                         // Match Exato + Biometria Falha
-                        // Só aciona se houver INDÍCIOS FORTES de emergência física (IRA Contextual)
-                        if (isHighRiskEnvironment) {
-                            console.warn("Match Exato + Biometria Falha + AMBIENTE DE RISCO (Gritos/Impacto). ACIONANDO.");
+                        // Se houver QUALQUER indício de tensão vocal ou volume razoável, ACIONA.
+                        // O objetivo é evitar falso negativo (usuário falando baixo ou rouco).
+                        // Só ignora se for sussurro absoluto ou silêncio (provável erro de transcrição).
+                        
+                        if (isRiskContext || (result?.score > 50)) {
+                            console.warn("Match Exato + Contexto de Risco Moderado. ACIONANDO (Anti-Falso Negativo).");
                             onEmergencyDetected();
                         } else {
-                            console.warn("Match Exato + Biometria Falha + Ambiente Calmo. IGNORADO (Provável Rádio/TV).");
+                            // Se for silêncio absoluto (dBFS < -40) e o transcritor pegou algo, é fantasma.
+                            if (currentFeatures?.dbfs < -40) {
+                                console.warn("Match Exato em Silêncio Absoluto (Ghost). IGNORADO.");
+                            } else {
+                                // Caso limítrofe: Ambiente calmo, voz normal, mas biometria falhou.
+                                // Política: ACIONA. É melhor um falso positivo controlado do que ignorar um pedido claro.
+                                console.warn("Match Exato em Ambiente Calmo. ACIONANDO (Política de Segurança Final).");
+                                onEmergencyDetected();
+                            }
                         }
                     } else {
-                        // Fuzzy Match (Frase Parecida)
-                        // Só aceita se Biometria for OK (já testado no if acima).
-                        // Se Biometria falhou, Fuzzy é descartado imediatamente.
-                        console.warn("Fuzzy Match sem Biometria. IGNORADO (Risco de Falso Positivo Extremo).");
+                        // Fuzzy Match -> Mantém rigoroso.
+                        console.warn("Fuzzy Match sem Biometria. IGNORADO.");
                     }
                 }
             } catch (err) {
