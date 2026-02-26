@@ -47,7 +47,10 @@ class SensorContextService {
                 // Detectar Impacto (Subtraindo gravidade ~9.8m/s²)
                 const dynamicForce = Math.abs(magnitude - 9.8);
                 
-                if (dynamicForce > this.IMPACT_THRESHOLD) {
+                // v3.1: Threshold aumentado para 25.0 (Colisão Real)
+                // 15.0 detectava lombadas e freadas bruscas.
+                // 25.0 ~ 2.5G é compatível com colisão leve a moderada.
+                if (dynamicForce > 25.0) {
                     this.state.impactDetected = true;
                     this.state.lastImpactTime = Date.now();
                     

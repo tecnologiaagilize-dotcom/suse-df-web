@@ -103,11 +103,12 @@ const VoiceBiometryService = {
                 });
 
                 if (error) {
-                    // MODO FAIL-OPEN DE EMERGÊNCIA
-                    // Se não tem backend configurado, mas a palavra chave bateu,
-                    // em emergência real nós APROVAMOS para não bloquear o socorro.
-                    console.warn("[Biometria] Backend inacessível. Fail-Open ativado.");
-                    return { isVerified: true, score: 1.0, details: "Fail-Open (Backend Offline)" };
+                    // MODO STRICT-SAFE DE EMERGÊNCIA (v3.1)
+                    // Se não tem backend, NÃO podemos aprovar cegamente (causa falso positivo).
+                    // Só aprovamos "Fail-Open" se houver indício local forte (Simulado aqui por false, 
+                    // pois o Listener já trata o fail-safe com sensores físicos).
+                    console.warn("[Biometria] Backend inacessível. Fail-Open DESATIVADO para evitar falsos positivos.");
+                    return { isVerified: false, score: 0.0, details: "Backend Offline - Strict Mode" };
                 }
 
                 return { isVerified: data.isVerified, score: data.score, details: data };
