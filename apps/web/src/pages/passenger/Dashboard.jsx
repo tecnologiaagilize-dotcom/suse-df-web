@@ -649,7 +649,7 @@ export default function PassengerDashboard() {
                      </div>
 
                      {/* Barra de Progresso do Risco */}
-                     <div className="w-full bg-gray-800 h-2 rounded-full mt-3 overflow-hidden">
+                     <div className="w-full bg-gray-800 h-2 rounded-full mt-3 overflow-hidden mb-4">
                          <div 
                             className={`h-full transition-all duration-500 ${
                                 iraData?.status === 'EMERGENCIA' ? 'bg-red-600' :
@@ -659,6 +659,30 @@ export default function PassengerDashboard() {
                             }`}
                             style={{ width: `${(iraData?.ira || 0) * 100}%` }}
                          ></div>
+                     </div>
+
+                     {/* Indicadores Detalhados de Ruído (Telemetry) */}
+                     <div className="grid grid-cols-3 gap-2 border-t border-gray-700 pt-3">
+                         <div className="bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center">
+                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Volume (RMS)</span>
+                             <span className="text-sm font-mono font-bold text-white">
+                                 {(iraData?.features?.rms || 0).toFixed(3)}
+                             </span>
+                         </div>
+                         <div className="bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center">
+                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Frequência</span>
+                             <span className="text-sm font-mono font-bold text-white">
+                                 {(iraData?.features?.pitch || 0).toFixed(0)} <span className="text-[9px] text-gray-500">Hz</span>
+                             </span>
+                         </div>
+                         <div className="bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center">
+                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Estabilidade</span>
+                             <span className={`text-sm font-mono font-bold ${
+                                 (iraData?.features?.jitter || 0) > 0.1 ? 'text-red-400' : 'text-green-400'
+                             }`}>
+                                 {((1 - (iraData?.features?.jitter || 0)) * 100).toFixed(0)}%
+                             </span>
+                         </div>
                      </div>
                 </div>
 
