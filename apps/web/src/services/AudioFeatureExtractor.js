@@ -45,8 +45,7 @@ class AudioFeatureExtractor {
                     'energy',           // Energia total
                     'loudness',         // Percepção de volume (ISO 532-1)
                     'perceptualSpread', // Largura de banda percebida
-                    'spectralRolloff',   // Frequência de corte (95% energia)
-                    'mfcc'              // Mel-Frequency Cepstral Coefficients (Identidade Vocal)
+                    'spectralRolloff'   // Frequência de corte (95% energia)
                 ],
                 callback: (features) => {
                     // Callback opcional
@@ -57,50 +56,6 @@ class AudioFeatureExtractor {
         } catch (err) {
             console.error("AudioFeatureExtractor: Erro ao iniciar Meyda", err);
         }
-    }
-
-    /**
-     * Processa um AudioBuffer offline para extrair Fingerprint (MFCC Médio)
-     * @param {AudioBuffer} audioBuffer 
-     * @returns {Float32Array} MFCC Médio (Vetor de características)
-     */
-    extractOfflineFingerprint(audioBuffer) {
-        if (!audioBuffer) return null;
-        
-        // Meyda.extract funciona em buffers brutos (Float32Array)
-        // Precisamos processar em janelas
-        const signal = audioBuffer.getChannelData(0);
-        const bufferSize = 2048;
-        const mfccAccumulator = new Float32Array(13); // MFCC padrão tem 13 coeficientes
-        let frameCount = 0;
-
-        for (let i = 0; i < signal.length; i += bufferSize) {
-            if (i + bufferSize > signal.length) break;
-            
-            const chunk = signal.slice(i, i + bufferSize);
-            
-            try {
-                // Extrair MFCC do frame
-                const features = Meyda.extract(['mfcc'], chunk);
-                if (features && features.mfcc) {
-                    for (let j = 0; j < 13; j++) {
-                        mfccAccumulator[j] += features.mfcc[j];
-                    }
-                    frameCount++;
-                }
-            } catch (e) {
-                // Ignorar frames com erro (silêncio ou NaN)
-            }
-        }
-
-        if (frameCount === 0) return null;
-
-        // Calcular média
-        for (let j = 0; j < 13; j++) {
-            mfccAccumulator[j] /= frameCount;
-        }
-
-        return mfccAccumulator;
     }
 
     /**
