@@ -179,10 +179,17 @@ export default function VoiceEmergencyListener({
                   }
 
                   // Se o score IRA for muito alto (Grito/Explosão), aciona emergência
-                  // v2.2: Acionamento Automático Puramente Acústico (Sem Frase)
-                  // Regra: Apenas se ultrapassar 70% da métrica de Risco (IRA > 0.89)
-                  if (result.ira > 0.89 && !isAnalyzingRef.current) {
-                      console.warn("IRA-SUSI: Emergência Acústica Crítica Detectada! Score:", result.ira);
+                  // v2.3: Política Definitiva IRA v1.1
+                  // 1. Acionamento Automático Puramente Acústico: IRA > 0.89 (Pânico Extremo)
+                  // 2. Acionamento Híbrido Físico-Acústico: Impacto Crítico + Stress (IRA > 0.70)
+                  
+                  const isCriticalPanic = result.ira > 0.89;
+                  const isImpactStress = context?.impactDetected && result.ira > 0.70;
+
+                  if ((isCriticalPanic || isImpactStress) && !isAnalyzingRef.current) {
+                      const cause = isCriticalPanic ? "Pânico Acústico (IRA > 0.89)" : "Impacto Crítico + Stress Vocal";
+                      console.warn(`IRA-SUSI: Emergência Automática Detectada! Motivo: ${cause} | Score: ${result.ira}`);
+                      
                       // Pausa reconhecimento para evitar conflito
                       if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
                       onEmergencyDetected();

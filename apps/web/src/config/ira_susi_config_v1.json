@@ -1,9 +1,9 @@
 {
-  "version": "1.0-official",
-  "description": "Configuração Oficial do IRA-SUSI (Índice de Risco Acústico) v1.0",
+  "version": "1.1-official",
+  "description": "Configuração Oficial do IRA-SUSI (Índice de Risco Acústico) v1.1 - Documento Mestre",
   "updateInterval": 1000,
   "globalParams": {
-    "bias": -1.5,
+    "bias": -1.2,
     "beta_biometrics": 0.60,
     "eta_history": 0.55,
     "baseline_lambda": 0.995,
@@ -11,14 +11,14 @@
     "snr_reference": 12
   },
   "audioWeights": {
-    "energy": 0.15,
-    "deltaEnergy": 0.30,
+    "energy": 0.25,
+    "deltaEnergy": 0.35,
     "pitchZScore": 0.25,
     "deltaPitch": 0.30,
     "jitter": 0.20,
     "shimmer": 0.15,
     "hnrInverted": 0.20,
-    "scream": 0.70,
+    "scream": 1.20,
     "keyword": 0.60
   },
   "transformations": {
