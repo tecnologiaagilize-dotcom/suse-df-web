@@ -10,8 +10,15 @@ export default function PassengerLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [useFaceLogin, setUseFaceLogin] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (user && !authLoading) {
+      navigate('/passenger/dashboard');
+    }
+  }, [user, authLoading, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();

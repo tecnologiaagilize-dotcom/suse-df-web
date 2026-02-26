@@ -34,11 +34,42 @@ import SharedAlert from './pages/public/SharedAlert';
 // import HealthCheck from './pages/public/HealthCheck'; // Substituído pelo Guard
 import HealthAccessGuard from './pages/public/HealthAccessGuard';
 
+// Loading Component with Reset Option
+const LoadingScreen = () => {
+  const [showReset, setShowReset] = React.useState(false);
+  
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShowReset(true), 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleReset = () => {
+    // Clear session and reload
+    localStorage.clear();
+    window.location.href = '/';
+  };
+
+  return (
+    <div className="flex flex-col h-screen items-center justify-center bg-gray-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+      <p className="text-gray-600 font-medium">Carregando sistema...</p>
+      {showReset && (
+        <button 
+          onClick={handleReset}
+          className="mt-6 px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-red-600 hover:bg-gray-50 shadow-sm"
+        >
+          Demorando muito? Reiniciar Sessão
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Protected Route Component
 const PrivateRoute = ({ children, role }) => {
   const { user, userRole, loading } = useAuth();
   
-  if (loading) return <div className="flex h-screen items-center justify-center">Carregando...</div>;
+  if (loading) return <LoadingScreen />;
   
   if (!user) return <Navigate to="/driver/login" replace />;
   

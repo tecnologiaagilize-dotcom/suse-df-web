@@ -11,16 +11,31 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null); // 'driver' | 'operator' | 'supervisor' | 'admin'
 
   useEffect(() => {
+    let mounted = true;
+
+    // Safety timeout to prevent infinite loading state
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth check timed out, forcing loading to false");
+        setLoading(false);
+      }
+    }, 8000);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user);
       } else {
         setLoading(false);
       }
+    }).catch(err => {
+      console.error("Session check failed:", err);
+      if (mounted) setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user);
@@ -30,7 +45,11 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserRole = async (currentUser) => {

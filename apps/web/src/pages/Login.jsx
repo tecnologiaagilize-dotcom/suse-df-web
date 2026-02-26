@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ShieldAlert } from 'lucide-react';
@@ -9,8 +9,19 @@ export default function Login() {
   const [role, setRole] = useState('operator');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user, userRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect only if already logged in as staff
+  // Allows switching accounts if logged in as driver/passenger
+  useEffect(() => {
+    if (user && !authLoading) {
+       const isStaff = ['admin', 'operator', 'supervisor', 'master'].includes(userRole);
+       if (isStaff) {
+         navigate('/admin/dashboard');
+       }
+    }
+  }, [user, userRole, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
