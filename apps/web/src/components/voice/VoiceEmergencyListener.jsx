@@ -179,7 +179,7 @@ export default function VoiceEmergencyListener({
                   }
 
                   // Loop de Análise Contínua (Sem Frase)
-                  // v3.0: Strict Compliance IRA v1.1
+                  // v3.0: Strict Compliance IRA v1.2
                   // Regra 1: "Impacto crítico + silêncio/grito -> Central"
                   const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85 (25m/s²)
                   const isStressDetected = result.ira > 0.70; // Stress/Grito (Base para fusão)

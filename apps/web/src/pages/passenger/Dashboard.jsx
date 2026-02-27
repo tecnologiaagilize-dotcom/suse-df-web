@@ -688,7 +688,7 @@ export default function PassengerDashboard() {
                 <div className="w-full max-w-md bg-gray-900 rounded-lg p-4 shadow-lg border border-gray-700">
                      <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
                         <h4 className="text-gray-400 text-xs uppercase tracking-widest font-bold">
-                            Status IRA-SUSE™ <span className="text-gray-600 ml-1">v1.1</span>
+                            Status IRA-SUSE™ <span className="text-gray-600 ml-1">v1.2</span>
                         </h4>
                         {/* Indicador de Atividade do Microfone */}
                         <div className="flex items-center gap-2">
