@@ -540,7 +540,7 @@ export default function PassengerVoiceConfig() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
-          <p className="text-xs text-gray-400 mb-4">Versão 1.3.15 (Calibração Estrita)</p>
+          <p className="text-xs text-gray-400 mb-4">Versão 1.3.16 (Fix: Strict Validation)</p>
           {!alreadyConfigured && recordingStep < 3 && !success && !showStepResult && (
             <p className="mt-2 text-sm text-gray-600">
               Passo {recordingStep + 1} de 4: Grave as frases indicadas para calibração.
