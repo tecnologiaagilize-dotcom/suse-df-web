@@ -12,7 +12,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.2 - Unified Bar");
+  console.log("SUSE-DF DriverDashboard V1.3 - Fixed Zones Gauge");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -251,11 +251,16 @@ export default function DriverDashboard() {
   }, [isEmergencyActive, activeAlertId]);
 
   // ... (dentro de handleSOS)
-  const handleSOS = async (trigger = 'button') => {
+  const handleSOS = async (trigger = 'button', reason = null) => {
     // Bloqueio Preventivo no Frontend
     if (isEmergencyActive) {
         console.warn("SOS já ativo. Bloqueando nova chamada.");
         return;
+    }
+
+    // Reforço de Mensagem via WhatsApp em caso de impacto
+    if (reason && reason.includes('IMPACTO')) {
+        console.warn("ALERTA CRÍTICO: Impacto detectado. Solicitando envio de WhatsApp prioritário.");
     }
 
     try {
@@ -278,6 +283,15 @@ export default function DriverDashboard() {
          }
       }
 
+      // Define notas com base no trigger e reason
+      let notes = trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS';
+      if (reason) {
+          notes += ` [MOTIVO: ${reason}]`;
+          if (reason.includes('IMPACTO')) {
+              notes += " - ENVIAR WHATSAPP URGENTE";
+          }
+      }
+
       // Verificação de Conexão ANTES de tentar RPC
       if (!navigator.onLine) {
           console.warn("Sem internet. Salvando alerta na fila offline.");
@@ -285,7 +299,7 @@ export default function DriverDashboard() {
               trigger_type: trigger === 'voice' ? 'voice' : 'button',
               latitude,
               longitude,
-              notes: trigger === 'voice' ? 'Acionado por voz (Offline)' : 'Botão SOS (Offline)'
+              notes: notes + ' (Offline)'
           });
           
           // Simula sucesso visual para acalmar o motorista
@@ -300,7 +314,7 @@ export default function DriverDashboard() {
         p_trigger_type: trigger === 'voice' ? 'voice' : 'button',
         p_latitude: latitude,
         p_longitude: longitude,
-        p_notes: trigger === 'voice' ? 'Acionado por comando de voz (KWS)' : 'Acionado via botão SOS'
+        p_notes: notes
       });
 
       if (rpcError) {
@@ -319,7 +333,7 @@ export default function DriverDashboard() {
              return;
         }
 
-        return await handleSOSFallback(trigger, latitude, longitude);
+        return await handleSOSFallback(trigger, latitude, longitude, notes);
       }
       
       // ... (restante do código de sucesso)
@@ -360,7 +374,7 @@ export default function DriverDashboard() {
   };
 
   // Fallback para inserção direta se a Edge Function falhar
-  const handleSOSFallback = async (trigger, latitude, longitude) => {
+  const handleSOSFallback = async (trigger, latitude, longitude, notes = null) => {
       // 1. Auto-healing: Garantir perfil
       const { data: userProfile } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle();
       if (!userProfile) {
@@ -372,6 +386,8 @@ export default function DriverDashboard() {
          }]);
       }
 
+      const finalNotes = notes || ((trigger === 'voice' ? 'Acionado por comando de voz' : 'Acionado via botão SOS') + ' (Fallback)');
+
       const { data, error } = await supabase
         .from('emergency_alerts')
         .insert([{
@@ -380,7 +396,7 @@ export default function DriverDashboard() {
             trigger_type: trigger === 'voice' ? 'voice' : 'button',
             initial_lat: latitude,
             initial_lng: longitude,
-            notes: (trigger === 'voice' ? 'Acionado por comando de voz' : 'Acionado via botão SOS') + ' (Fallback)'
+            notes: finalNotes
         }])
         .select().single();
 
@@ -519,7 +535,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Motorista
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.2</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -653,11 +669,11 @@ export default function DriverDashboard() {
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onAnalysisUpdate={(data) => setIraData(data)} // Atualiza o painel fixo
                       showDebugPanel={false} // Esconde o painel flutuante
-                      onEmergencyDetected={() => {
+                      onEmergencyDetected={(reason) => {
                         // Feedback imediato antes mesmo de chamar o backend
                         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                        console.log("Emergência por voz detectada! Iniciando protocolo...");
-                        handleSOS('voice');
+                        console.log(`Emergência por voz detectada! Motivo: ${reason || 'Desconhecido'}`);
+                        handleSOS('voice', reason);
                       }}
                     />
                     
@@ -749,7 +765,7 @@ export default function DriverDashboard() {
                          </div>
                      </div>
 
-                     {/* Barra de Progresso Unificada - v2.4 */}
+                     {/* Barra de Monitoramento com Níveis Fixos e Marcador Móvel - v3.0 */}
                      <div className="mt-4 mb-4">
                          <div className="flex justify-between text-[10px] text-gray-500 mb-1 font-bold uppercase">
                              <span>Nível de Monitoramento</span>
@@ -760,24 +776,33 @@ export default function DriverDashboard() {
                                  {iraData?.status || 'NORMAL'}
                              </span>
                          </div>
-                         <div className="w-full bg-gray-800 h-4 rounded-full overflow-hidden border border-gray-700 relative">
-                             {/* Marcadores de Limite (Opcional) */}
-                             <div className="absolute left-[40%] top-0 bottom-0 w-px bg-gray-900/50 z-10"></div>
-                             <div className="absolute left-[75%] top-0 bottom-0 w-px bg-gray-900/50 z-10"></div>
+                         
+                         {/* Container da Barra */}
+                         <div className="w-full h-6 rounded-full overflow-hidden border border-gray-700 relative bg-gray-900 shadow-inner">
                              
+                             {/* Fundo Colorido Fixo (Zonas de Risco Separadas) */}
+                             <div className="absolute inset-0 flex w-full h-full opacity-90">
+                                 <div className="h-full bg-green-600 w-[40%] border-r border-gray-900/30 flex items-center justify-center text-[9px] font-bold text-green-950/50"></div>
+                                 <div className="h-full bg-yellow-500 w-[35%] border-r border-gray-900/30 flex items-center justify-center text-[9px] font-bold text-yellow-950/50"></div>
+                                 <div className="h-full bg-red-600 w-[25%] flex items-center justify-center text-[9px] font-bold text-red-950/50"></div>
+                             </div>
+
+                             {/* Marcador/Agulha que se movimenta */}
                              <div 
-                                className={`h-full transition-all duration-500 ease-out ${
-                                    (iraData?.ira || 0) > 0.88 ? 'bg-red-600 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.8)]' :
-                                    (iraData?.ira || 0) > 0.75 ? 'bg-red-500' :
-                                    (iraData?.ira || 0) > 0.40 ? 'bg-yellow-500' :
-                                    'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(100, (iraData?.ira || 0) * 100)}%` }}
+                                className="absolute top-0 bottom-0 w-2 bg-white shadow-[0_0_15px_rgba(255,255,255,1)] z-20 transition-all duration-300 ease-out transform -translate-x-1/2 border-x border-gray-400"
+                                style={{ left: `${Math.min(100, (iraData?.ira || 0) * 100)}%` }}
                              ></div>
                          </div>
                          
+                         {/* Labels das Zonas */}
+                         <div className="flex justify-between text-[8px] text-gray-600 mt-1 px-1 font-mono uppercase">
+                             <span>Seguro (0-40%)</span>
+                             <span className="text-center">Atenção</span>
+                             <span className="text-right">Risco Crítico</span>
+                         </div>
+                         
                          {(iraData?.ira || 0) > 0.88 && (
-                             <p className="text-[10px] text-red-500 text-center mt-2 animate-pulse font-bold tracking-widest">
+                             <p className="text-[10px] text-red-500 text-center mt-2 animate-pulse font-bold tracking-widest border border-red-500/50 rounded bg-red-900/20 py-1">
                                  ⚠️ ACIONAMENTO IMINENTE
                              </p>
                          )}

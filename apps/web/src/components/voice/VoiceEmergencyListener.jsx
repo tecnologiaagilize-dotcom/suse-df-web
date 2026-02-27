@@ -192,15 +192,15 @@ export default function VoiceEmergencyListener({
 
                   if (!isAnalyzingRef.current) {
                       if (isCriticalImpact && (isStressDetected || isSilencePostImpact)) {
-                          const cause = isStressDetected ? "Impacto + Grito/Stress" : "Impacto + Silêncio Total";
+                          const cause = isStressDetected ? "IMPACTO_CRITICO_COM_STRESS" : "IMPACTO_CRITICO_COM_SILENCIO";
                           console.warn(`IRA-SUSI: Emergência Automática (Matriz Final). Motivo: ${cause}`);
                           if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
-                          onEmergencyDetected();
+                          onEmergencyDetected(cause);
                       }
                       else if (isExtremeAcousticRisk) {
                           console.warn("IRA-SUSI: Emergência Automática (Risco Acústico Extremo > 92%). Motivo: Grito/Pânico Confirmado.");
                           if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
-                          onEmergencyDetected();
+                          onEmergencyDetected("RISCO_ACUSTICO_EXTREMO");
                       }
                   }
               }
@@ -269,23 +269,23 @@ export default function VoiceEmergencyListener({
       const audioBlob = RingBufferService.getWavBlob(5);
       
       if (audioBlob.size < 1000) {
-          console.warn("Buffer de áudio vazio. Acionando fallback.");
-          onEmergencyDetected();
-          setIsAnalyzing(false);
-          isAnalyzingRef.current = false;
-          return;
-      }
+                  console.warn("Buffer de áudio vazio. Acionando fallback.");
+                  onEmergencyDetected("FALHA_BUFFER_AUDIO");
+                  setIsAnalyzing(false);
+                  isAnalyzingRef.current = false;
+                  return;
+              }
 
-      // Verifica Biometria
-            try {
-              const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
-              
-              // STRICT MODE v1.1: Apenas Biometria Verificada Aciona.
-              // Sem "Fail-Open", sem "Backend Offline".
-              if (result && result.isVerified) {
-                  console.log("Biometria Confirmada (Wake Word). ACIONANDO.");
-                  onEmergencyDetected();
-              } else {
+              // Verifica Biometria
+              try {
+                const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
+                
+                // STRICT MODE v1.1: Apenas Biometria Verificada Aciona.
+                // Sem "Fail-Open", sem "Backend Offline".
+                if (result && result.isVerified) {
+                    console.log("Biometria Confirmada (Wake Word). ACIONANDO.");
+                    onEmergencyDetected("COMANDO_VOZ_BIOMETRIA_CONFIRMADA");
+                } else {
                   console.warn("Biometria Falhou ou Backend Offline. IGNORADO (Strict Mode).");
                   // Não aciona.
               }
@@ -437,7 +437,7 @@ export default function VoiceEmergencyListener({
             if (audioBlob.size < 1000) {
                 console.warn("Buffer vazio.");
                 if (isExactMatch) {
-                     onEmergencyDetected();
+                     onEmergencyDetected("COMANDO_VOZ_EXATO_SEM_AUDIO");
                 }
                 setIsAnalyzing(false);
                 return;
@@ -451,7 +451,7 @@ export default function VoiceEmergencyListener({
                 // 1. Biometria VERIFICADA -> ACIONA
                 if (result && result.isVerified) {
                     console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
-                    onEmergencyDetected();
+                    onEmergencyDetected("COMANDO_VOZ_BIOMETRIA_CONFIRMADA");
                 } 
                 
                 // 2. Biometria FALHOU -> IGNORA
