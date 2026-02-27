@@ -467,8 +467,7 @@ export default function VoiceEmergencyListener({
          // --- EXPORTAR DADOS DE DEBUG PARA UI (v2.0) ---
          // Envia dados para o componente pai exibir visualmente
          if (onAnalysisUpdate) {
-             onAnalysisUpdate((prev) => ({
-                 ...prev,
+             onAnalysisUpdate({
                  voiceDebug: {
                      text: normalizedText.slice(-50), // Últimos caracteres
                      target: normalizedPhrase,
@@ -476,7 +475,7 @@ export default function VoiceEmergencyListener({
                      match: match,
                      timestamp: Date.now()
                  }
-             }));
+             });
          }
 
          if (match) {
