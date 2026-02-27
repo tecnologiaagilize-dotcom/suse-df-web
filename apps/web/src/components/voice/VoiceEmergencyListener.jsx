@@ -412,8 +412,14 @@ export default function VoiceEmergencyListener({
     const checkEmergencyPhrase = async (text) => {
          if (!emergencyPhrase) return;
          
-         const normalizedText = text.toLowerCase();
-         const normalizedPhrase = emergencyPhrase.toLowerCase();
+         // Normalização Robusta (Remove acentos e caracteres especiais)
+         const normalize = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/gi, '');
+         
+         const normalizedText = normalize(text);
+         const normalizedPhrase = normalize(emergencyPhrase);
+
+         // Debug Visual no Console
+         console.log(`[Voz] Verificando: "${normalizedText}" vs Alvo: "${normalizedPhrase}"`);
 
          // --- MELHORIA v1.4: Contexto Híbrido (Acoustic + Keyword) ---
          // Só aceita o trigger se:
@@ -424,9 +430,6 @@ export default function VoiceEmergencyListener({
          let match = false;
          
          // Verificação Exata (Precisa ser uma sentença distinta ou conter a frase completa)
-         // "socorro" -> OK. "eu preciso de socorro agora" -> OK.
-         // "o socorro vem ai" (rádio) -> Pode ser falso positivo.
-         // Tentativa de mitigar rádio: Exigir que a frase não seja muito curta se for comum.
          const isExactMatch = normalizedText.includes(normalizedPhrase);
 
          if (isExactMatch) {
@@ -440,24 +443,18 @@ export default function VoiceEmergencyListener({
                  const recentPhrase = words.slice(-phraseLength).join(' ');
                  const similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
                  
-                 console.log(`Fuzzy Match: "${recentPhrase}" vs "${normalizedPhrase}" = ${similarity.toFixed(2)}`);
+                 console.log(`[Voz] Fuzzy Match: "${recentPhrase}" vs "${normalizedPhrase}" = ${similarity.toFixed(2)}`);
                  
-                 // Threshold alto (0.85)
-                 if (similarity >= 0.85) { 
+                 // Threshold ajustado para 0.80 (Mais tolerante)
+                 if (similarity >= 0.80) { 
                      match = true;
                  }
              }
          }
 
          if (match) {
-            // Check Acoustic Context (IRA-SUSI Score)
-            // Se o ambiente estiver TOTALMENTE calmo (IRA < 0.3), desconfie de falsos positivos da WebSpeech
-            // A menos que seja um Match Exato muito claro.
-            
-            // Mas o WebSpeech roda em paralelo. Vamos confiar na Biometria como filtro final.
-            // Se a Biometria falhar E o IRA for baixo, ignoramos.
-            
-            console.log("Frase de emergência detectada! Tipo:", isExactMatch ? "EXATA" : "FUZZY");
+            console.log("!!! FRASE DETECTADA !!! Iniciando validação...");
+            if (navigator.vibrate) navigator.vibrate(50); // Feedback tátil leve de "Ouvi"
             
             // Pausa reconhecimento
             try { recognition.stop(); } catch(e){}
@@ -466,12 +463,27 @@ export default function VoiceEmergencyListener({
 
             const audioBlob = RingBufferService.getWavBlob(5); // 5 segundos de contexto
             
+            // Debug do Buffer
+            console.log(`[Voz] Buffer de Áudio capturado: ${audioBlob.size} bytes`);
+
             if (audioBlob.size < 1000) {
-                console.warn("Buffer vazio.");
+                console.warn("Buffer vazio. Verifique conflito de microfone.");
+                // Se for exato, forçamos o acionamento mesmo sem áudio (Segurança)
                 if (isExactMatch) {
+                     console.warn("Acionando por Texto Exato (Fallback sem áudio)");
                      onEmergencyDetected("COMANDO_VOZ_EXATO_SEM_AUDIO");
+                } else {
+                     // Se for Fuzzy e sem áudio, é muito arriscado.
+                     console.warn("Fuzzy match sem áudio ignorado.");
                 }
-                setIsAnalyzing(false);
+                
+                // Destrava interface
+                setTimeout(() => {
+                    if (isMountedRef.current) {
+                        setIsAnalyzing(false);
+                        isAnalyzingRef.current = false;
+                    }
+                }, 1000);
                 return;
             }
 
