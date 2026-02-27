@@ -440,8 +440,8 @@ export default function VoiceEmergencyListener({
          let match = false;
          let similarity = 0;
          
-         // 1. Exact Match (Alta Precisão)
-         const isExactMatch = normalizedText.includes(normalizedPhrase);
+         // 1. Exact Match (Alta Precisão) - Verifica inclusão bidirecional para frases curtas
+         const isExactMatch = normalizedText.includes(normalizedPhrase) || (normalizedPhrase.length > 3 && normalizedPhrase.includes(normalizedText));
 
          if (isExactMatch) {
              match = true;
@@ -451,16 +451,28 @@ export default function VoiceEmergencyListener({
              const words = normalizedText.split(' ');
              const phraseLength = normalizedPhrase.split(' ').length;
              
+             // Melhoria v2.2: Janela deslizante para frases longas
              if (words.length >= phraseLength) {
+                 // Tenta casar com o final da frase (mais comum)
                  const recentPhrase = words.slice(-phraseLength).join(' ');
                  similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
                  
+                 // Se não casou bem, tenta com a frase inteira ouvida (pode ser curta)
+                 if (similarity < 0.8) {
+                     const fullSimilarity = stringSimilarity.compareTwoStrings(normalizedText, normalizedPhrase);
+                     if (fullSimilarity > similarity) similarity = fullSimilarity;
+                 }
+                 
                  console.log(`[IRA-SUSI AI Monitor] Similaridade Semântica: ${similarity.toFixed(4)}`);
                  
-                 // Mantém o limiar de alta confiança (0.85) para evitar falsos positivos em escala
-                 if (similarity >= 0.85) { 
+                 // Threshold ajustado: 0.80 para ser mais tolerante com ruído
+                 if (similarity >= 0.80) { 
                      match = true;
                  }
+             } else {
+                 // Se a frase ouvida for MENOR que a alvo, compara direto
+                 similarity = stringSimilarity.compareTwoStrings(normalizedText, normalizedPhrase);
+                 if (similarity >= 0.85) match = true;
              }
          }
 

@@ -603,16 +603,24 @@ export default function PassengerDashboard() {
                       </div>
                   )}
 
+  // Callback estabilizado para evitar recriação do listener
+  const handleAnalysisUpdate = (data) => {
+      setIraData(prev => ({...prev, ...data}));
+  };
+  
+  // ...
+
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
                       isActive={!isEmergencyActive} 
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
-                      onAnalysisUpdate={(data) => setIraData(prev => ({...prev, ...data}))} // Merge com dados anteriores (preserva voiceDebug)
-                      showDebugPanel={false} // Esconde o painel flutuante
-                      onEmergencyDetected={() => {
+                      onAnalysisUpdate={handleAnalysisUpdate} // Usa função estável
+                      showDebugPanel={false} 
+                      onEmergencyDetected={(reason) => {
+                        console.log("Emergência detectada via voz:", reason);
                         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                        handleSOS('voice');
+                        handleSOS('voice', reason);
                       }}
                     />
                     
