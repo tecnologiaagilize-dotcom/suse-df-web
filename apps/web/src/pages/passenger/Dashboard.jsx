@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.10 - Force Deploy");
+  console.log("SUSE-DF PassengerDashboard V1.3.11 - Visual AI Monitor Fix");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -486,7 +486,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.9</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.11</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -607,10 +607,6 @@ export default function PassengerDashboard() {
                           ⚠️ Frase de emergência não configurada. Configure em "Configurar Voz".
                       </div>
                   )}
-
-
-  
-  // ...
 
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
