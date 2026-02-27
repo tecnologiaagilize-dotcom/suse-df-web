@@ -47,6 +47,92 @@ const VoiceBiometryService = {
     },
 
     /**
+     * Define o baseline acústico do usuário para verificação local
+     * @param {Object} baseline - Objeto com { mu, sigma } para cada feature
+     */
+    setBaseline: (baseline) => {
+        if (baseline) {
+            VoiceBiometryService._userBaseline = baseline;
+            console.log("[Biometria] Baseline local carregado:", baseline);
+        }
+    },
+
+    /**
+     * Verificação Biométrica Local (IRA-Match)
+     * Compara as features acústicas atuais com o baseline gravado pelo usuário.
+     * @param {Object} currentFeatures - Features extraídas pelo AudioFeatureExtractor
+     * @returns {Object} { isVerified: boolean, score: number, distance: number }
+     */
+    verifySpeakerIdentityLocal: (currentFeatures) => {
+        const baseline = VoiceBiometryService._userBaseline;
+        
+        if (!baseline || !currentFeatures) {
+            console.warn("[Biometria] Baseline ou Features ausentes para verificação local.");
+            return { isVerified: false, score: 0, reason: "Dados insuficientes" };
+        }
+
+        // Features chave para assinatura vocal (baseado no IRA-SUSI)
+        const keys = ['pitch', 'jitter', 'shimmer', 'hnr', 'energy']; 
+        // Energy é menos confiável pois depende da distância do mic, mas ajuda no contexto.
+        
+        let totalZScore = 0;
+        let validKeys = 0;
+
+        const debugDiffs = {};
+
+        keys.forEach(key => {
+            if (baseline[key] && currentFeatures[key] !== undefined) {
+                const mu = baseline[key].mu;
+                const sigma = Math.max(baseline[key].sigma, 0.001); // Evita divisão por zero
+                
+                // Normaliza feature atual (algumas podem estar em escalas diferentes, mas o extractor deve ser consistente)
+                // Nota: AudioFeatureExtractor retorna 'dbfs' para energia, 'pitch' em Hz, etc.
+                // Precisamos garantir que estamos comparando maçãs com maçãs.
+                // O VoiceConfig usa as mesmas chaves do AudioFeatureExtractor, então deve bater.
+                
+                let value = currentFeatures[key];
+                if (key === 'energy') value = currentFeatures['dbfs']; // Mapeamento correto
+
+                const diff = Math.abs(value - mu);
+                const zScore = diff / sigma;
+                
+                // Peso: Pitch e HNR são mais característicos da voz que energia
+                const weight = (key === 'pitch' || key === 'hnr') ? 1.5 : 1.0;
+                
+                totalZScore += zScore * weight;
+                validKeys += weight;
+
+                debugDiffs[key] = { val: value.toFixed(2), mu: mu.toFixed(2), z: zScore.toFixed(2) };
+            }
+        });
+
+        if (validKeys === 0) return { isVerified: false, score: 0, reason: "Nenhuma feature válida" };
+
+        const avgZScore = totalZScore / validKeys;
+        
+        // Threshold: 
+        // Z-Score < 1.0 = Muito parecido (Dentro de 1 sigma)
+        // Z-Score < 2.0 = Parecido (Dentro de 2 sigmas - 95% confiança)
+        // Z-Score < 3.0 = Diferente
+        
+        // Vamos ser estritos mas realistas: < 2.5
+        const isVerified = avgZScore < 2.5;
+        
+        // Converter Z-Score (0 a inf) para Score de Confiança (0 a 100)
+        // Z=0 -> 100%, Z=3 -> 0%
+        const confidence = Math.max(0, 100 - (avgZScore * 33));
+
+        console.log(`[Biometria Local] Z-Score Médio: ${avgZScore.toFixed(2)} (${isVerified ? 'OK' : 'FAIL'})`, debugDiffs);
+
+        return { 
+            isVerified, 
+            score: confidence, 
+            distance: avgZScore,
+            details: debugDiffs
+        };
+    },
+
+    /**
      * Verifica a identidade do locutor usando Biometria Real via Backend
      * @param {Blob} audioBlob - O áudio capturado para verificação
      * @returns {Promise<{isVerified: boolean, score: number, details: any}>}

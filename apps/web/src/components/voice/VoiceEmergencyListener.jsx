@@ -153,6 +153,7 @@ export default function VoiceEmergencyListener({
           if (user?.user_metadata?.ira_baseline) {
               console.log("VoiceEmergencyListener: Carregando baseline personalizado do usuário.");
               IraSusiCore.setBaseline(user.user_metadata.ira_baseline);
+              VoiceBiometryService.setBaseline(user.user_metadata.ira_baseline); // Injeta no serviço de biometria
           } else {
               console.log("VoiceEmergencyListener: Usando baseline padrão (não configurado).");
           }
@@ -277,6 +278,37 @@ export default function VoiceEmergencyListener({
               }
 
               // Verifica Biometria
+              // ---------------------------------------------------------------------
+
+              // Obter features atuais para comparação local
+              const currentFeatures = AudioFeatureExtractor.getFeatures();
+              const iraRiskLevel = IraSusiCore.getRiskLevel(); // 0 a 1
+
+              // Tentar verificação local primeiro (mais rápida e garante funcionamento offline)
+              const localBiometry = VoiceBiometryService.verifySpeakerIdentityLocal(currentFeatures);
+              
+              // Decisão Tripla: (Texto + Biometria Local + IRA Risk)
+              // Se Biometria Local OK -> Aciona
+              // Se Biometria Local Falha mas IRA Risk Alto -> Aciona (Contexto de Pânico altera a voz)
+              
+              let biometryVerified = localBiometry.isVerified;
+              
+              if (!biometryVerified && iraRiskLevel > 0.6) {
+                  console.warn("Biometria Local Falhou (Z-Score alto), mas IRA Risk é ALTO. Voz alterada por stress?");
+                  // Se o risco é alto, relaxamos o threshold biométrico
+                  if (localBiometry.distance < 4.0) { // Aceita até 4 sigmas se estiver em pânico
+                       console.log("Aceitando biometria degradada devido ao Risco IRA.");
+                       biometryVerified = true;
+                  }
+              }
+
+              if (biometryVerified) {
+                   console.log("Biometria Local Confirmada (IRA-Match). ACIONANDO EMERGÊNCIA.");
+                   onEmergencyDetected("COMANDO_VOZ_BIOMETRIA_LOCAL");
+                   return; // Sai cedo, sucesso
+              }
+
+              // Se local falhou, tenta remoto (se houver internet/backend)
               try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
@@ -443,6 +475,38 @@ export default function VoiceEmergencyListener({
                 return;
             }
 
+            // ---------------------------------------------------------------------
+            // Verifica Biometria (Local + Remote)
+
+            // Obter features atuais para comparação local
+            const currentFeatures = AudioFeatureExtractor.getFeatures();
+            const iraRiskLevel = IraSusiCore.getRiskLevel(); // 0 a 1
+
+            // Tentar verificação local primeiro (mais rápida e garante funcionamento offline)
+            const localBiometry = VoiceBiometryService.verifySpeakerIdentityLocal(currentFeatures);
+            
+            // Decisão Tripla: (Texto + Biometria Local + IRA Risk)
+            let biometryVerified = localBiometry.isVerified;
+            
+            if (!biometryVerified && iraRiskLevel > 0.6) {
+                console.warn("Biometria Local Falhou (Z-Score alto), mas IRA Risk é ALTO. Voz alterada por stress?");
+                // Se o risco é alto, relaxamos o threshold biométrico
+                if (localBiometry.distance < 4.0) { // Aceita até 4 sigmas se estiver em pânico
+                     console.log("Aceitando biometria degradada devido ao Risco IRA.");
+                     biometryVerified = true;
+                }
+            }
+
+            if (biometryVerified) {
+                 console.log("Biometria Local Confirmada (IRA-Match). ACIONANDO EMERGÊNCIA.");
+                 onEmergencyDetected("COMANDO_VOZ_BIOMETRIA_LOCAL");
+                 
+                 // Cleanup
+                 setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 3000);
+                 return;
+            }
+
+            // Fallback para Remoto (se local falhou e não temos certeza)
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
