@@ -13,6 +13,15 @@ class RingBufferService {
     }
 
     /**
+     * Reseta o buffer (limpa memória e ponteiros)
+     */
+    clear() {
+        this.buffer.fill(0);
+        this.writePointer = 0;
+        console.log("[RingBuffer] Memória limpa e reiniciada.");
+    }
+
+    /**
      * Escreve novos dados no buffer circular
      * @param {Float32Array} data - Chunk de áudio recebido
      */

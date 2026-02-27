@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.13 - Sync Version");
+  console.log("SUSE-DF PassengerDashboard V1.3.14 - Biometry Restore");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -486,7 +486,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.13</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.14</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>

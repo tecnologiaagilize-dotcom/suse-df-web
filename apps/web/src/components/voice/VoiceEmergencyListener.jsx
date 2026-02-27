@@ -62,6 +62,9 @@ export default function VoiceEmergencyListener({
     // Inicializar AudioWorklet (Core v2) e Wake Word
     const initAudioCore = async () => {
         try {
+            // Garantir que o buffer esteja limpo antes de começar
+            RingBufferService.clear();
+
             if (audioContextRef.current?.state === 'running') {
                  console.log("AudioContext já rodando. Ignorando re-init.");
                  return;
@@ -160,6 +163,14 @@ export default function VoiceEmergencyListener({
           AudioFeatureExtractor.initialize(ctx, processedSource);
           SensorContextService.start();
           IraSusiCore.reset();
+          
+          // --- Robustez: Check de inicialização ---
+          setTimeout(() => {
+              if (!AudioFeatureExtractor.getFeatures()) {
+                  console.warn("IRA-SUSI: AudioFeatureExtractor não retornou dados após 1s. Tentando reinicializar...");
+                  AudioFeatureExtractor.initialize(ctx, processedSource);
+              }
+          }, 1000);
 
           // --- FIX: Resume AudioContext se estiver suspenso (Autoplay Policy) ---
           if (ctx.state === 'suspended') {
@@ -233,7 +244,17 @@ export default function VoiceEmergencyListener({
           // Receber dados da thread separada
           workletNode.port.onmessage = (event) => {
               if (event.data.eventType === 'audio_data') {
-                  RingBufferService.write(event.data.audioBuffer);
+                  const audioData = event.data.audioBuffer;
+                  // Gravação contínua no RingBuffer (Prioridade Crítica)
+                  RingBufferService.write(audioData);
+                  
+                  // Verificação de saúde do stream (Detecta silêncio digital ou falha de hardware)
+                  if (Math.random() > 0.99) { // Amostragem ~1% para não floodar
+                      const rms = Math.sqrt(audioData.reduce((acc, val) => acc + val * val, 0) / audioData.length);
+                      if (rms < 0.0001) {
+                          console.warn("[IRA-SUSI Health] Alerta: Entrada de áudio muito baixa ou muda (Silêncio Digital). Verifique o microfone.");
+                      }
+                  }
               }
           };
 
@@ -490,8 +511,16 @@ export default function VoiceEmergencyListener({
             // Captura snapshot de áudio para análise espectral e biométrica
             const audioBlob = RingBufferService.getWavBlob(5); 
             
-            // Debug do Buffer (Apenas informativo, sem fallback inseguro)
-            console.log(`[IRA-SUSI AI Monitor] Snapshot de Áudio: ${audioBlob.size} bytes. Enviando para análise.`);
+            // Debug do Buffer e Features (Monitoramento Contínuo Solicitado)
+            const features = AudioFeatureExtractor.getFeatures() || {};
+            console.log(`[IRA-SUSI AI Monitor] Snapshot de Áudio: ${audioBlob.size} bytes.`);
+            console.log(`[IRA-SUSI Biometria] Parâmetros de Voz: Pitch=${features.pitch?.toFixed(1)}Hz, RMS=${features.rms?.toFixed(4)}, Jitter=${features.jitter?.toFixed(2)}%, HNR=${features.hnr?.toFixed(2)}`);
+
+            // Check de Integridade do Áudio (Feedback Visual no Console)
+            if (audioBlob.size < 4000) { // < 4KB é praticamente vazio para WAV
+                 console.error("ALERTA CRÍTICO: Áudio corrompido ou vazio detectado no buffer!");
+                 // A decisão de falhar ou seguir depende da política. Strict Mode exige falha se não houver prova.
+            }
 
             // O sistema segue para a verificação biométrica rigorosa (sem atalhos)
             // Se o áudio estiver vazio ou inválido, a biometria falhará naturalmente (Fail-Secure),
