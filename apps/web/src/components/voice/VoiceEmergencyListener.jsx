@@ -180,23 +180,28 @@ export default function VoiceEmergencyListener({
 
                   // Loop de Análise Contínua (Sem Frase)
                   // v3.0: Strict Compliance IRA v1.1
-                  // Regra: "Impacto crítico + silêncio/grito -> Central"
-                  // Grito isolado (IRA > 0.89) NÃO aciona central (apenas log/WhatsApp futuro)
-                  
-                  const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85
-                  const isStressDetected = result.ira > 0.70; // Stress/Grito
+                  // Regra 1: "Impacto crítico + silêncio/grito -> Central"
+                  const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85 (25m/s²)
+                  const isStressDetected = result.ira > 0.70; // Stress/Grito (Base para fusão)
                   const isSilencePostImpact = isCriticalImpact && features.dbfs < -50; // Silêncio absoluto pós-batida
                   
-                  if (isCriticalImpact && (isStressDetected || isSilencePostImpact) && !isAnalyzingRef.current) {
-                      const cause = isStressDetected ? "Impacto + Grito/Stress" : "Impacto + Silêncio Total";
-                      console.warn(`IRA-SUSI: Emergência Automática (Matriz Final). Motivo: ${cause}`);
-                      
-                      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
-                      onEmergencyDetected();
-                  }
-                  // Grito isolado (sem impacto) é ignorado para Central, conforme spec.
-                  else if (result.ira > 0.89 && !isAnalyzingRef.current) {
-                      console.warn("IRA-SUSI: Grito isolado detectado (Sem impacto). Registrando evento, mas NÃO acionando Central.");
+                  // Regra 2: "Risco Extremo (IRA > 92%) -> Central" (Acoustic Only - Risk Bar > 70%)
+                  // Conforme solicitado: "só ira realizar uma chamada automatica sem a frase de emergencia quando o marcardor 'Em risco' utltrapassar a metrica de 70%"
+                  // Considerando Risk inicia em ~0.75, 70% da escala de risco nos leva a ~0.92.
+                  const isExtremeAcousticRisk = result.ira > 0.92;
+
+                  if (!isAnalyzingRef.current) {
+                      if (isCriticalImpact && (isStressDetected || isSilencePostImpact)) {
+                          const cause = isStressDetected ? "Impacto + Grito/Stress" : "Impacto + Silêncio Total";
+                          console.warn(`IRA-SUSI: Emergência Automática (Matriz Final). Motivo: ${cause}`);
+                          if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
+                          onEmergencyDetected();
+                      }
+                      else if (isExtremeAcousticRisk) {
+                          console.warn("IRA-SUSI: Emergência Automática (Risco Acústico Extremo > 92%). Motivo: Grito/Pânico Confirmado.");
+                          if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
+                          onEmergencyDetected();
+                      }
                   }
               }
               analysisLoopRef.current = requestAnimationFrame(analyzeFrame);
@@ -272,29 +277,22 @@ export default function VoiceEmergencyListener({
       }
 
       // Verifica Biometria
-      try {
-        const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
-        
-        // Se verificado ou se o backend estiver offline (fail-open no service), aciona
-        if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
-            console.log("Biometria Confirmada (Wake Word). ACIONANDO.");
-            onEmergencyDetected();
-        } else {
-            // Se a biometria falhar, vamos verificar se é uma Wake Word composta
-            // "Alexa", "Siri" -> Palavras curtas (Perigoso sem biometria)
-            // "Ok Google", "Suse Socorro" -> Compostas (Mais seguro)
-            
-            // Aqui não temos acesso direto ao texto da wake word (TensorFlow detecta patterns),
-            // mas podemos assumir que Wake Words do modelo são distintas.
-            // Vamos reativar com log de risco
-            console.warn("Biometria falhou na Wake Word. ACIONANDO (Política Rebalanceada v1.6).");
-            onEmergencyDetected();
-        }
-      } catch (err) {
-          console.error("Erro na verificação biométrica:", err);
-          // Em erro técnico, assumimos segurança
-          onEmergencyDetected();
-      } finally {
+            try {
+              const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
+              
+              // STRICT MODE v1.1: Apenas Biometria Verificada Aciona.
+              // Sem "Fail-Open", sem "Backend Offline".
+              if (result && result.isVerified) {
+                  console.log("Biometria Confirmada (Wake Word). ACIONANDO.");
+                  onEmergencyDetected();
+              } else {
+                  console.warn("Biometria Falhou ou Backend Offline. IGNORADO (Strict Mode).");
+                  // Não aciona.
+              }
+            } catch (err) {
+                console.error("Erro na verificação biométrica:", err);
+                // Strict Mode: Erro técnico = Não aciona.
+            } finally {
           // Garante que a UI destrave
           setTimeout(() => {
               if (isMountedRef.current) {
@@ -448,62 +446,22 @@ export default function VoiceEmergencyListener({
             try {
                 const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
                 
-                // LÓGICA DE DECISÃO v2.1 (Anti-Falso Negativo Silencioso)
+                // LÓGICA DE DECISÃO STRICT v1.1 (Zero Falso Positivo)
                 
                 // 1. Biometria VERIFICADA -> ACIONA
-                if (result && (result.isVerified || result.details === "Fail-Open (Backend Offline)")) {
+                if (result && result.isVerified) {
                     console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
                     onEmergencyDetected();
                 } 
                 
-                // 2. Biometria FALHOU -> ANÁLISE DE CONTEXTO
+                // 2. Biometria FALHOU -> IGNORA
                 else {
-                    console.warn("Biometria Falhou. Iniciando Análise Contextual Profunda (v2.1)...");
-                    
-                    // Recupera Features do IRA
-                    const currentFeatures = AudioFeatureExtractor.getFeatures();
-                    
-                    // Definição de Ambiente de Risco (Parametrizado via IRA Config v1.0)
-                    const cfg = IraSusiCore.config.emergencyContext || {
-                        riskDbfsThreshold: -25,
-                        riskPitchThreshold: 200,
-                        riskJitterThreshold: 0.1,
-                        silenceGhostThreshold: -40
-                    };
-
-                    const isRiskContext = (currentFeatures?.dbfs > cfg.riskDbfsThreshold) || 
-                                          (currentFeatures?.pitch > cfg.riskPitchThreshold) ||
-                                          (currentFeatures?.jitter > cfg.riskJitterThreshold);
-
-                    if (isExactMatch) {
-                        // Match Exato + Biometria Falha
-                        // Se houver QUALQUER indício de tensão vocal ou volume razoável, ACIONA.
-                        
-                        if (isRiskContext || (result?.score > 50)) {
-                            console.warn("Match Exato + Contexto de Risco Moderado. ACIONANDO (Anti-Falso Negativo).");
-                            onEmergencyDetected();
-                        } else {
-                            // Se for silêncio absoluto e o transcritor pegou algo, é fantasma.
-                            if (currentFeatures?.dbfs < cfg.silenceGhostThreshold) {
-                                console.warn("Match Exato em Silêncio Absoluto (Ghost). IGNORADO.");
-                            } else {
-                                // Caso limítrofe: Ambiente calmo, voz normal, mas biometria falhou.
-                                // Política: ACIONA. É melhor um falso positivo controlado do que ignorar um pedido claro.
-                                console.warn("Match Exato em Ambiente Calmo. ACIONANDO (Política de Segurança Final).");
-                                onEmergencyDetected();
-                            }
-                        }
-                    } else {
-                        // Fuzzy Match -> Mantém rigoroso.
-                        console.warn("Fuzzy Match sem Biometria. IGNORADO.");
-                    }
+                    console.warn("Biometria Falhou. IGNORADO (Strict Mode).");
+                    // Nenhuma lógica de "Anti-Falso Negativo" permitida.
                 }
             } catch (err) {
                 console.error("Erro técnico biometria:", err);
-                // Fail-Safe apenas para Match Exato
-                if (isExactMatch) {
-                    onEmergencyDetected();
-                }
+                // Strict Mode: Erro = Ignora.
             } finally {
                 setTimeout(() => {
                     if (isMountedRef.current) {

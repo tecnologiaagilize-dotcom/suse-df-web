@@ -519,7 +519,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Motorista
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.1</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.3</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -749,52 +749,55 @@ export default function DriverDashboard() {
                          </div>
                      </div>
 
-                     {/* Barras de Progresso em Cascata - v2.2 */}
+                     {/* Barras de Progresso em Cascata - v2.3 (Parametrização v1.1) */}
                      <div className="flex flex-col gap-2 mt-4 mb-4">
                          
-                         {/* Barra 1: Normal (Verde) - Até 35% */}
+                         {/* Barra 1: Normal (Verde) - IRA 0.0 a 0.40 */}
+                         {/* Começa a acionar a próxima quando > 70% (0.28) */}
                          <div className="w-full">
                              <div className="flex justify-between text-[10px] text-gray-500 mb-1">
                                  <span>NORMAL</span>
-                                 <span>{Math.min(100, Math.max(0, ((iraData?.ira || 0) / 0.35) * 100)).toFixed(0)}%</span>
+                                 <span>{Math.min(100, Math.max(0, ((iraData?.ira || 0) / 0.40) * 100)).toFixed(0)}%</span>
                              </div>
                              <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
                                  <div 
                                     className="h-full bg-green-500 transition-all duration-300"
-                                    style={{ width: `${Math.min(100, Math.max(0, ((iraData?.ira || 0) / 0.35) * 100))}%` }}
+                                    style={{ width: `${Math.min(100, Math.max(0, ((iraData?.ira || 0) / 0.40) * 100))}%` }}
                                  ></div>
                              </div>
                          </div>
 
-                         {/* Barra 2: Atenção (Amarela) - De 35% a 63% */}
+                         {/* Barra 2: Atenção (Amarela) - Começa em 0.28 até 0.70 */}
+                         {/* Aciona próxima quando > 70% deste range (aprox 0.57) */}
                          <div className="w-full">
                              <div className="flex justify-between text-[10px] text-gray-500 mb-1">
                                  <span>ATENÇÃO</span>
-                                 <span>{Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.35) / 0.28) * 100)).toFixed(0)}%</span>
+                                 <span>{Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.28) / (0.70 - 0.28)) * 100)).toFixed(0)}%</span>
                              </div>
                              <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
                                  <div 
                                     className="h-full bg-yellow-500 transition-all duration-300"
-                                    style={{ width: `${Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.35) / 0.28) * 100))}%` }}
+                                    style={{ width: `${Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.28) / (0.70 - 0.28)) * 100))}%` }}
                                  ></div>
                              </div>
                          </div>
 
-                         {/* Barra 3: Em Risco (Vermelha) - Acima de 63% */}
+                         {/* Barra 3: Em Risco (Vermelha) - Começa em 0.57 até 1.0 */}
+                         {/* Trigger automático quando > 70% deste range (aprox 0.87) */}
                          <div className="w-full">
                              <div className="flex justify-between text-[10px] text-gray-500 mb-1">
                                  <span className="text-red-400 font-bold">EM RISCO</span>
-                                 <span className="text-red-400 font-bold">{Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.63) / 0.37) * 100)).toFixed(0)}%</span>
+                                 <span className="text-red-400 font-bold">{Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.57) / (1.0 - 0.57)) * 100)).toFixed(0)}%</span>
                              </div>
                              <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden border border-red-900/30">
                                  <div 
                                     className={`h-full transition-all duration-300 ${
-                                        (iraData?.ira || 0) > 0.89 ? 'bg-red-600 animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.8)]' : 'bg-red-500'
+                                        (iraData?.ira || 0) > 0.87 ? 'bg-red-600 animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.8)]' : 'bg-red-500'
                                     }`}
-                                    style={{ width: `${Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.63) / 0.37) * 100))}%` }}
+                                    style={{ width: `${Math.min(100, Math.max(0, (((iraData?.ira || 0) - 0.57) / (1.0 - 0.57)) * 100))}%` }}
                                  ></div>
                              </div>
-                             {(iraData?.ira || 0) > 0.89 && (
+                             {(iraData?.ira || 0) > 0.87 && (
                                  <p className="text-[10px] text-red-500 text-center mt-1 animate-pulse font-bold">⚠️ ACIONAMENTO AUTOMÁTICO IMINENTE</p>
                              )}
                          </div>

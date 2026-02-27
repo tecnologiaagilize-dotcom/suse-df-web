@@ -17,7 +17,7 @@ class SensorContextService {
         this.motionListener = null;
         
         // Configurações de Sensibilidade
-        this.IMPACT_THRESHOLD = 15.0; // G-force (m/s²) para considerar impacto
+        this.IMPACT_THRESHOLD = 25.0; // G-force (m/s²) para considerar impacto (v3.1)
         this.MOVEMENT_THRESHOLD = 5.0; // km/h
     }
 
