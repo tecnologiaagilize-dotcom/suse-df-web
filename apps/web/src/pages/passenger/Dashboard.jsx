@@ -471,6 +471,11 @@ export default function PassengerDashboard() {
     }
   };
 
+  // Callback estabilizado para evitar recriação do listener
+  const handleAnalysisUpdate = (data) => {
+    setIraData(prev => ({...prev, ...data}));
+  };
+
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <nav className="bg-white shadow-sm">
@@ -603,10 +608,7 @@ export default function PassengerDashboard() {
                       </div>
                   )}
 
-  // Callback estabilizado para evitar recriação do listener
-  const handleAnalysisUpdate = (data) => {
-      setIraData(prev => ({...prev, ...data}));
-  };
+
   
   // ...
 
