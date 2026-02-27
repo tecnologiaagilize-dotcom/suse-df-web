@@ -595,13 +595,20 @@ export default function PassengerDashboard() {
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-gray-900">Painel do Passageiro</h2>
                   <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
+                  
+                  {/* Alerta se frase não estiver configurada */}
+                  {!emergencyPhrase && (
+                      <div className="mt-2 text-xs text-red-500 bg-red-50 p-2 rounded border border-red-200">
+                          ⚠️ Frase de emergência não configurada. Configure em "Configurar Voz".
+                      </div>
+                  )}
 
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
                       isActive={!isEmergencyActive} 
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
-                      onAnalysisUpdate={(data) => setIraData(data)} // Atualiza o painel fixo
+                      onAnalysisUpdate={(data) => setIraData(prev => ({...prev, ...data}))} // Merge com dados anteriores (preserva voiceDebug)
                       showDebugPanel={false} // Esconde o painel flutuante
                       onEmergencyDetected={() => {
                         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -722,6 +729,28 @@ export default function PassengerDashboard() {
 
                      {/* Barra de Monitoramento com Níveis Fixos e Marcador Móvel - v3.0 */}
                      <div className="mt-4 mb-4">
+                         {/* --- NOVO: MONITOR DE VOZ EM TEMPO REAL (IRA-SUSI AI MONITOR) --- */}
+                         {iraData?.voiceDebug && (Date.now() - iraData.voiceDebug.timestamp < 5000) && (
+                             <div className="mb-3 bg-black/40 rounded p-2 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-2">
+                                 <div className="flex justify-between items-center text-[9px] uppercase tracking-wider text-blue-400 mb-1">
+                                     <span className="font-bold flex items-center gap-1"><Activity size={10}/> Análise Semântica</span>
+                                     <span className={iraData.voiceDebug.match ? "text-green-400 font-bold" : "text-gray-500"}>
+                                         Match: {(iraData.voiceDebug.similarity * 100).toFixed(0)}%
+                                     </span>
+                                 </div>
+                                 <div className="font-mono text-[10px] text-gray-300 truncate">
+                                     Ouvido: <span className="text-white">"{iraData.voiceDebug.text}"</span>
+                                 </div>
+                                 <div className="w-full bg-gray-700 h-1 mt-1 rounded-full overflow-hidden">
+                                     <div 
+                                         className={`h-full transition-all duration-300 ${iraData.voiceDebug.match ? 'bg-green-500' : 'bg-blue-500'}`}
+                                         style={{ width: `${Math.min(100, iraData.voiceDebug.similarity * 100)}%` }}
+                                     />
+                                 </div>
+                             </div>
+                         )}
+                         {/* --------------------------------------------------------------- */}
+
                          <div className="flex justify-between text-[10px] text-gray-500 mb-1 font-bold uppercase">
                              <span>Nível de Monitoramento</span>
                              <span className={

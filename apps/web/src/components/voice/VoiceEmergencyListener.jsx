@@ -418,17 +418,15 @@ export default function VoiceEmergencyListener({
          // Debug Visual no Console (Requisitado: Monitoramento Avançado)
          console.log(`[IRA-SUSI AI Monitor] Analisando padrão de voz: "${normalizedText}" | Target: "${normalizedPhrase}"`);
 
-         // --- LÓGICA DE DETECÇÃO AVANÇADA (v1.5: High Precision Mode) ---
-         // O sistema deve ser capaz de processar milhares de acessos com precisão cirúrgica.
-         // Mantemos a integridade da frase original sem normalizações destrutivas.
-         
          let match = false;
+         let similarity = 0;
          
          // 1. Exact Match (Alta Precisão)
          const isExactMatch = normalizedText.includes(normalizedPhrase);
 
          if (isExactMatch) {
              match = true;
+             similarity = 1.0;
          } else {
              // 2. Fuzzy Logic (Rede Neural Simulada via String Similarity)
              const words = normalizedText.split(' ');
@@ -436,7 +434,7 @@ export default function VoiceEmergencyListener({
              
              if (words.length >= phraseLength) {
                  const recentPhrase = words.slice(-phraseLength).join(' ');
-                 const similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
+                 similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
                  
                  console.log(`[IRA-SUSI AI Monitor] Similaridade Semântica: ${similarity.toFixed(4)}`);
                  
@@ -445,6 +443,21 @@ export default function VoiceEmergencyListener({
                      match = true;
                  }
              }
+         }
+
+         // --- EXPORTAR DADOS DE DEBUG PARA UI (v2.0) ---
+         // Envia dados para o componente pai exibir visualmente
+         if (onAnalysisUpdate) {
+             onAnalysisUpdate((prev) => ({
+                 ...prev,
+                 voiceDebug: {
+                     text: normalizedText.slice(-50), // Últimos caracteres
+                     target: normalizedPhrase,
+                     similarity: similarity,
+                     match: match,
+                     timestamp: Date.now()
+                 }
+             }));
          }
 
          if (match) {
