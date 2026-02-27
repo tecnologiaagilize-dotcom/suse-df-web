@@ -554,9 +554,9 @@ export default function DriverDashboard() {
             <div className="flex flex-col">
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <ShieldAlert className="text-red-600" />
-                SUSE - Motorista
+                SUSE-CONDUTOR
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">V.1.3.7</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>

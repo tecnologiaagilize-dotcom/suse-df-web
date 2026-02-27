@@ -75,12 +75,12 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // 2. Check if user is Driver (Users table)
+      // 2. Check if user is Driver/Passenger (Users table)
       let userData = null;
       try {
         const { data, error } = await supabase
             .from('users')
-            .select('id')
+            .select('role')
             .eq('id', currentUser.id)
             .maybeSingle();
         if (!error) userData = data;
@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (userData) {
-        setUserRole('driver');
+        setUserRole(userData.role || 'driver');
         setLoading(false);
         return;
       }
