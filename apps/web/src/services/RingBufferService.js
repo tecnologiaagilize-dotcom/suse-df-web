@@ -3,20 +3,13 @@
  * Permite escrita e leitura contínua de streams de áudio sem alocação dinâmica de memória.
  */
 class RingBufferService {
-    constructor(durationSeconds = 30, sampleRate = 16000) {
+    constructor(durationSeconds = 60, sampleRate = 16000) { // Aumentado para 60s
         this.sampleRate = sampleRate;
         this.capacity = durationSeconds * sampleRate;
-        
-        // Aloca SharedArrayBuffer se suportado (para AudioWorklet), senão ArrayBuffer normal
-        try {
-            this.buffer = new SharedArrayBuffer(this.capacity * 4); // Float32 = 4 bytes
-        } catch (e) {
-            console.warn("SharedArrayBuffer não suportado, usando ArrayBuffer (fallback).");
-            this.buffer = new ArrayBuffer(this.capacity * 4);
-        }
-        
-        this.view = new Float32Array(this.buffer);
+        this.buffer = new Float32Array(this.capacity); // Simplificado para Float32Array direto
         this.writePointer = 0;
+        this.isInitialized = true;
+        console.log(`[RingBuffer] Inicializado com ${durationSeconds}s de capacidade.`);
     }
 
     /**
@@ -24,28 +17,20 @@ class RingBufferService {
      * @param {Float32Array} data - Chunk de áudio recebido
      */
     write(data) {
+        if (!data || data.length === 0) return;
+        
         const len = data.length;
-        
-        // Se o dado for maior que o buffer inteiro (improvável), escrevemos apenas o final
-        if (len > this.capacity) {
-            data = data.subarray(len - this.capacity);
-        }
+        let readIdx = 0;
 
-        // Primeira parte: Do ponteiro até o fim do buffer
-        const endSpace = this.capacity - this.writePointer;
-        
-        if (len <= endSpace) {
-            this.view.set(data, this.writePointer);
-            this.writePointer += len;
-        } else {
-            // Divide em duas partes: Até o fim e o resto no início (wrap around)
-            this.view.set(data.subarray(0, endSpace), this.writePointer);
-            this.view.set(data.subarray(endSpace), 0);
-            this.writePointer = len - endSpace;
-        }
-
-        if (this.writePointer >= this.capacity) {
-            this.writePointer = 0;
+        // Escrita circular otimizada
+        while (readIdx < len) {
+            const spaceToEnd = this.capacity - this.writePointer;
+            const chunk = Math.min(len - readIdx, spaceToEnd);
+            
+            this.buffer.set(data.subarray(readIdx, readIdx + chunk), this.writePointer);
+            
+            this.writePointer = (this.writePointer + chunk) % this.capacity;
+            readIdx += chunk;
         }
     }
 
@@ -55,32 +40,45 @@ class RingBufferService {
      * @returns {Float32Array} - Buffer linearizado
      */
     readLastSeconds(seconds) {
-        const samplesToRead = Math.min(seconds * this.sampleRate, this.capacity);
-        const result = new Float32Array(samplesToRead);
+        const samplesNeeded = Math.min(seconds * this.sampleRate, this.capacity);
+        const result = new Float32Array(samplesNeeded);
         
-        // Calcula ponteiro de leitura retroativo
-        let readPointer = this.writePointer - samplesToRead;
+        let readPtr = this.writePointer - samplesNeeded;
+        if (readPtr < 0) readPtr += this.capacity;
         
-        if (readPointer >= 0) {
-            // Leitura contínua sem wrap
-            result.set(this.view.subarray(readPointer, this.writePointer));
+        // Copia em duas partes (se necessário) para lidar com o wrap-around
+        if (readPtr + samplesNeeded <= this.capacity) {
+            result.set(this.buffer.subarray(readPtr, readPtr + samplesNeeded));
         } else {
-            // Leitura com wrap (final do buffer + início)
-            const endPart = this.view.subarray(this.capacity + readPointer); // readPointer é negativo aqui
-            const startPart = this.view.subarray(0, this.writePointer);
-            
-            result.set(endPart);
-            result.set(startPart, endPart.length);
+            const firstPartLen = this.capacity - readPtr;
+            result.set(this.buffer.subarray(readPtr, this.capacity), 0);
+            result.set(this.buffer.subarray(0, samplesNeeded - firstPartLen), firstPartLen);
         }
         
         return result;
     }
 
     /**
-     * Converte o buffer atual para WAV Blob (para download/upload)
+     * Converte o buffer atual para WAV Blob
      */
-    getWavBlob(seconds = 10) {
+    getWavBlob(seconds = 5) { // Default 5s
         const audioData = this.readLastSeconds(seconds);
+        
+        // Verifica se há silêncio absoluto (buffer zerado ou não gravado)
+        let hasSignal = false;
+        for(let i=0; i<audioData.length; i+=100) { // Amostragem rápida
+            if (Math.abs(audioData[i]) > 0.001) {
+                hasSignal = true; 
+                break;
+            }
+        }
+        
+        if (!hasSignal) {
+            console.warn("[RingBuffer] Buffer vazio ou silêncio detectado ao gerar Blob.");
+            // Retorna Blob vazio propositalmente para falhar no check de tamanho
+            return new Blob([], { type: 'audio/wav' }); 
+        }
+
         return this.encodeWAV(audioData);
     }
 
@@ -109,17 +107,16 @@ class RingBufferService {
         writeString(view, 36, 'data');
         view.setUint32(40, samples.length * 2, true);
 
-        const floatTo16BitPCM = (output, offset, input) => {
-            for (let i = 0; i < input.length; i++, offset += 2) {
-                const s = Math.max(-1, Math.min(1, input[i]));
-                output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-            }
-        };
-
-        floatTo16BitPCM(view, 44, samples);
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+            const s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
 
         return new Blob([view], { type: 'audio/wav' });
     }
 }
 
-export default new RingBufferService();
+// Singleton Instance
+const ringBufferInstance = new RingBufferService();
+export default ringBufferInstance;

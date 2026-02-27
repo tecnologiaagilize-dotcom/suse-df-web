@@ -43,10 +43,29 @@ export default function VoiceEmergencyListener({
     return () => { isMountedRef.current = false; };
   }, []);
 
-  // Inicializar AudioWorklet (Core v2) e Wake Word
-  const initAudioCore = async () => {
-      try {
-          if (audioContextRef.current?.state === 'running') return;
+  // --- LÓGICA DE RING BUFFER E WORKLET ---
+    useEffect(() => {
+        // Inicializa o RingBuffer globalmente apenas uma vez se ainda não foi inicializado
+        // RingBufferService é um singleton exportado com 'new', então já está instanciado.
+        // Mas precisamos garantir que ele está "vivo" e recebendo dados.
+        
+        // Debug: Verificar se o RingBuffer está recebendo dados
+        const debugInterval = setInterval(() => {
+            if (isAnalyzingRef.current) return;
+            // Apenas um check leve para ver se o ponteiro está movendo
+            // console.log("RingBuffer Pointer:", RingBufferService.writePointer); 
+        }, 5000);
+        
+        return () => clearInterval(debugInterval);
+    }, []);
+
+    // Inicializar AudioWorklet (Core v2) e Wake Word
+    const initAudioCore = async () => {
+        try {
+            if (audioContextRef.current?.state === 'running') {
+                 console.log("AudioContext já rodando. Ignorando re-init.");
+                 return;
+            }
 
           // 1. Inicializar Wake Word (TensorFlow.js)
           await WakeWordService.loadModel();
