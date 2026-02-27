@@ -12,7 +12,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.6 - Map & Share");
+  console.log("SUSE-DF DriverDashboard V1.3.7 - Compact Map");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -755,8 +755,8 @@ export default function DriverDashboard() {
                     </span>
                   </div>
                   
-                  {/* Mapa Visível - Altura ajustada para combinar com o card do IRA */}
-                  <div className="h-80 w-full relative bg-gray-100 z-0">
+                  {/* Mapa Visível - Altura reduzida (1/3) */}
+                  <div className="h-32 w-full relative bg-gray-100 z-0">
                      <TrackingMap lat={currentLocation.lat} lng={currentLocation.lng} />
                   </div>
 
@@ -776,9 +776,18 @@ export default function DriverDashboard() {
 
                 {/* Painel IRA-SUSI Fixo - STATUS */}
                 <div className="w-full max-w-md bg-gray-900 rounded-lg p-4 shadow-lg border border-gray-700">
-                     <h4 className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-3 border-b border-gray-700 pb-2">
-                         Status IRA-SUSE™ <span className="text-gray-600 ml-1">v1.1</span>
-                     </h4>
+                     <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
+                        <h4 className="text-gray-400 text-xs uppercase tracking-widest font-bold">
+                            Status IRA-SUSE™ <span className="text-gray-600 ml-1">v1.1</span>
+                        </h4>
+                        {/* Indicador de Atividade do Microfone */}
+                        <div className="flex items-center gap-2">
+                            <span className={`h-2 w-2 rounded-full ${iraData ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            <span className="text-[10px] text-gray-500 font-mono">
+                                {iraData ? 'MIC ON' : 'MIC OFF'}
+                            </span>
+                        </div>
+                     </div>
                      
                      <div className="flex items-center justify-between">
                          <div className="flex flex-col">
