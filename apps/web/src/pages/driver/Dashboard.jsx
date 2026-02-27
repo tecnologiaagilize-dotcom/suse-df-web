@@ -12,7 +12,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.0 - Dead Zones");
+  console.log("SUSE-DF DriverDashboard V1.3.3 - Strict Mode");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 

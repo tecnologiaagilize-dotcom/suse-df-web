@@ -10,6 +10,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
+  console.log("SUSE-DF PassengerDashboard V1.3.3 - Strict Mode");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
