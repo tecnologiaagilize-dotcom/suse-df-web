@@ -542,7 +542,7 @@ export default function Dashboard() {
               <AlertTriangle className="text-red-600" />
               Central de Monitoramento
             </h1>
-            <span className="text-xs text-gray-500 font-mono ml-8">SUSE-v1.3.7</span>
+            <span className="text-xs text-gray-500 font-mono ml-8">SUSE-v1.3.8</span>
           </div>
           <div className="flex items-center gap-4">
             {(userRole === 'admin' || userRole === 'master' || userRole === 'supervisor') && (
