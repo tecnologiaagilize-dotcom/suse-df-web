@@ -12,7 +12,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.8 - Local Biometry & IRA Context");
+  console.log("SUSE-DF DriverDashboard V1.3.9 - Visual AI Monitor & Robust Voice");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -556,7 +556,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE-CONDUTOR
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">V.1.3.8</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">V.1.3.9</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
