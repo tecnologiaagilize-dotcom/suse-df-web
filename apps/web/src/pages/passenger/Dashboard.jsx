@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.8 - Local Biometry & IRA Context");
+  console.log("SUSE-DF PassengerDashboard V1.3.10 - Force Deploy");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 

@@ -61,7 +61,7 @@ export default function Login() {
             SUSE-DF
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Sistema Unificado de Segurança e Emergência v1.3.9
+            Sistema Unificado de Segurança e Emergência v1.3.10
           </p>
         </div>
 

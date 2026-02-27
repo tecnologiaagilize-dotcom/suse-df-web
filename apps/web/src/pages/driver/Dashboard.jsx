@@ -556,7 +556,7 @@ export default function DriverDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE-CONDUTOR
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">V.1.3.9</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">V.1.3.10</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
