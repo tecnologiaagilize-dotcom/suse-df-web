@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse, Share2 } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -12,7 +12,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3 - Fixed Zones Gauge");
+  console.log("SUSE-DF DriverDashboard V1.3.6 - Map & Share");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -508,6 +508,27 @@ export default function DriverDashboard() {
       }
   };
 
+  // Função para compartilhar localização
+  const handleShareLocation = async () => {
+    const shareUrl = `https://maps.google.com/?q=${currentLocation.lat},${currentLocation.lng}`;
+    const shareData = {
+        title: 'Minha Localização - SUSE',
+        text: 'Estou usando o SUSE. Acompanhe minha localização:',
+        url: shareUrl
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+        } catch (err) {
+            console.log('Compartilhamento cancelado ou falhou:', err);
+        }
+    } else {
+        navigator.clipboard.writeText(shareUrl);
+        alert('Link de localização copiado para a área de transferência!');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/driver/login');
@@ -724,18 +745,33 @@ export default function DriverDashboard() {
                   </button>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow w-full max-w-md">
-                  <div className="flex items-center space-x-4 mb-4">
-                    <MapPin className="h-6 w-6 text-blue-500" />
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Localização Atual</h3>
-                      <p className="text-sm text-gray-500">Latitude: {currentLocation.lat.toFixed(6)}</p>
-                      <p className="text-sm text-gray-500">Longitude: {currentLocation.lng.toFixed(6)}</p>
-                    </div>
+                <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
+                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                      <MapPin className="text-blue-600" size={20} /> Localização Atual
+                    </h3>
+                    <span className="text-xs font-mono text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">
+                      {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
+                    </span>
                   </div>
-                  <p className="text-xs text-gray-400 text-center">
-                    Sua localização está sendo monitorada para sua segurança.
-                  </p>
+                  
+                  {/* Mapa Visível - Altura ajustada para combinar com o card do IRA */}
+                  <div className="h-80 w-full relative bg-gray-100 z-0">
+                     <TrackingMap lat={currentLocation.lat} lng={currentLocation.lng} />
+                  </div>
+
+                  {/* Botão de Compartilhamento */}
+                  <div className="p-4 bg-white border-t border-gray-100">
+                      <button 
+                          onClick={handleShareLocation}
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-wide text-sm"
+                      >
+                          <Share2 size={18} /> Compartilhar Geolocalização
+                      </button>
+                      <p className="text-[10px] text-gray-400 text-center mt-2">
+                          Compartilhe com um contato de emergência ou adicione um novo.
+                      </p>
+                  </div>
                 </div>
 
                 {/* Painel IRA-SUSI Fixo - STATUS */}
