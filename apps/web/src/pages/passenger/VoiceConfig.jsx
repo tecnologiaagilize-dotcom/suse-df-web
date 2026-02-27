@@ -137,6 +137,10 @@ export default function PassengerVoiceConfig() {
       
       // Inicializa o extrator de features (Meyda) com o sinal processado (mais limpo)
       if (isMounted.current) {
+        // Garantir que AudioContext está rodando
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
         AudioFeatureExtractor.initialize(audioContext, compressor);
       }
       featuresCollectionRef.current = [];
@@ -226,31 +230,32 @@ export default function PassengerVoiceConfig() {
         const avgRms = features.reduce((acc, f) => acc + f.rms, 0) / (features.length || 1);
         const maxRms = Math.max(...features.map(f => f.rms));
         
-        // Ajuste: Aumentar tolerância para silêncio
-        if (avgRms < 0.005) { // Era 0.02
-            technicalScore -= 4; 
-            penalties.push("Volume muito baixo");
-        } else if (avgRms < 0.02) { // Era 0.05
-            technicalScore -= 1.5; 
+        // Ajuste: Aumentar tolerância para silêncio e penalizar fortemente
+        if (avgRms < 0.005) { // Silêncio Prático
+            technicalScore = 0; // Invalida gravação
+            penalties.push("Microfone não detectou som (Silêncio)");
+        } else if (avgRms < 0.02) { // Muito baixo
+            technicalScore -= 5; 
+            penalties.push("Voz muito baixa");
         }
         
-        if (maxRms > 0.98) { // Era 0.95
-            technicalScore -= 2; 
+        if (maxRms > 0.98) {
+            technicalScore -= 3; 
             penalties.push("Áudio estourado/saturado");
         }
 
         // 2. Análise de Ruído (ZCR - Zero Crossing Rate)
         const avgZcr = features.reduce((acc, f) => acc + f.zcr, 0) / (features.length || 1);
-        if (avgZcr > 0.4) { // Era 0.3
-            technicalScore -= 2;
-            penalties.push("Muito ruído de fundo");
+        if (avgZcr > 0.4) {
+            technicalScore -= 3;
+            penalties.push("Ambiente muito ruidoso");
         }
 
         // 3. Duração
         const durationSec = features.length * 0.1; // aprox (100ms interval)
-        if (durationSec < 0.8) { // Era 1.0 - Reduzido para aceitar frases rápidas
-            technicalScore -= 3;
-            penalties.push("Muito curto");
+        if (durationSec < 0.8) {
+            technicalScore -= 5;
+            penalties.push("Gravação muito curta");
         }
 
         // 4. Validação Fonética (Frase Escrita vs Falada)
@@ -269,15 +274,18 @@ export default function PassengerVoiceConfig() {
              console.log(`Validação Fonética: "${currentTranscript}" vs "${targetPhrase}" = ${match.toFixed(2)}`);
 
              if (match < 0.4) { // Menos de 40% de similaridade
-                 technicalScore -= 3;
+                 technicalScore -= 4; // Penalidade maior
                  penalties.push(`Frase incorreta (Similaridade: ${(match*100).toFixed(0)}%)`);
              } else if (match < 0.7) {
-                 technicalScore -= 1;
+                 technicalScore -= 2;
              }
         } else {
              // Fallback se não tiver WebSpeech (não penaliza tanto)
              console.warn("Web Speech API não suportada. Pulo validação fonética.");
         }
+
+        // Se technicalScore ficou negativo, zera
+        if (technicalScore < 0) technicalScore = 0;
 
         // Clamp score 0-10
         let finalStepScore = Math.max(0, Math.min(10, technicalScore));
@@ -532,7 +540,7 @@ export default function PassengerVoiceConfig() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
-          <p className="text-xs text-gray-400 mb-4">Versão 1.3.0</p>
+          <p className="text-xs text-gray-400 mb-4">Versão 1.3.15 (Calibração Estrita)</p>
           {!alreadyConfigured && recordingStep < 3 && !success && !showStepResult && (
             <p className="mt-2 text-sm text-gray-600">
               Passo {recordingStep + 1} de 4: Grave as frases indicadas para calibração.
@@ -680,6 +688,20 @@ export default function PassengerVoiceConfig() {
                     Reconhecido: "{currentTranscript}"
                 </div>
             )}
+            
+            {/* Visualização de Nível de Áudio (VU Meter Simplificado) */}
+            {isRecording && (
+                <div className="flex justify-center mt-2 gap-1 h-4">
+                    {[...Array(10)].map((_, i) => (
+                        <div 
+                            key={i} 
+                            className={`w-2 rounded-full transition-all duration-75 ${
+                                (audioMetrics.rms * 10) > i ? 'bg-green-500' : 'bg-gray-200'
+                            }`}
+                        />
+                    ))}
+                </div>
+            )}
 
             <div className="flex justify-center gap-2 mt-4">
               {[0, 1, 2].map((step) => (
@@ -729,6 +751,20 @@ export default function PassengerVoiceConfig() {
             {currentTranscript && (
                 <div className="text-center text-sm text-blue-600 italic font-medium border border-blue-100 bg-blue-50 p-3 rounded-lg">
                     Ouvindo: "{currentTranscript}"
+                </div>
+            )}
+            
+            {/* Visualização de Nível de Áudio (VU Meter Simplificado) */}
+            {isRecording && (
+                <div className="flex justify-center mt-2 gap-1 h-4">
+                    {[...Array(10)].map((_, i) => (
+                        <div 
+                            key={i} 
+                            className={`w-2 rounded-full transition-all duration-75 ${
+                                (audioMetrics.rms * 10) > i ? 'bg-green-500' : 'bg-gray-200'
+                            }`}
+                        />
+                    ))}
                 </div>
             )}
           </div>
