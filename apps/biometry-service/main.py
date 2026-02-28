@@ -14,7 +14,11 @@ load_dotenv()
 # Importa engine de biometria (carrega o modelo na inicialização)
 # Isso pode demorar um pouco no start
 try:
-    from biometry import biometry_engine
+    # Apenas tenta importar se as variáveis estiverem OK, para evitar loading pesado desnecessário em caso de erro de config
+    if SUPABASE_URL and SUPABASE_KEY:
+         from biometry import biometry_engine
+    else:
+         biometry_engine = None
 except ImportError as e:
     print(f"Erro crítico ao importar biometry_engine: {e}")
     # Em desenvolvimento, pode ser que falte dependência, mas em prod deve falhar o deploy

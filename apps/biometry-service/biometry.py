@@ -11,18 +11,31 @@ class VoiceBiometry:
         
         # O modelo será salvo em /tmp/speechbrain_model para evitar problemas de permissão
         # No Railway, o disco efêmero funciona bem para cache de execução
-        self.verification_model = SpeakerRecognition.from_hparams(
-            source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir="tmp_model",
-            run_opts={"device": "cpu"} # Força CPU para evitar erros se não houver GPU
-        )
-        print("Modelo de Biometria de Voz carregado com sucesso!")
+        # Usamos savedir diferente para evitar conflito de permissão
+        import tempfile
+        tmp_dir = os.path.join(tempfile.gettempdir(), "speechbrain_model")
+        os.makedirs(tmp_dir, exist_ok=True)
+        
+        try:
+            self.verification_model = SpeakerRecognition.from_hparams(
+                source="speechbrain/spkrec-ecapa-voxceleb",
+                savedir=tmp_dir,
+                run_opts={"device": "cpu"} # Força CPU para evitar erros se não houver GPU
+            )
+            print("Modelo de Biometria de Voz carregado com sucesso!")
+        except Exception as e:
+            print(f"ERRO CRÍTICO ao carregar modelo SpeechBrain: {e}")
+            # Em vez de crashar, podemos deixar o modelo como None e tratar no verify
+            self.verification_model = None
 
     def verify_files(self, file1_path, file2_path):
         """
         Compara dois arquivos de áudio locais e retorna score e decisão.
         Retorna: (score: float, is_match: bool)
         """
+        if self.verification_model is None:
+             raise RuntimeError("Modelo de biometria não foi carregado corretamente.")
+             
         try:
             # verify_files já cuida do carregamento e pré-processamento
             score, prediction = self.verification_model.verify_files(file1_path, file2_path)
