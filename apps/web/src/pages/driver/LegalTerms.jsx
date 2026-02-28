@@ -93,6 +93,8 @@ export default function LegalTerms() {
       // 3. Log audit event (optional, but good practice)
       console.log('LGPD Accepted:', document.version);
 
+      alert('Termos aceitos com sucesso! Você já pode utilizar o sistema.');
+
       // 4. Redirect
       if (userRole === 'passenger') {
           navigate('/passenger/dashboard');
