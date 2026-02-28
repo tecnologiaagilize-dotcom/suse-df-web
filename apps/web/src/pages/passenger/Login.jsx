@@ -58,7 +58,7 @@ export default function PassengerLogin() {
             Login Passageiro
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 flex flex-col items-center">
-            <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded mb-1">SUSE-v1.3.22</span>
+            <span className="font-mono font-bold bg-gray-100 px-2 py-1 rounded mb-1">SUSE-v1.3.23</span>
             <span>Sistema Unificado de Socorro e Emergência</span>
             <span className="text-[10px] text-gray-400 mt-1">Deploy: {new Date().toLocaleTimeString()}</span>
           </p>
