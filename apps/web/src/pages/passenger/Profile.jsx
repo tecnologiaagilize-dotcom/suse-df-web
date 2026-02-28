@@ -381,9 +381,102 @@ export default function PassengerProfile() {
               {/* Endereço */}
               <div className="sm:col-span-6 border-t border-gray-200 pt-6 mt-2">
                 <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                  <MapPin className="h-5 w-5 mr-2 text-gray-500" /> Endereço Completo
+                  <User className="h-5 w-5 mr-2 text-gray-500" /> Dados Pessoais
                 </h4>
               </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-gray-700">Data de Nascimento</label>
+                <input 
+                  type="date" 
+                  name="birth_date" 
+                  value={profile.birth_date} 
+                  onChange={handleInputChange} 
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                />
+              </div>
+
+              {/* Seção de Responsável Legal (Visível apenas se for menor de idade) */}
+              {isMinor && (
+                <div className="sm:col-span-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4 rounded-r-md animate-in fade-in slide-in-from-top-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3 w-full">
+                      <h3 className="text-sm font-bold text-yellow-800 uppercase tracking-wide">
+                        Usuário Menor de Idade ({new Date().getFullYear() - new Date(profile.birth_date).getFullYear()} anos)
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <p className="mb-2">
+                          Para prosseguir, é obrigatório informar os dados do responsável legal e validar a autorização via token.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 mt-4">
+                          <div>
+                            <label className="block text-xs font-bold text-yellow-800 uppercase">Nome do Responsável</label>
+                            <input 
+                              type="text" 
+                              value={profile.guardian_info.name} 
+                              onChange={(e) => setProfile(prev => ({...prev, guardian_info: {...prev.guardian_info, name: e.target.value}}))}
+                              className="mt-1 block w-full px-2 py-1 border border-yellow-300 rounded text-sm" 
+                              placeholder="Nome completo"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-yellow-800 uppercase">CPF do Responsável</label>
+                            <input 
+                              type="text" 
+                              value={profile.guardian_info.cpf} 
+                              onChange={(e) => setProfile(prev => ({...prev, guardian_info: {...prev.guardian_info, cpf: e.target.value}}))}
+                              className="mt-1 block w-full px-2 py-1 border border-yellow-300 rounded text-sm" 
+                              placeholder="000.000.000-00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-yellow-800 uppercase">Telefone do Responsável</label>
+                            <input 
+                              type="text" 
+                              value={profile.guardian_info.phone} 
+                              onChange={(e) => setProfile(prev => ({...prev, guardian_info: {...prev.guardian_info, phone: e.target.value}}))}
+                              className="mt-1 block w-full px-2 py-1 border border-yellow-300 rounded text-sm" 
+                              placeholder="(00) 00000-0000"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-yellow-800 uppercase">Email do Responsável</label>
+                            <input 
+                              type="email" 
+                              value={profile.guardian_info.email} 
+                              onChange={(e) => setProfile(prev => ({...prev, guardian_info: {...prev.guardian_info, email: e.target.value}}))}
+                              className="mt-1 block w-full px-2 py-1 border border-yellow-300 rounded text-sm" 
+                              placeholder="email@exemplo.com"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${profile.guardian_info.verified ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                            STATUS: {profile.guardian_info.verified ? 'VERIFICADO' : 'NÃO VERIFICADO'}
+                          </span>
+                          
+                          {!profile.guardian_info.verified && (
+                            <button 
+                              type="button"
+                              onClick={sendGuardianToken}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                            >
+                              Enviar Token de Autorização
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="sm:col-span-6 border-t border-gray-200 pt-6 mt-2">
 
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">CEP</label>
@@ -462,6 +555,47 @@ export default function PassengerProfile() {
           </div>
         </div>
       </div>
+      {/* Modal de Validação de Token do Responsável */}
+      {showGuardianTokenModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+              <ShieldCheck className="mr-2 text-green-600" /> Validar Autorização
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Informe o código de 6 dígitos enviado para o contato do responsável ({profile.guardian_info.email || profile.guardian_info.phone}).
+            </p>
+            
+            <input 
+              type="text" 
+              maxLength={6}
+              value={guardianTokenInput}
+              onChange={(e) => setGuardianTokenInput(e.target.value.replace(/\D/g, ''))}
+              className="block w-full text-center text-2xl font-mono tracking-widest border-2 border-gray-300 rounded-md py-2 focus:border-blue-500 focus:ring-blue-500 mb-6"
+              placeholder="000000"
+              autoFocus
+            />
+            
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={() => setShowGuardianTokenModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={verifyGuardianToken}
+                className="px-4 py-2 bg-green-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-700 shadow-sm"
+              >
+                Validar Código
+              </button>
+            </div>
+            <p className="text-xs text-center text-gray-400 mt-4">
+              Token de teste: 123456
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
