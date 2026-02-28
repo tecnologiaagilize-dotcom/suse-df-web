@@ -536,6 +536,7 @@ export default function PassengerProfile() {
                 <label className="block text-sm font-medium text-gray-700">Estado</label>
                 <input type="text" name="address.state" value={profile.address.state} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
               </div>
+              </div>
 
               {/* Contatos */}
               <div className="sm:col-span-6 border-t border-gray-200 pt-6 mt-2">
