@@ -579,47 +579,6 @@ export default function PassengerProfile() {
           </div>
         </div>
       </div>
-      {/* Modal de Validação de Token do Responsável */}
-      {showGuardianTokenModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-              <ShieldCheck className="mr-2 text-green-600" /> Validar Autorização
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Informe o código de 6 dígitos enviado para o contato do responsável ({profile.guardian_info.email || profile.guardian_info.phone}).
-            </p>
-            
-            <input 
-              type="text" 
-              maxLength={6}
-              value={guardianTokenInput}
-              onChange={(e) => setGuardianTokenInput(e.target.value.replace(/\D/g, ''))}
-              className="block w-full text-center text-2xl font-mono tracking-widest border-2 border-gray-300 rounded-md py-2 focus:border-blue-500 focus:ring-blue-500 mb-6"
-              placeholder="000000"
-              autoFocus
-            />
-            
-            <div className="flex justify-end space-x-3">
-              <button 
-                onClick={() => setShowGuardianTokenModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={verifyGuardianToken}
-                className="px-4 py-2 bg-green-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-700 shadow-sm"
-              >
-                Validar Código
-              </button>
-            </div>
-            <p className="text-xs text-center text-gray-400 mt-4">
-              Token de teste: 123456
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
