@@ -565,7 +565,7 @@ export default function PassengerDashboard() {
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <DashboardStyles />
-      <nav className="bg-[#00509d] shadow-sm">
+      <nav className="bg-[#00509d] shadow-sm pb-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-24 items-center">
             <div className="flex flex-col text-white">
@@ -573,7 +573,7 @@ export default function PassengerDashboard() {
                 PAINEL DO PASSAGEIRO
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SUSE™ v1.3.34 – Sistema Unificado de Suporte e Emergência do D.F.
+                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.34
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0
@@ -585,6 +585,17 @@ export default function PassengerDashboard() {
                 <LogOut className="h-5 w-5" />
               </button>
             </div>
+          </div>
+          
+          {/* New Bottom Header Menu */}
+          <div className="flex overflow-x-auto space-x-6 pb-2 text-[10px] font-medium text-blue-200 tracking-wide uppercase whitespace-nowrap scrollbar-hide">
+            <button className="hover:text-white transition-colors">Curso Rápido</button>
+            <button className="hover:text-white transition-colors">Dicas de Configuração</button>
+            <button className="hover:text-white transition-colors">Novidades</button>
+            <button className="hover:text-white transition-colors">Dicas de Segurança</button>
+            <button className="hover:text-white transition-colors">Trilha de Aprendizagem</button>
+            <button className="hover:text-white transition-colors">Reclamações e Denúncias</button>
+            <button className="hover:text-white transition-colors">Fale Conosco</button>
           </div>
         </div>
       </nav>

@@ -588,7 +588,7 @@ export default function DriverDashboard() {
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'} flex flex-col`}>
       <DashboardStyles />
-      <nav className="bg-[#00509d] shadow-sm text-white">
+      <nav className="bg-[#00509d] shadow-sm text-white pb-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20 items-center">
             <div className="flex flex-col">
@@ -596,7 +596,7 @@ export default function DriverDashboard() {
                 PAINEL DO CONDUTOR
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SUSE™ v1.3.34 – Sistema Unificado de Suporte e Emergência do D.F.
+                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.34
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0
@@ -612,6 +612,17 @@ export default function DriverDashboard() {
                 SAIR
               </button>
             </div>
+          </div>
+
+          {/* New Bottom Header Menu */}
+          <div className="flex overflow-x-auto space-x-6 pb-2 text-[10px] font-medium text-blue-200 tracking-wide uppercase whitespace-nowrap scrollbar-hide">
+            <button className="hover:text-white transition-colors">Curso Rápido</button>
+            <button className="hover:text-white transition-colors">Dicas de Configuração</button>
+            <button className="hover:text-white transition-colors">Novidades</button>
+            <button className="hover:text-white transition-colors">Dicas de Segurança</button>
+            <button className="hover:text-white transition-colors">Trilha de Aprendizagem</button>
+            <button className="hover:text-white transition-colors">Reclamações e Denúncias</button>
+            <button className="hover:text-white transition-colors">Fale Conosco</button>
           </div>
         </div>
       </nav>
