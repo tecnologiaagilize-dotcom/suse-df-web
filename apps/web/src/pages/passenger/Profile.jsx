@@ -625,4 +625,3 @@ export default function PassengerProfile() {
     </div>
   );
 }
-
