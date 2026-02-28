@@ -41,8 +41,17 @@ export default function DriverDashboard() {
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [copied, setCopied] = useState(false);
   
-  // Estado para Monitoramento IRA-SUSI (Visualização Fixa)
-  const [iraData, setIraData] = useState(null);
+  // Estados de Verificação de Cadastro
+  const [isProfileComplete, setIsProfileComplete] = useState(false);
+  const [isVoiceConfigured, setIsVoiceConfigured] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+        // Verifica metadados do usuário para status dos botões
+        setIsProfileComplete(!!user.user_metadata?.profile_completed);
+        setIsVoiceConfigured(!!user.user_metadata?.voice_config_completed);
+    }
+  }, [user]);
 
   // Função auxiliar para copiar token
   const handleCopyToken = () => {
@@ -553,11 +562,15 @@ export default function DriverDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20 items-center">
             <div className="flex flex-col">
-              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide">
-                IRA (INDICADOR DE RISCO ACÚSTICO) V.2.0
+              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide uppercase">
+                PAINEL DO CONDUTOR
               </h1>
-              <span className="text-xs font-mono text-blue-100 opacity-80">SUSE™ v3.33</span>
-              <span className="text-sm font-medium mt-1">Painel do Condutor</span>
+              <span className="text-xs font-mono text-blue-100 opacity-90">
+                SUSE™ v1.3.34 – Sistema Unificado de Suporte e Emergência do D.F.
+              </span>
+              <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
+                INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0
+              </span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-blue-100 hidden sm:block">{user?.email}</span>
@@ -757,6 +770,7 @@ export default function DriverDashboard() {
                     subtitle="Gerenciar dados pessoais"
                     onClick={handleProfile}
                     animationType="none" 
+                    isIncomplete={!isProfileComplete}
                   />
 
                   <MenuButton 
@@ -765,6 +779,7 @@ export default function DriverDashboard() {
                     subtitle="Ajustar frase de emergência"
                     onClick={handleVoiceConfig}
                     animationType="voice-wave"
+                    isIncomplete={!isVoiceConfigured}
                   />
 
                   <MenuButton 

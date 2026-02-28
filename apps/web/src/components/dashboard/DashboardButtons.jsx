@@ -125,11 +125,12 @@ export const MenuButton = ({
   title, 
   subtitle, 
   onClick, 
-  animationType = 'none' // 'none', 'voice-wave', 'heartbeat'
+  animationType = 'none', // 'none', 'voice-wave', 'heartbeat'
+  isIncomplete = false // Novo prop para status incompleto
 }) => {
   // Custom Icon for Profile with Face Animation
   const ProfileFaceIcon = () => (
-      <div className="w-6 h-6 relative">
+      <div className="w-6 h-6 relative animate-face-pan">
           {/* Base Face Circle */}
           <div className="w-full h-full rounded-full border-2 border-white bg-transparent flex items-center justify-center relative overflow-hidden">
               {/* Eyes Container - Moving */}
@@ -146,12 +147,14 @@ export const MenuButton = ({
   return (
     <button
       onClick={onClick}
-      className="
+      className={`
         w-full relative overflow-hidden rounded-[20px] p-4 flex items-center justify-between 
-        bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] 
-        shadow-[0_8px_18px_rgba(30,58,138,0.35)]
+        ${isIncomplete 
+          ? 'bg-gradient-to-br from-yellow-500 to-orange-500 shadow-[0_8px_18px_rgba(234,179,8,0.35)]' 
+          : 'bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] shadow-[0_8px_18px_rgba(30,58,138,0.35)]'
+        }
         h-[72px] sm:h-[88px] transition-all duration-300 active:scale-[0.98] group
-      "
+      `}
     >
       <div className="flex items-center gap-4 flex-1 z-10 pointer-events-none">
         <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm relative">
@@ -162,7 +165,14 @@ export const MenuButton = ({
           )}
         </div>
         <div className="flex flex-col items-start text-left">
-          <span className="text-white font-bold text-lg leading-tight">{title}</span>
+          <span className="text-white font-bold text-lg leading-tight flex items-center gap-2">
+            {title}
+            {isIncomplete && (
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full text-white font-black tracking-wider border border-white/30 animate-pulse">
+                INCOMPLETO
+              </span>
+            )}
+          </span>
           <span className="text-sm text-white/85 leading-tight">{subtitle}</span>
         </div>
       </div>
@@ -256,6 +266,14 @@ export const DashboardStyles = () => (
     }
     .animate-face-mouth {
         animation: face-mouth 2s ease-in-out infinite;
+    }
+
+    @keyframes face-pan {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(3px); }
+    }
+    .animate-face-pan {
+        animation: face-pan 3s ease-in-out infinite alternate;
     }
   `}</style>
 );

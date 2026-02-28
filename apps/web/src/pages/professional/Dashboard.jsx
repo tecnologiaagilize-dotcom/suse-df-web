@@ -42,11 +42,15 @@ export default function ProfessionalDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20 items-center">
             <div className="flex flex-col">
-              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide">
-                IRA (INDICADOR DE RISCO ACÚSTICO) V.2.0
+              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide uppercase">
+                PORTAL DO PROFISSIONAL
               </h1>
-              <span className="text-xs font-mono text-blue-100 opacity-80">SUSE™ v3.33</span>
-              <span className="text-sm font-medium mt-1">Portal do Profissional</span>
+              <span className="text-xs font-mono text-blue-100 opacity-90">
+                SUSE™ v1.3.34 – Sistema Unificado de Suporte e Emergência do D.F.
+              </span>
+              <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
+                INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0
+              </span>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block text-blue-100">
