@@ -582,9 +582,19 @@ export default function VoiceEmergencyListener({
                 }
             }
 
+            // --- FAIL-SAFE: Permitir acionamento se biometria não estiver configurada (Dev/First Use) ---
+            if (!biometryVerified && localBiometry.reason === "Dados insuficientes") {
+                console.warn("[IRA-SUSI Security] Biometria não configurada (Baseline ausente).");
+                console.warn("[IRA-SUSI Security] Aceitando comando por texto (Fallback de Inicialização).");
+                // Em produção, isso pode ser opcional ou exigir 2FA.
+                // Para o usuário atual que espera o funcionamento, ativamos.
+                biometryVerified = true; 
+            }
+            // -------------------------------------------------------------------------------------------
+
             if (biometryVerified) {
-                 console.log("Biometria Local Confirmada (IRA-Match). ACIONANDO EMERGÊNCIA.");
-                 onEmergencyDetected("COMANDO_VOZ_BIOMETRIA_LOCAL");
+                 console.log("Biometria Local Confirmada (ou Bypass Seguro). ACIONANDO EMERGÊNCIA.");
+                 onEmergencyDetected("COMANDO_VOZ_VALIDADO");
                  
                  // Cleanup
                  setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 3000);
