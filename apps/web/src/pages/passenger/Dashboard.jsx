@@ -9,6 +9,7 @@ import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListene
 import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
 import AudioStreamingService from '../../services/AudioStreamingService';
+import { AudioLiveService } from '../../services/audio/AudioLiveService'; // Import AudioLive
 import GeofenceModal from '../../components/GeofenceModal';
 
 import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
@@ -102,6 +103,9 @@ export default function PassengerDashboard() {
   const [tokenExpiresAt, setTokenExpiresAt] = useState(null);
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Serviço AudioLive (Ref para persistir entre renders)
+  const audioLiveRef = useRef(null);
 
   // Callback estabilizado para evitar recriação do listener
   // const handleAnalysisUpdate = (data) => {
@@ -254,6 +258,12 @@ export default function PassengerDashboard() {
             setActiveAlertId(null);
             
             AudioStreamingService.stopStreaming();
+            
+            // [AUDIO LIVE V2] Parar sessão
+            if (audioLiveRef.current) {
+                audioLiveRef.current.stopSession();
+                audioLiveRef.current = null;
+            }
 
             // Parar rastreamento
             setTrackingId(prevId => {
@@ -436,6 +446,15 @@ export default function PassengerDashboard() {
 
       // [AUDIO LIVE] Iniciar transmissão ao vivo para a central
       AudioStreamingService.startStreaming(data.id);
+      
+      // [AUDIO LIVE V2] Iniciar gravação e streaming WebRTC seguro
+      try {
+          audioLiveRef.current = new AudioLiveService(data.id);
+          await audioLiveRef.current.startSession();
+          console.log("AudioLive V2 iniciado com sucesso");
+      } catch (audioErr) {
+          console.error("Falha ao iniciar AudioLive V2:", audioErr);
+      }
       
       const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
       setTrackingId(interval);
