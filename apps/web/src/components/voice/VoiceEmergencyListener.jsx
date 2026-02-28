@@ -462,6 +462,8 @@ export default function VoiceEmergencyListener({
           setTranscript(prev => {
               const newText = (prev + ' ' + transcriptSegment).trim().slice(-200); // Mantém contexto
               checkEmergencyPhrase(newText);
+              // Reportar texto final para UI
+              if (onTranscriptChange) onTranscriptChange(newText);
               return newText;
           });
         } else {
@@ -471,7 +473,10 @@ export default function VoiceEmergencyListener({
       
       // Checagem rápida no interim também
       if (interimTranscript) {
-          checkEmergencyPhrase(transcript + ' ' + interimTranscript);
+          const fullText = transcript + ' ' + interimTranscript;
+          checkEmergencyPhrase(fullText);
+          // Reportar texto parcial para UI em tempo real
+          if (onTranscriptChange) onTranscriptChange(fullText.trim().slice(-100));
       }
     };
 
@@ -524,6 +529,9 @@ export default function VoiceEmergencyListener({
                  }
              });
          }
+         
+         // Reportar Texto para UI Principal (Redundância para garantir exibição)
+         if (onTranscriptChange) onTranscriptChange(normalizedText.slice(-100));
 
          if (match) {
             console.log("!!! PADRÃO DE EMERGÊNCIA DETECTADO !!! Iniciando protocolo de validação biométrica...");
