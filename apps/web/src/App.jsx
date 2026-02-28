@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/common/ErrorBoundary'; // Módulo 10.4.4
 
 // Driver Pages
 import DriverLogin from './pages/driver/Login';
@@ -115,9 +116,10 @@ const PrivateRoute = ({ children, role }) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
           {/* Public Routes */}
           <Route path="/driver/login" element={<DriverLogin />} />
           <Route path="/driver/register" element={<DriverRegister />} />
@@ -229,9 +231,10 @@ function App() {
           {/* Default Redirect */}
           <Route path="/" element={<Navigate to="/passenger/login" replace />} />
           <Route path="*" element={<Navigate to="/passenger/login" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

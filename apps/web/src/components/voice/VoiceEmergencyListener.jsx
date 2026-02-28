@@ -12,6 +12,16 @@ import AudioStreamingService from '../../services/AudioStreamingService';
 import IraDebugPanel from '../debug/IraDebugPanel';
 import stringSimilarity from 'string-similarity'; // Comparação fonética
 
+// MÓDULO 10 - PATCH 4.5: Normalização de Frase (Consolidado)
+const normalizePhrase = (text) => {
+    if (!text) return '';
+    return text.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[^\w\s]|_/g, "") // Remove pontuação
+        .replace(/\s+/g, " ") // Colapsa espaços
+        .trim();
+};
+
 export default function VoiceEmergencyListener({ 
     emergencyPhrase, 
     onEmergencyDetected, 
@@ -302,7 +312,15 @@ export default function VoiceEmergencyListener({
       }
   };
 
-  const stopAudioCore = () => {
+  const stopAudioCore = async () => {
+      console.log("[IRA-SUSI Shutdown] Iniciando sequência de desligamento seguro (Mod 10.4.3)...");
+
+      // 0. Stop Recognizer (Prioridade 0)
+      if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch(e){}
+      }
+
+      // 1. Parar Worker/Services
       WakeWordService.stopListening();
       VoiceActivityService.stop(); // Parar VAD
       AudioFeatureExtractor.stop(); // Parar Meyda
@@ -311,18 +329,33 @@ export default function VoiceEmergencyListener({
       
       setIsOfflineMode(false);
 
+      // 2. Desconectar Nós
       if (workletNodeRef.current) {
           workletNodeRef.current.disconnect();
           workletNodeRef.current = null;
       }
+
+      // 3. Parar Tracks (Hardware)
       if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
       }
-      if (audioContextRef.current) {
-          audioContextRef.current.close();
+
+      // 4. Fechar AudioContext
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          try {
+            await audioContextRef.current.close();
+          } catch(e) { console.warn("Erro ao fechar AudioContext:", e); }
           audioContextRef.current = null;
       }
+      
+      // 5. Reset UI State (Garantia)
+      if (isMountedRef.current) {
+          setIsListening(false);
+          setIsAnalyzing(false);
+      }
+
+      console.log("[IRA-SUSI Shutdown] Sequência concluída.");
   };
 
   // Handler unificado para detecção (Wake Word ou Web Speech)
@@ -416,6 +449,24 @@ export default function VoiceEmergencyListener({
       }
   };
 
+  // MÓDULO 10 - PATCH 4.2: Watchdogs (Transcrição 12s)
+  useEffect(() => {
+      if (!isListening || isAnalyzing) return;
+
+      const watchdogTimer = setTimeout(() => {
+          // Se não houver transcrição nova por 12s, reinicia
+          if (recognitionRef.current && isListening) {
+              console.warn("[IRA-SUSI Watchdog] 12s sem transcrição. Reiniciando reconhecimento...");
+              try {
+                  recognitionRef.current.stop();
+                  // O onend cuidará do reinício
+              } catch(e) { console.error("Erro no watchdog:", e); }
+          }
+      }, 12000);
+
+      return () => clearTimeout(watchdogTimer);
+  }, [transcript, isListening, isAnalyzing]);
+
   // Gerenciamento do Ciclo de Vida
   useEffect(() => {
     if (isActive) {
@@ -502,8 +553,9 @@ export default function VoiceEmergencyListener({
     const checkEmergencyPhrase = async (text) => {
          if (!emergencyPhrase) return;
          
-         const normalizedText = text.toLowerCase();
-         const normalizedPhrase = emergencyPhrase.toLowerCase();
+         // MÓDULO 10: Normalização Estrita
+         const normalizedText = normalizePhrase(text);
+         const normalizedPhrase = normalizePhrase(emergencyPhrase);
 
          // Debug Visual no Console (Requisitado: Monitoramento Avançado)
          console.log(`[IRA-SUSI AI Monitor] Analisando padrão de voz: "${normalizedText}" | Target: "${normalizedPhrase}"`);

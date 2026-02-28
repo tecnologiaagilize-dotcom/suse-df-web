@@ -12,6 +12,8 @@ const CONFIG = {
     BUFFER_FLUSH_INTERVAL: 10000 // 10s para backup local
 };
 
+import { computeSHA256 } from '../utils/cryptoUtils';
+
 class AudioStreamingService {
     constructor() {
         this.peerConnection = null;
@@ -185,16 +187,17 @@ class AudioStreamingService {
                 this.chunks = [];
             };
 
-            // Fatiar a cada 10 segundos para upload incremental (Resiliência)
-            this.mediaRecorder.start(10000);
-            console.log("[AudioLive] Gravação local de backup iniciada (Black Box).");
+            // Fatiar a cada 30 segundos para upload incremental (Evidência Dupla - Doc 9)
+            this.mediaRecorder.start(30000);
+            console.log("[AudioLive] Gravação local de backup iniciada (Black Box 30s).");
 
             // Hook para interceptar os slices e enviar (Delta Sync - Doc 4)
             const originalOnData = this.mediaRecorder.ondataavailable;
-            this.mediaRecorder.ondataavailable = (e) => {
+            this.mediaRecorder.ondataavailable = async (e) => {
                 originalOnData(e);
                 if (e.data.size > 0) {
-                    this._uploadEvidence(e.data, `segment_${Date.now()}`);
+                    const hash = await computeSHA256(e.data);
+                    this._uploadEvidence(e.data, `segment_${Date.now()}_${hash.substring(0, 8)}`);
                 }
             };
 
