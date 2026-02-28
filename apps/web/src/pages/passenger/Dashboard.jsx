@@ -14,7 +14,7 @@ import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../co
 import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons'; // Novo Componente
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.32 - Mandatory Trigger Logic");
+  console.log("SUSE-DF PassengerDashboard V1.3.33 - Realtime Transcript Fix");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -533,7 +533,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.32</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.33</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>

@@ -483,10 +483,14 @@ export default function VoiceEmergencyListener({
       
       // Checagem rápida no interim também
       if (interimTranscript) {
-          const fullText = transcript + ' ' + interimTranscript;
-          checkEmergencyPhrase(fullText);
-          // Reportar texto parcial para UI em tempo real
-          if (onTranscriptChange) onTranscriptChange(fullText.trim().slice(-100));
+          // --- CORREÇÃO: Usar callback funcional para garantir estado atualizado ---
+          setTranscript(prev => {
+              const fullText = prev + ' ' + interimTranscript;
+              // --- FIX: Forçar atualização visual IMEDIATA ---
+              if (onTranscriptChange) onTranscriptChange(fullText.trim().slice(-100));
+              checkEmergencyPhrase(fullText);
+              return prev; // Não salva interim no estado persistente, apenas usa
+          });
       }
     };
 
