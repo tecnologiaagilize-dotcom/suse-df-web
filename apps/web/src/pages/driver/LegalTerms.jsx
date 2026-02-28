@@ -14,7 +14,8 @@ export default function LegalTerms() {
     read: false,
     auxiliary: false,
     legitimate: false,
-    accept: false
+    accept: false,
+    reject: false // Added reject state
   });
   const [submitting, setSubmitting] = useState(false);
   const contentRef = useRef(null);
@@ -57,7 +58,29 @@ export default function LegalTerms() {
   };
 
   const handleCheckboxChange = (key) => {
-    setChecks(prev => ({ ...prev, [key]: !prev[key] }));
+    if (key === 'reject') {
+        // Se clicar em rejeitar, desmarca o aceitar e dispara ação
+        setChecks(prev => ({ ...prev, reject: !prev.reject, accept: false }));
+        if (!checks.reject) { // Se estava falso e vai virar verdadeiro
+            handleReject();
+        }
+    } else if (key === 'accept') {
+        // Se clicar em aceitar, desmarca o rejeitar
+        setChecks(prev => ({ ...prev, accept: !prev.accept, reject: false }));
+    } else {
+        setChecks(prev => ({ ...prev, [key]: !prev[key] }));
+    }
+  };
+
+  const handleReject = async () => {
+      if (window.confirm("ATENÇÃO: Ao não aceitar os termos, você não poderá utilizar o sistema e será desconectado. Deseja continuar?")) {
+          alert("Você optou por não aceitar os termos. O sistema será encerrado.");
+          await useAuth().signOut(); // Logout
+          navigate('/'); // Redireciona para home/login
+      } else {
+          // Se cancelar, desmarca o reject
+          setChecks(prev => ({ ...prev, reject: false }));
+      }
   };
 
   const handleAccept = async () => {
@@ -209,6 +232,16 @@ export default function LegalTerms() {
                   className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <span className="text-sm font-bold text-blue-900">ACEITO INTEGRALMENTE OS TERMOS E CONDIÇÕES.</span>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-100 cursor-pointer hover:bg-red-100 transition-colors mt-2">
+                <input 
+                  type="checkbox" 
+                  checked={checks.reject}
+                  onChange={() => handleCheckboxChange('reject')}
+                  className="mt-1 h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                />
+                <span className="text-sm font-bold text-red-900">NÃO ACEITO OS TERMOS E CONDIÇÕES. (Sair do Sistema)</span>
               </label>
             </div>
           </div>
