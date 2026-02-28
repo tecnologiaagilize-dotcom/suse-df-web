@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse, Copy, Share2, Mic } from 'lucide-react';
