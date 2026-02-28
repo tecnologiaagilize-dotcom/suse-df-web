@@ -351,22 +351,32 @@ export default function VoiceEmergencyListener({
               const iraRiskLevel = IraSusiCore.getRiskLevel(); // 0 a 1
 
               // Tentar verificação local primeiro (mais rápida e garante funcionamento offline)
-              const localBiometry = VoiceBiometryService.verifySpeakerIdentityLocal(currentFeatures);
-              
-              // Decisão Tripla: (Texto + Biometria Local + IRA Risk)
-              // Se Biometria Local OK -> Aciona
-              // Se Biometria Local Falha mas IRA Risk Alto -> Aciona (Contexto de Pânico altera a voz)
-              
-              let biometryVerified = localBiometry.isVerified;
-              
-              if (!biometryVerified && iraRiskLevel > 0.6) {
-                  console.warn("Biometria Local Falhou (Z-Score alto), mas IRA Risk é ALTO. Voz alterada por stress?");
-                  // Se o risco é alto, relaxamos o threshold biométrico
-                  if (localBiometry.distance < 4.0) { // Aceita até 4 sigmas se estiver em pânico
-                       console.log("Aceitando biometria degradada devido ao Risco IRA.");
-                       biometryVerified = true;
-                  }
-              }
+            const localBiometry = VoiceBiometryService.verifySpeakerIdentityLocal(currentFeatures);
+            
+            // Decisão Tripla: (Texto + Biometria Local + IRA Risk)
+            // Se Biometria Local OK -> Aciona
+            // Se Biometria Local Falha mas IRA Risk Alto -> Aciona (Contexto de Pânico altera a voz)
+            
+            let biometryVerified = localBiometry.isVerified;
+            
+            if (!biometryVerified && iraRiskLevel > 0.6) {
+                console.warn("Biometria Local Falhou (Z-Score alto), mas IRA Risk é ALTO. Voz alterada por stress?");
+                // Se o risco é alto, relaxamos o threshold biométrico
+                if (localBiometry.distance < 4.0) { // Aceita até 4 sigmas se estiver em pânico
+                     console.log("Aceitando biometria degradada devido ao Risco IRA.");
+                     biometryVerified = true;
+                }
+            }
+
+            // --- STRICT MODE BYPASS FOR EXACT SEMANTIC MATCH (v1.3.31) ---
+            // Se a frase foi dita com 100% de precisão (ou > 95%), confiamos que é o usuário,
+            // pois a frase é um segredo (Secret Word). Biometria serve para evitar spoofing em frases comuns,
+            // mas em uma frase secreta exata, o risco de falso negativo (não salvar a vítima) supera o risco de falso positivo.
+            if (!biometryVerified && similarity >= 0.95) {
+                console.warn(`[IRA-SUSI] Semantic Match Extremo (${(similarity*100).toFixed(1)}%). Bypass de Biometria ativado para garantir socorro.`);
+                biometryVerified = true;
+            }
+            // -----------------------------------------------------------
 
               if (biometryVerified) {
                    console.log("Biometria Local Confirmada (IRA-Match). ACIONANDO EMERGÊNCIA.");
@@ -598,6 +608,16 @@ export default function VoiceEmergencyListener({
                      biometryVerified = true;
                 }
             }
+
+            // --- STRICT MODE BYPASS FOR EXACT SEMANTIC MATCH (v1.3.31) ---
+            // Se a frase foi dita com 100% de precisão (ou > 95%), confiamos que é o usuário,
+            // pois a frase é um segredo (Secret Word). Biometria serve para evitar spoofing em frases comuns,
+            // mas em uma frase secreta exata, o risco de falso negativo (não salvar a vítima) supera o risco de falso positivo.
+            if (!biometryVerified && similarity >= 0.95) {
+                console.warn(`[IRA-SUSI] Semantic Match Extremo (${(similarity*100).toFixed(1)}%). Bypass de Biometria ativado para garantir socorro.`);
+                biometryVerified = true;
+            }
+            // -----------------------------------------------------------
 
             // --- FAIL-SAFE: Permitir acionamento se biometria não estiver configurada (Dev/First Use) ---
             // Código duplicado removido para evitar execução dupla
