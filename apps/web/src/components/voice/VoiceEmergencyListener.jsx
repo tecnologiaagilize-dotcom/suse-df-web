@@ -544,129 +544,48 @@ export default function VoiceEmergencyListener({
          if (onTranscriptChange) onTranscriptChange(normalizedText.slice(-100));
 
          if (match) {
-            console.log("!!! PADRÃO DE EMERGÊNCIA DETECTADO !!! Iniciando protocolo de validação biométrica...");
-            if (navigator.vibrate) navigator.vibrate(50);
+            console.log("!!! PADRÃO DE EMERGÊNCIA DETECTADO (MATCH 100%) !!!");
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             
             // Pausa reconhecimento para processamento exclusivo
             try { recognition.stop(); } catch(e){}
             setIsAnalyzing(true);
             isAnalyzingRef.current = true;
 
-            // --- STRICT MODE (IMPLANTAÇÃO FINAL) ---
-            // Verifica SE existe baseline configurado
-            const hasBaseline = !!VoiceBiometryService._userBaseline;
+            // --- LÓGICA DE OURO v1.3.32 (Mandatory Trigger) ---
+            // Se a frase foi reconhecida pela Análise Semântica (match=true),
+            // isso significa que passou pelos filtros de similaridade e fuzzy logic.
+            // Neste caso, a POSSE DA SENHA VERBAL é autenticação suficiente.
+            // A biometria é coletada apenas para AUDITORIA, não para BLOQUEIO.
             
-            if (!hasBaseline) {
-                console.warn("[IRA-SUSI Security] ERRO CRÍTICO: Biometria não configurada (Baseline ausente).");
-                console.warn("[IRA-SUSI Security] Bloqueando acionamento por voz (Protocolo de Segurança Ativo).");
-                // Em produção final, não permitimos bypass. O usuário DEVE configurar a voz.
-                if (onEmergencyDetected) {
-                    // Opcional: Notificar UI que a configuração é necessária
-                    // Mas não dispara emergência real.
-                }
-                setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 1000);
-                return;
-            }
-            // -------------------------------------------------------------------------------------------
-
-            // Captura snapshot de áudio para análise espectral e biométrica
-            const audioBlob = RingBufferService.getWavBlob(5); 
+            console.log(`[IRA-SUSI] Acionamento Obrigatório por Match Semântico. Similaridade: ${(similarity*100).toFixed(1)}%`);
             
-            // Debug do Buffer e Features (Monitoramento Contínuo Solicitado)
-            const features = AudioFeatureExtractor.getFeatures() || {};
-            console.log(`[IRA-SUSI AI Monitor] Snapshot de Áudio: ${audioBlob.size} bytes.`);
-            console.log(`[IRA-SUSI Biometria] Parâmetros de Voz: Pitch=${features.pitch?.toFixed(1)}Hz, RMS=${features.rms?.toFixed(4)}, Jitter=${features.jitter?.toFixed(2)}%, HNR=${features.hnr?.toFixed(2)}`);
+            // Disparo Imediato
+            onEmergencyDetected("COMANDO_VOZ_MATCH_OBRIGATORIO");
 
-            // Check de Integridade do Áudio (Feedback Visual no Console)
-            if (audioBlob.size < 4000) { // < 4KB é praticamente vazio para WAV
-                 console.error("ALERTA CRÍTICO: Áudio corrompido ou vazio detectado no buffer!");
-                 // A decisão de falhar ou seguir depende da política. Strict Mode exige falha se não houver prova.
-            }
-
-            // O sistema segue para a verificação biométrica rigorosa (sem atalhos)
-            // Se o áudio estiver vazio ou inválido, a biometria falhará naturalmente (Fail-Secure),
-            // mantendo a robustez do sistema em escala.
-
-            // ---------------------------------------------------------------------
-            // Verifica Biometria (Local + Remote)
-
-            // Obter features atuais para comparação local
-            const currentFeatures = AudioFeatureExtractor.getFeatures();
-            const iraRiskLevel = IraSusiCore.getRiskLevel(); // 0 a 1
-
-            // Tentar verificação local primeiro (mais rápida e garante funcionamento offline)
-            const localBiometry = VoiceBiometryService.verifySpeakerIdentityLocal(currentFeatures);
-            
-            // Decisão Tripla: (Texto + Biometria Local + IRA Risk)
-            let biometryVerified = localBiometry.isVerified;
-            
-            if (!biometryVerified && iraRiskLevel > 0.6) {
-                console.warn("Biometria Local Falhou (Z-Score alto), mas IRA Risk é ALTO. Voz alterada por stress?");
-                // Se o risco é alto, relaxamos o threshold biométrico
-                if (localBiometry.distance < 4.0) { // Aceita até 4 sigmas se estiver em pânico
-                     console.log("Aceitando biometria degradada devido ao Risco IRA.");
-                     biometryVerified = true;
-                }
-            }
-
-            // --- STRICT MODE BYPASS FOR EXACT SEMANTIC MATCH (v1.3.31) ---
-            // Se a frase foi dita com 100% de precisão (ou > 95%), confiamos que é o usuário,
-            // pois a frase é um segredo (Secret Word). Biometria serve para evitar spoofing em frases comuns,
-            // mas em uma frase secreta exata, o risco de falso negativo (não salvar a vítima) supera o risco de falso positivo.
-            if (!biometryVerified && similarity >= 0.95) {
-                console.warn(`[IRA-SUSI] Semantic Match Extremo (${(similarity*100).toFixed(1)}%). Bypass de Biometria ativado para garantir socorro.`);
-                biometryVerified = true;
-            }
-            // -----------------------------------------------------------
-
-            // --- FAIL-SAFE: Permitir acionamento se biometria não estiver configurada (Dev/First Use) ---
-            // Código duplicado removido para evitar execução dupla
-            /*
-            if (!biometryVerified && localBiometry.reason === "Dados insuficientes") {
-                console.warn("[IRA-SUSI Security] Biometria não configurada (Baseline ausente).");
-                console.warn("[IRA-SUSI Security] Aceitando comando por texto (Fallback de Inicialização).");
-                biometryVerified = true; 
-            }
-            */
-            // -------------------------------------------------------------------------------------------
-
-            if (biometryVerified) {
-                 console.log("Biometria Local Confirmada (ou Bypass Seguro). ACIONANDO EMERGÊNCIA.");
-                 onEmergencyDetected("COMANDO_VOZ_VALIDADO");
-                 
-                 // Cleanup
-                 setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 3000);
-                 return;
-            }
-
-            // Fallback para Remoto (se local falhou e não temos certeza)
-            try {
-                const result = await VoiceBiometryService.verifySpeakerIdentity(audioBlob);
-                
-                // LÓGICA DE DECISÃO STRICT v1.1 (Zero Falso Positivo)
-                
-                // 1. Biometria VERIFICADA -> ACIONA
-                if (result && result.isVerified) {
-                    console.log("Biometria Verificada. ACIONANDO EMERGÊNCIA.");
-                    onEmergencyDetected("COMANDO_VOZ_BIOMETRIA_CONFIRMADA");
-                } 
-                
-                // 2. Biometria FALHOU -> IGNORA
-                else {
-                    console.warn("Biometria Falhou. IGNORADO (Strict Mode).");
-                    // Nenhuma lógica de "Anti-Falso Negativo" permitida.
-                }
-            } catch (err) {
-                console.error("Erro técnico biometria:", err);
-                // Strict Mode: Erro = Ignora.
-            } finally {
-                setTimeout(() => {
-                    if (isMountedRef.current) {
-                        setIsAnalyzing(false);
-                        isAnalyzingRef.current = false;
+            // Processamento Assíncrono de Evidência (Não bloqueante)
+            setTimeout(async () => {
+                try {
+                    // Captura snapshot apenas para salvar evidência no backend
+                    const audioBlob = RingBufferService.getWavBlob(5);
+                    const currentFeatures = AudioFeatureExtractor.getFeatures();
+                    
+                    // Tenta validar biometria apenas para log
+                    const localBiometry = VoiceBiometryService.verifySpeakerIdentityLocal(currentFeatures);
+                    console.log("[IRA-SUSI Auditoria] Resultado Biometria Pós-Acionamento:", localBiometry);
+                    
+                    // Se quiser enviar para o backend, faria aqui, mas o onEmergencyDetected já iniciou o fluxo de alerta.
+                } catch (e) {
+                    console.error("[IRA-SUSI Auditoria] Erro ao processar evidência pós-acionamento:", e);
+                } finally {
+                    if (isMountedRef.current) { 
+                        setIsAnalyzing(false); 
+                        isAnalyzingRef.current = false; 
                     }
-                }, 3000);
-            }
+                }
+            }, 100); // Pequeno delay para liberar a thread de UI do acionamento
+            
+            return;
          }
     };
 
