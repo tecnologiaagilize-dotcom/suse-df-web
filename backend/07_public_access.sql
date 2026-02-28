@@ -70,3 +70,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.get_public_health_info(UUID) TO anon, authenticated, service_role;
+
+
