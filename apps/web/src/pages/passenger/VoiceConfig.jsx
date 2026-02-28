@@ -137,6 +137,9 @@ export default function PassengerVoiceConfig() {
       
       // Inicializa o extrator de features (Meyda) com o sinal processado (mais limpo)
       if (isMounted.current) {
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
         AudioFeatureExtractor.initialize(audioContext, compressor);
       }
       featuresCollectionRef.current = [];
@@ -227,14 +230,15 @@ export default function PassengerVoiceConfig() {
         const maxRms = Math.max(...features.map(f => f.rms));
         
         // Ajuste: Aumentar tolerância para silêncio
-        if (avgRms < 0.005) { // Era 0.02
-            technicalScore -= 4; 
-            penalties.push("Volume muito baixo");
-        } else if (avgRms < 0.02) { // Era 0.05
-            technicalScore -= 1.5; 
+        if (avgRms < 0.005) { // Silêncio Prático
+            technicalScore = 0; 
+            penalties.push("Volume muito baixo ou mudo");
+        } else if (avgRms < 0.02) {
+            technicalScore -= 3; 
+            penalties.push("Voz baixa");
         }
         
-        if (maxRms > 0.98) { // Era 0.95
+        if (maxRms > 0.98) {
             technicalScore -= 2; 
             penalties.push("Áudio estourado/saturado");
         }
@@ -532,7 +536,7 @@ export default function PassengerVoiceConfig() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Configuração de Voz</h2>
-          <p className="text-xs text-gray-400 mb-4">Versão 1.3.0</p>
+          <p className="text-xs text-gray-400 mb-4">Versão 1.3.17 (Fix: Audio Score)</p>
           {!alreadyConfigured && recordingStep < 3 && !success && !showStepResult && (
             <p className="mt-2 text-sm text-gray-600">
               Passo {recordingStep + 1} de 4: Grave as frases indicadas para calibração.
