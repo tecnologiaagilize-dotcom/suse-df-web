@@ -9,6 +9,26 @@ export default function GeofenceModal({ isOpen, onClose, userId }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Hardcoded Lists from Requirements (Fallback/Enforcement)
+  const DF_CITIES = [
+    "Águas Claras", "Arniqueira", "Brazlândia", "Candangolândia", "Ceilândia", "Cruzeiro", "Fercal", 
+    "Gama", "Guará", "Itapoã", "Jardim Botânico", "Lago Norte", "Lago Sul", "Núcleo Bandeirante", 
+    "Paranoá", "Park Way", "Planaltina", "Plano Piloto", "Recanto das Emas", "Riacho Fundo", 
+    "Riacho Fundo II", "Samambaia", "Santa Maria", "São Sebastião", "SCIA (Estrutural)", "SIA", 
+    "Sobradinho", "Sobradinho II", "Sol Nascente/Pôr do Sol", "Sudoeste/Octogonal", "Taguatinga", 
+    "Varjão", "Vicente Pires"
+  ];
+
+  const ENTORNO_CITIES = [
+    "Águas Lindas de Goiás", "Cidade Ocidental", "Luziânia", "Novo Gama", "Padre Bernardo", 
+    "Planaltina de Goiás", "Santo Antônio do Descoberto", "Valparaíso de Goiás"
+  ];
+
+  const STATES = [
+    { name: "Goiás (Raio 300km)", id: "GO_300" },
+    { name: "Minas Gerais (Raio 300km – Unaí/Paracatu)", id: "MG_300" }
+  ];
+
   // Carregar Regiões e Preferências
   useEffect(() => {
     if (!isOpen || !userId) return;
@@ -16,14 +36,26 @@ export default function GeofenceModal({ isOpen, onClose, userId }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Buscar todas as regiões disponíveis
+        // 1. Buscar todas as regiões disponíveis do banco
         const { data: allRegions, error: regionError } = await supabase
           .from('administrative_regions')
           .select('*')
           .order('name');
         
-        if (regionError) throw regionError;
-        setRegions(allRegions);
+        // Se houver erro ou vazio, usar fallback local para UI
+        let finalRegions = [];
+        
+        if (!allRegions || allRegions.length === 0) {
+            // Construir lista baseada nos arrays hardcoded
+            const dfObjs = DF_CITIES.map((name, i) => ({ id: `DF_${i}`, name, category: 'DF' }));
+            const entornoObjs = ENTORNO_CITIES.map((name, i) => ({ id: `GO_${i}`, name, category: 'ENTORNO' }));
+            const stateObjs = STATES.map((s, i) => ({ id: s.id, name: s.name, category: 'ESTADO' }));
+            finalRegions = [...dfObjs, ...entornoObjs, ...stateObjs];
+        } else {
+            finalRegions = allRegions;
+        }
+
+        setRegions(finalRegions);
 
         // 2. Buscar preferências atuais do usuário
         const { data: userPrefs, error: prefError } = await supabase
@@ -32,13 +64,18 @@ export default function GeofenceModal({ isOpen, onClose, userId }) {
           .eq('user_id', userId)
           .eq('is_active', true);
 
-        if (prefError) throw prefError;
-
-        const activeSet = new Set(userPrefs.map(p => p.region_id));
-        setSelectedRegions(activeSet);
+        if (!prefError && userPrefs) {
+            const activeSet = new Set(userPrefs.map(p => p.region_id));
+            setSelectedRegions(activeSet);
+        }
 
       } catch (err) {
         console.error('Erro ao carregar regiões:', err);
+        // Fallback em caso de erro crítico
+        const dfObjs = DF_CITIES.map((name, i) => ({ id: `DF_${i}`, name, category: 'DF' }));
+        const entornoObjs = ENTORNO_CITIES.map((name, i) => ({ id: `GO_${i}`, name, category: 'ENTORNO' }));
+        const stateObjs = STATES.map((s, i) => ({ id: s.id, name: s.name, category: 'ESTADO' }));
+        setRegions([...dfObjs, ...entornoObjs, ...stateObjs]);
       } finally {
         setLoading(false);
       }

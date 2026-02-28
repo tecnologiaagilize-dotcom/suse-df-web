@@ -10,13 +10,30 @@ import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
+import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
+
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.22 - Restore Semantic UI");
+  console.log("SUSE-DF PassengerDashboard V1.3.23 - New Buttons UI");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
+  const [geofenceStatus, setGeofenceStatus] = useState('CONFIGURED'); // 'CONFIGURED' | 'ACTIVE'
+
+  const handleToggleGeofence = () => {
+    setGeofenceStatus(prev => {
+        const newState = prev === 'CONFIGURED' ? 'ACTIVE' : 'CONFIGURED';
+        // Toast simulation (alert for now or console)
+        console.log(newState === 'ACTIVE' ? "Cerca virtual ativada." : "Cerca virtual desativada.");
+        return newState;
+    });
+  };
+
+  const handleLongPressGeofence = () => {
+      console.log("Modo de edição ativado.");
+      setShowGeofenceModal(true);
+  };
 
   // Estados de Emergência e Alerta
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
@@ -478,6 +495,7 @@ export default function PassengerDashboard() {
 
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
+      <DashboardStyles />
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -630,42 +648,42 @@ export default function PassengerDashboard() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleSOS('button')}
-                  className="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center shadow-lg border-8 border-red-500 hover:bg-red-700 active:bg-red-800 transition-colors"
-                >
-                  <AlertTriangle className="h-24 w-24 text-white mb-2" />
-                  <span className="text-4xl font-bold text-white">SOS</span>
-                </button>
+                <SOSButton onClick={() => handleSOS('button')} />
 
-                <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center">
-                  <button 
-                    onClick={() => setShowGeofenceModal(true)}
-                    className="w-full flex items-center justify-center gap-2 text-green-600 hover:text-green-800 font-medium bg-green-50 px-4 py-2 rounded-full border border-green-200"
-                  >
-                    <MapPin size={18} /> Definir Área de Segurança (Cerca Virtual)
-                  </button>
-
-                  <button 
-                    onClick={handleProfile}
-                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
-                  >
-                    <User size={18} /> Meu Cadastro
-                  </button>
+                <div className="w-full max-w-md flex flex-col gap-4 justify-center items-center px-2">
                   
-                  <button 
-                    onClick={() => navigate('/passenger/voice-config')}
-                    className="w-full flex items-center justify-center gap-2 text-purple-600 hover:text-purple-800 font-medium bg-purple-50 px-4 py-2 rounded-full border border-purple-200"
-                  >
-                    <Activity size={18} /> Configurar Voz
-                  </button>
+                  {/* 1. Cerca Virtual (Novo Design) */}
+                  <GeofenceButton 
+                      status={geofenceStatus}
+                      onClick={handleToggleGeofence}
+                      onLongPress={handleLongPressGeofence}
+                  />
 
-                  <button 
-                    onClick={() => navigate('/passenger/health')}
-                    className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-800 font-medium bg-red-50 px-4 py-2 rounded-full border border-red-200"
-                  >
-                    <HeartPulse size={18} /> Minha Saúde
-                  </button>
+                  {/* 2. Meu Cadastro */}
+                  <MenuButton 
+                      icon={User}
+                      title="Meu Cadastro"
+                      subtitle="Gerenciar meus dados e contatos"
+                      onClick={handleProfile}
+                  />
+                  
+                  {/* 3. Configurar Voz (Wave Animation) */}
+                  <MenuButton 
+                      icon={Mic}
+                      title="Configurar Voz"
+                      subtitle="Personalizar comportamento e volume da fala"
+                      onClick={() => navigate('/passenger/voice-config')}
+                      animationType="voice-wave"
+                  />
+
+                  {/* 4. Minha Saúde (Heartbeat Animation) */}
+                  <MenuButton 
+                      icon={HeartPulse}
+                      title="Minha Saúde"
+                      subtitle="Registre informações, alergias e histórico"
+                      onClick={() => navigate('/passenger/health')}
+                      animationType="heartbeat"
+                  />
                 </div>
 
                 <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
