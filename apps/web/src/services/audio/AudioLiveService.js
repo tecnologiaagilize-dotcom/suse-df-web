@@ -1,5 +1,9 @@
 // Serviço de Gerenciamento de Áudio Live (WebRTC + Gravação Local)
 import { supabase } from '../../supabase';
+import { io } from 'socket.io-client';
+
+// URL do servidor de sinalização (Railway) - Configurada via variável de ambiente
+const SIGNALING_SERVER_URL = import.meta.env.VITE_SIGNALING_SERVER_URL || 'https://suse-df-web-production.up.railway.app';
 
 const SESSION_DURATION_MS = 45 * 60 * 1000; // 45 minutos
 
@@ -12,6 +16,7 @@ export class AudioLiveService {
         this.sessionId = null;
         this.sessionExpiresAt = null;
         this.intervalId = null;
+        this.socket = null; // Socket.IO Client
     }
 
     // Iniciar sessão de áudio
@@ -35,7 +40,10 @@ export class AudioLiveService {
             // 4. Iniciar gravação local (Client-side failover)
             this.startLocalRecording();
 
-            // 5. Configurar renovação automática (T-3min)
+            // 5. Conectar ao Servidor de Sinalização (WebRTC)
+            this.connectSignalingServer(occ.id);
+
+            // 6. Configurar renovação automática (T-3min)
             this.setupRenewalCheck(occ.id);
 
             return { stream: this.stream, sessionId: this.sessionId };
@@ -43,6 +51,42 @@ export class AudioLiveService {
         } catch (err) {
             console.error('Erro ao iniciar Audio Live:', err);
             throw err;
+        }
+    }
+
+    connectSignalingServer(occurrenceId) {
+        try {
+            this.socket = io(SIGNALING_SERVER_URL, {
+                transports: ['websocket'],
+                query: {
+                    occurrence_id: occurrenceId,
+                    session_token: this.sessionId
+                }
+            });
+
+            this.socket.on('connect', () => {
+                console.log('Conectado ao servidor de sinalização:', this.socket.id);
+                this.joinRoom(occurrenceId);
+            });
+
+            this.socket.on('disconnect', () => {
+                console.warn('Desconectado do servidor de sinalização');
+            });
+
+            // Handlers para WebRTC (Offer, Answer, ICE) serão implementados aqui
+            // ...
+
+        } catch (error) {
+            console.error("Erro ao conectar Socket.IO:", error);
+        }
+    }
+
+    joinRoom(occurrenceId) {
+        if (this.socket) {
+            this.socket.emit('join_room', { 
+                occurrence_id: occurrenceId,
+                session_token: this.sessionId
+            });
         }
     }
 
@@ -128,6 +172,9 @@ export class AudioLiveService {
         }
         if (this.intervalId) {
             clearInterval(this.intervalId);
+        }
+        if (this.socket) {
+            this.socket.disconnect();
         }
         
         // Atualizar status no banco para closed
