@@ -12,9 +12,18 @@ export default function PassengerProfile() {
     email: '',
     phone_number: '',
     cpf: '',
+    birth_date: '', // Adicionado
     secret_word: '',
     photo_url: '',
     emergency_contacts: [],
+    guardian_info: { // Adicionado para menores
+      name: '',
+      cpf: '',
+      phone: '',
+      email: '',
+      token: '',
+      verified: false
+    },
     address: {
       cep: '',
       street: '',
@@ -28,6 +37,9 @@ export default function PassengerProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [isMinor, setIsMinor] = useState(false); // Estado para controle de menor de idade
+  const [showGuardianTokenModal, setShowGuardianTokenModal] = useState(false); // Modal de validação
+  const [guardianTokenInput, setGuardianTokenInput] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -38,6 +50,20 @@ export default function PassengerProfile() {
       loadUserProfile();
     }
   }, [user]);
+
+  // Efeito para verificar idade
+  useEffect(() => {
+    if (profile.birth_date) {
+      const birth = new Date(profile.birth_date);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      setIsMinor(age < 18);
+    }
+  }, [profile.birth_date]);
 
   const loadUserProfile = async () => {
     try {
@@ -53,9 +79,11 @@ export default function PassengerProfile() {
           email: data.email || user.email,
           phone_number: data.phone_number || '',
           cpf: data.cpf || '',
+          birth_date: data.birth_date || '', // Carrega data de nascimento
           secret_word: data.secret_word || '',
           photo_url: data.photo_url || '',
           emergency_contacts: data.emergency_contacts || [],
+          guardian_info: data.guardian_info || { name: '', cpf: '', phone: '', email: '', token: '', verified: false }, // Carrega responsável
           address: data.address || {
             cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: ''
           }
@@ -90,6 +118,40 @@ export default function PassengerProfile() {
       }));
     } else {
       setProfile(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Função simulada de envio de token
+  const sendGuardianToken = async () => {
+    if (!profile.guardian_info.email && !profile.guardian_info.phone) {
+      alert('Preencha o email ou telefone do responsável.');
+      return;
+    }
+    
+    // Simulação: Token fixo para teste
+    const mockToken = '123456';
+    console.log(`Token enviado para ${profile.guardian_info.email || profile.guardian_info.phone}: ${mockToken}`);
+    
+    // Atualiza estado local com o token esperado (no mundo real, isso ficaria no backend/redis)
+    setProfile(prev => ({
+      ...prev,
+      guardian_info: { ...prev.guardian_info, token: mockToken } // Apenas para simulação local
+    }));
+    
+    alert(`Token de verificação enviado para o responsável! (Token simulado: ${mockToken})`);
+    setShowGuardianTokenModal(true);
+  };
+
+  const verifyGuardianToken = () => {
+    if (guardianTokenInput === profile.guardian_info.token || guardianTokenInput === '123456') {
+      setProfile(prev => ({
+        ...prev,
+        guardian_info: { ...prev.guardian_info, verified: true }
+      }));
+      setShowGuardianTokenModal(false);
+      alert('Responsável verificado com sucesso!');
+    } else {
+      alert('Token inválido.');
     }
   };
 
@@ -189,6 +251,12 @@ export default function PassengerProfile() {
   };
 
   const handleSave = async () => {
+    // Validação de Menor de Idade
+    if (isMinor && !profile.guardian_info.verified) {
+      alert('ATENÇÃO: Para usuários menores de 18 anos, é obrigatório validar os dados do responsável legal antes de salvar.');
+      return;
+    }
+
     setSaving(true);
     try {
       let finalPhotoUrl = profile.photo_url;
@@ -206,8 +274,6 @@ export default function PassengerProfile() {
 
         if (uploadError) {
              console.error("Erro upload avatars:", uploadError);
-             // Fallback: Tenta salvar como base64 se o bucket falhar (não recomendado, mas funcional para MVP)
-             // Mas vamos lançar erro para forçar correção do bucket
              throw new Error("Falha ao salvar foto no servidor. Verifique se o bucket 'avatars' existe.");
         }
 
@@ -217,7 +283,6 @@ export default function PassengerProfile() {
 
         finalPhotoUrl = publicUrl;
       } else if (profile.photo_url && profile.photo_url.startsWith('blob:')) {
-          // Caso extremo onde photoFile se perdeu mas blob url existe (raro)
           console.warn("Blob URL detectada sem arquivo correspondente. Ignorando upload de foto.");
       }
 
@@ -228,8 +293,10 @@ export default function PassengerProfile() {
         email: profile.email,
         phone_number: profile.phone_number,
         cpf: profile.cpf,
+        birth_date: profile.birth_date || null, // Salva data de nascimento
         secret_word: profile.secret_word,
         emergency_contacts: profile.emergency_contacts,
+        guardian_info: profile.guardian_info, // Salva dados do responsável
         address: profile.address,
         photo_url: finalPhotoUrl,
         updated_at: new Date().toISOString()

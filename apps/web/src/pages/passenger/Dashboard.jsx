@@ -32,16 +32,24 @@ export default function PassengerDashboard() {
       
       if (error) {
           console.error("Erro ao verificar LGPD:", error);
+          // Em caso de erro, não bloqueia imediatamente para evitar travamento se a rede falhar, 
+          // mas loga o erro. Idealmente deveria tentar novamente.
           return;
       }
       
       if (data === false) {
-          console.warn("LGPD não aceito. Redirecionando...");
+          console.warn("LGPD não aceito. Redirecionando para aceite obrigatório...");
           navigate('/passenger/legal-terms');
       }
     };
     
+    // Check immediately
     checkLegal();
+
+    // Re-check on focus to prevent bypassing
+    const onFocus = () => checkLegal();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [user]);
   
   useEffect(() => {

@@ -61,12 +61,18 @@ export default function DriverDashboard() {
       }
       
       if (data === false) {
-          console.warn("LGPD não aceito. Redirecionando...");
+          console.warn("LGPD não aceito. Redirecionando para aceite obrigatório...");
           navigate('/driver/legal-terms');
       }
     };
     
+    // Check immediately
     checkLegal();
+
+    // Re-check on focus to prevent bypassing
+    const onFocus = () => checkLegal();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [user]);
 
   useEffect(() => {
