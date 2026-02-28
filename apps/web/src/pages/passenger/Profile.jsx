@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { User, Phone, FileText, Mail, ArrowLeft, Mic, Camera, MapPin, Save, Users, Plus, Trash } from 'lucide-react';
+import { User, Phone, FileText, Mail, ArrowLeft, Mic, Camera, MapPin, Save, Users, Plus, Trash, Download, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function PassengerProfile() {
@@ -314,6 +314,17 @@ export default function PassengerProfile() {
     }
   };
 
+  const handleDownloadConsent = () => {
+    // Simulação de download de PDF
+    const link = document.createElement('a');
+    link.href = '/docs/termo_consentimento_menor_suse.pdf'; // Idealmente um link real ou gerado dinamicamente
+    link.download = 'Termo_Consentimento_Menor_SUSE.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    alert('Download do Termo de Consentimento iniciado.');
+  };
+
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando dados...</div>;
 
   return (
@@ -323,9 +334,22 @@ export default function PassengerProfile() {
           <button onClick={() => navigate('/passenger/dashboard')} className="flex items-center text-gray-600 hover:text-gray-900">
             <ArrowLeft className="h-5 w-5 mr-2" /> Voltar ao Painel
           </button>
-          <button onClick={handleSave} disabled={saving} className="flex items-center px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700">
-            <Save className="h-4 w-4 mr-2" /> {saving ? 'Salvando...' : 'Salvar'}
-          </button>
+          
+          <div className="flex gap-2">
+              {isMinor && (
+                  <button 
+                    onClick={handleDownloadConsent} 
+                    className="flex items-center px-4 py-2 rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-200 transition-colors"
+                    title="Baixar Termo de Consentimento para Responsável"
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Termo de Consentimento
+                  </button>
+              )}
+              
+              <button onClick={handleSave} disabled={saving} className="flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors">
+                <Save className="h-4 w-4 mr-2" /> {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+          </div>
         </div>
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -548,7 +572,7 @@ export default function PassengerProfile() {
             </div>
 
             <div className="border-t border-gray-200 pt-6 mt-6 space-y-4">
-              <button onClick={handleSave} disabled={saving} className="w-full flex justify-center items-center py-3 px-4 rounded-md text-white bg-green-600 hover:bg-green-700">
+              <button onClick={handleSave} disabled={saving} className="w-full flex justify-center items-center py-3 px-4 rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors font-medium">
                 <Save className="h-5 w-5 mr-2" /> {saving ? 'Salvando...' : 'Salvar Alterações e Sair'}
               </button>
             </div>
