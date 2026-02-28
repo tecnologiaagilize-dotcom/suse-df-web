@@ -14,7 +14,7 @@ import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../co
 import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons'; // Novo Componente
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.26 - Voice Mode Buttons");
+  console.log("SUSE-DF PassengerDashboard V1.3.27 - Transcript Display");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -521,7 +521,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.26</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.27</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -643,25 +643,53 @@ export default function PassengerDashboard() {
                       </div>
                   )}
 
-                  <div className="mt-4 flex justify-center">
-                    <VoiceEmergencyListener 
-                      emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive && voiceMode !== 'OFF'} 
-                      onTranscriptChange={(text) => setVoiceTranscript(text)}
-                      onAnalysisUpdate={handleAnalysisUpdate} // Usa função estável
-                      showDebugPanel={false} 
-                      onEmergencyDetected={(reason) => {
-                        console.log("Emergência detectada via voz:", reason);
-                        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                        handleSOS('voice', reason);
-                      }}
-                    />
-                    
-                    {voiceTranscript && !isEmergencyActive && voiceMode !== 'OFF' && (
-                        <div className="mt-2 text-xs text-center text-gray-500 italic animate-pulse">
-                            Ouvindo: "{voiceTranscript}..."
+                  <div className="mt-4 flex justify-center w-full">
+                    {/* Exibição de Transcrição em Tempo Real (Substituindo VoiceEmergencyListener visível) */}
+                    <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-h-[80px] flex flex-col items-center justify-center relative overflow-hidden">
+                        
+                        {/* Componente Lógico (Invisível mas ativo) */}
+                        <div className="absolute opacity-0 pointer-events-none">
+                            <VoiceEmergencyListener 
+                              emergencyPhrase={emergencyPhrase}
+                              isActive={!isEmergencyActive && voiceMode !== 'OFF'} 
+                              onTranscriptChange={(text) => setVoiceTranscript(text)}
+                              onAnalysisUpdate={handleAnalysisUpdate} 
+                              showDebugPanel={false} 
+                              onEmergencyDetected={(reason) => {
+                                console.log("Emergência detectada via voz:", reason);
+                                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                                handleSOS('voice', reason);
+                              }}
+                            />
                         </div>
-                    )}
+
+                        {/* UI de Transcrição */}
+                        {voiceMode === 'OFF' ? (
+                            <div className="text-gray-400 text-sm flex items-center gap-2">
+                                <MicOff size={16} /> Microfone Desligado
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-1 font-bold w-full text-left flex justify-between">
+                                    <span>Monitorando Áudio</span>
+                                    <span className="text-blue-500 animate-pulse">● Gravando</span>
+                                </div>
+                                <div className="w-full text-center">
+                                    {voiceTranscript ? (
+                                        <p className="text-gray-800 text-lg font-medium leading-tight animate-in fade-in slide-in-from-bottom-2">
+                                            "{voiceTranscript}"
+                                        </p>
+                                    ) : (
+                                        <p className="text-gray-300 text-sm italic">
+                                            Aguardando fala...
+                                        </p>
+                                    )}
+                                </div>
+                                {/* Waveform decorativo */}
+                                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-blue-500/0"></div>
+                            </>
+                        )}
+                    </div>
                   </div>
                 </div>
 
