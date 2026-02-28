@@ -1,5 +1,5 @@
 // Serviço de Gerenciamento de Áudio Live (WebRTC + Gravação Local)
-import { supabase } from '../../supabase';
+import { supabase } from '../../lib/supabase';
 import { io } from 'socket.io-client';
 
 // URL do servidor de sinalização (Railway) - Configurada via variável de ambiente
