@@ -74,4 +74,5 @@ async def health_check(request):
 app.router.add_get('/', health_check)
 
 if __name__ == '__main__':
-    web.run_app(app, port=8000)
+    port = int(os.getenv('PORT', 8000))
+    web.run_app(app, port=port)
