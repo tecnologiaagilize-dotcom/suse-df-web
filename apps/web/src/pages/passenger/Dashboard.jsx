@@ -536,27 +536,27 @@ export default function PassengerDashboard() {
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <DashboardStyles />
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-[#00509d] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <ShieldAlert className="text-red-600" />
-                SUSE - Passageiro
+          <div className="flex justify-between h-24 items-center">
+            <div className="flex flex-col text-white">
+              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide">
+                IRA (INDICADOR DE RISCO ACÚSTICO) V.2.0
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.33</span>
+              <span className="text-xs font-mono text-blue-100 opacity-80">SUSE™ v3.33</span>
+              <span className="text-sm font-medium mt-1">Painel do Passageiro</span>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
-              <button onClick={handleSignOut} className="p-2 rounded-full text-gray-400 hover:text-gray-500">
-                <LogOut className="h-6 w-6" />
+            <div className="flex items-center gap-4 text-white">
+              <span className="text-sm mr-4 font-medium">{user?.email}</span>
+              <button onClick={handleSignOut} className="p-2 rounded-full border border-white/30 hover:bg-white/10 transition-colors">
+                <LogOut className="h-5 w-5" />
               </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pb-20">
         <div className="px-4 py-6 sm:px-0">
           
           {/* ALERTA DE CONFIGURAÇÃO DE VOZ PENDENTE (IMPLANTAÇÃO FINAL) */}
@@ -686,9 +686,8 @@ export default function PassengerDashboard() {
              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-8">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-900">Painel do Passageiro</h2>
-                  <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
+                <div className="text-center w-full max-w-md">
+                  <p className="mt-1 text-gray-500 font-medium">Em caso de emergência, pressione o botão abaixo.</p>
                   
                   {/* Alerta se frase não estiver configurada */}
                   {!emergencyPhrase && (
@@ -697,7 +696,12 @@ export default function PassengerDashboard() {
                       </div>
                   )}
 
-                  <div className="mt-4 flex justify-center w-full">
+                  {/* SOS Button Positioned Here */}
+                  <div className="mt-6 flex justify-center">
+                      <SOSButton onClick={() => handleSOS('button')} />
+                  </div>
+
+                  <div className="mt-8 flex justify-center w-full">
                     {/* Exibição de Transcrição em Tempo Real (Substituindo VoiceEmergencyListener visível) */}
                     <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-h-[80px] flex flex-col items-center justify-center relative overflow-hidden">
                         
@@ -753,9 +757,37 @@ export default function PassengerDashboard() {
                     <p className="text-[10px] text-gray-400 text-center mb-4">
                         Seu áudio só é transmitido em caso de emergência.
                     </p>
-                </div>
+                    
+                    {/* Location Card Moved Here */}
+                    <div className="w-full bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200 mt-4">
+                      <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                          <MapPin className="text-blue-600" size={20} /> Localização Atual
+                        </h3>
+                        <span className="text-xs font-mono text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">
+                          {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
+                        </span>
+                      </div>
+                      
+                      {/* Mapa Visível - Altura reduzida (1/3) */}
+                      <div className="h-32 w-full relative bg-gray-100 z-0">
+                         <TrackingMap lat={currentLocation.lat} lng={currentLocation.lng} />
+                      </div>
 
-                <SOSButton onClick={() => handleSOS('button')} />
+                      {/* Botão de Compartilhamento */}
+                      <div className="p-4 bg-white border-t border-gray-100">
+                          <button 
+                              onClick={handleShareLocation}
+                              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-wide text-sm"
+                          >
+                              <Share2 size={18} /> Compartilhar Geolocalização
+                          </button>
+                          <p className="text-[10px] text-gray-400 text-center mt-2">
+                              Compartilhe com um contato de emergência ou adicione um novo.
+                          </p>
+                      </div>
+                    </div>
+                </div>
 
                 <div className="w-full max-w-md flex flex-col gap-4 justify-center items-center px-2">
                   
@@ -791,35 +823,6 @@ export default function PassengerDashboard() {
                       onClick={() => navigate('/passenger/health')}
                       animationType="heartbeat"
                   />
-                </div>
-
-                <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
-                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                      <MapPin className="text-blue-600" size={20} /> Localização Atual
-                    </h3>
-                    <span className="text-xs font-mono text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">
-                      {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
-                    </span>
-                  </div>
-                  
-                  {/* Mapa Visível - Altura reduzida (1/3) */}
-                  <div className="h-32 w-full relative bg-gray-100 z-0">
-                     <TrackingMap lat={currentLocation.lat} lng={currentLocation.lng} />
-                  </div>
-
-                  {/* Botão de Compartilhamento */}
-                  <div className="p-4 bg-white border-t border-gray-100">
-                      <button 
-                          onClick={handleShareLocation}
-                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-wide text-sm"
-                      >
-                          <Share2 size={18} /> Compartilhar Geolocalização
-                      </button>
-                      <p className="text-[10px] text-gray-400 text-center mt-2">
-                          Compartilhe com um contato de emergência ou adicione um novo.
-                      </p>
-                  </div>
                 </div>
 
                 {/* Painel IRA-SUSI Fixo - STATUS */}
@@ -1074,6 +1077,11 @@ export default function PassengerDashboard() {
               </div>
           </div>
       )}
+
+      {/* Footer */}
+      <footer className="bg-[#00509d] text-white py-4 text-center text-xs w-full fixed bottom-0 left-0 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+          <p>Todos os direitos reservados para a empresa AgilizeTecnologia. www.agilizetecnologia.com.br</p>
+      </footer>
     </div>
   );
 }

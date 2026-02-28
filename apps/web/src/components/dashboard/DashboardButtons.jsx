@@ -88,8 +88,12 @@ export const GeofenceButton = ({ status = 'CONFIGURED', onClick, onLongPress }) 
       `}
     >
       <div className="flex items-center gap-4 flex-1 pointer-events-none">
-        <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
-          {isActive ? <ShieldCheck className="text-white w-6 h-6" /> : <MapPin className="text-white w-6 h-6" />}
+        <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm relative overflow-hidden">
+          {isActive ? (
+              <ShieldCheck className="text-white w-6 h-6 animate-random-move" />
+          ) : (
+              <MapPin className="text-white w-6 h-6 animate-random-move" />
+          )}
         </div>
         <div className="flex flex-col items-start text-left">
           <span className="text-white font-bold text-lg leading-tight">
@@ -123,6 +127,22 @@ export const MenuButton = ({
   onClick, 
   animationType = 'none' // 'none', 'voice-wave', 'heartbeat'
 }) => {
+  // Custom Icon for Profile with Face Animation
+  const ProfileFaceIcon = () => (
+      <div className="w-6 h-6 relative">
+          {/* Base Face Circle */}
+          <div className="w-full h-full rounded-full border-2 border-white bg-transparent flex items-center justify-center relative overflow-hidden">
+              {/* Eyes Container - Moving */}
+              <div className="absolute top-[30%] w-full flex justify-center gap-1 animate-face-eyes">
+                  <div className="w-1 h-1 bg-white rounded-full"></div>
+                  <div className="w-1 h-1 bg-white rounded-full"></div>
+              </div>
+              {/* Mouth - Moving */}
+              <div className="absolute bottom-[25%] w-2 h-[2px] bg-white rounded-full animate-face-mouth"></div>
+          </div>
+      </div>
+  );
+
   return (
     <button
       onClick={onClick}
@@ -135,7 +155,11 @@ export const MenuButton = ({
     >
       <div className="flex items-center gap-4 flex-1 z-10 pointer-events-none">
         <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm relative">
-          <Icon className={`text-white w-6 h-6 ${animationType === 'heartbeat' ? 'animate-pulse-heart' : ''}`} />
+          {title === "Meu Cadastro" ? (
+              <ProfileFaceIcon />
+          ) : (
+              <Icon className={`text-white w-6 h-6 ${animationType === 'heartbeat' ? 'animate-pulse-heart' : ''}`} />
+          )}
         </div>
         <div className="flex flex-col items-start text-left">
           <span className="text-white font-bold text-lg leading-tight">{title}</span>
@@ -204,6 +228,34 @@ export const DashboardStyles = () => (
     }
     .animate-progress-grow {
         animation: progress-grow 3s linear forwards;
+    }
+
+    @keyframes random-move {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(-2px, -3px); }
+        50% { transform: translate(3px, 1px); }
+        75% { transform: translate(-1px, 4px); }
+    }
+    .animate-random-move {
+        animation: random-move 3s ease-in-out infinite;
+    }
+
+    @keyframes face-eyes {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(-2px, -1px); }
+        50% { transform: translate(2px, 0); }
+        75% { transform: translate(0, 2px); }
+    }
+    .animate-face-eyes {
+        animation: face-eyes 4s ease-in-out infinite;
+    }
+
+    @keyframes face-mouth {
+        0%, 100% { transform: scaleX(1) translateY(0); }
+        50% { transform: scaleX(1.2) translateY(1px); }
+    }
+    .animate-face-mouth {
+        animation: face-mouth 2s ease-in-out infinite;
     }
   `}</style>
 );

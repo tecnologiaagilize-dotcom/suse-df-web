@@ -36,37 +36,36 @@ export default function ProfessionalDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navbar */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-blue-600 shadow-sm text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Stethoscope className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 leading-tight">Portal do Profissional</h1>
-                <p className="text-xs text-gray-500">Sistema de Saúde Integrado</p>
-              </div>
+          <div className="flex justify-between h-20 items-center">
+            <div className="flex flex-col">
+              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide">
+                IRA (INDICADOR DE RISCO ACÚSTICO) V.2.0
+              </h1>
+              <span className="text-xs font-mono text-blue-100 opacity-80">SUSE™ v3.33</span>
+              <span className="text-sm font-medium mt-1">Portal do Profissional</span>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
-                <p className="text-xs text-gray-500">Médico Responsável</p>
+              <div className="text-right hidden sm:block text-blue-100">
+                <p className="text-sm font-medium">{user?.email}</p>
+                <p className="text-xs opacity-80">Médico Responsável</p>
               </div>
               <button 
                 onClick={handleSignOut}
-                className="p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg transition-colors text-sm font-bold shadow-sm"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
+                SAIR
               </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-grow max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full">
         {/* Ações Rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* Card 1: Ler QR Code */}
@@ -147,6 +146,11 @@ export default function ProfessionalDashboard() {
             </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-[#00509d] text-white py-4 text-center text-xs mt-auto">
+        <p>Todos os direitos reservados para a empresa AgilizeTecnologia. www.agilizetecnologia.com.br</p>
+      </footer>
     </div>
   );
 }

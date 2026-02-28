@@ -9,10 +9,10 @@ import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListene
 import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
 
-import GeofenceModal from '../../components/GeofenceModal';
+import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.9 - Visual AI Monitor & Robust Voice");
+  console.log("SUSE-DF DriverDashboard V1.3.11 - Visual AI Monitor & Robust Voice");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -438,7 +438,7 @@ export default function DriverDashboard() {
              // Fallback para avatars se o bucket principal falhar
              const backupName = `term_${activeAlertId}_${Date.now()}.jpg`;
              const { error: backupError } = await supabase.storage.from('avatars').upload(backupName, terminationData.photo);
-             if (backupError) throw new Error("Falha no upload da foto: " + uploadError.message);
+             if (backupError) throw new Error("Falha no upload da foto: " + backupError.message);
              const { data } = supabase.storage.from('avatars').getPublicUrl(backupName);
              photoUrl = data.publicUrl;
           } else {
@@ -547,28 +547,33 @@ export default function DriverDashboard() {
   };
 
   return (
-    <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <nav className="bg-white shadow-sm">
+    <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'} flex flex-col`}>
+      <DashboardStyles />
+      <nav className="bg-[#00509d] shadow-sm text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-20 items-center">
             <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <ShieldAlert className="text-red-600" />
-                SUSE-CONDUTOR
+              <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide">
+                IRA (INDICADOR DE RISCO ACÚSTICO) V.2.0
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">V.1.3.10</span>
+              <span className="text-xs font-mono text-blue-100 opacity-80">SUSE™ v3.33</span>
+              <span className="text-sm font-medium mt-1">Painel do Condutor</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
-              <button onClick={handleSignOut} className="p-2 rounded-full text-gray-400 hover:text-gray-500">
-                <LogOut className="h-6 w-6" />
+              <span className="text-sm text-blue-100 hidden sm:block">{user?.email}</span>
+              <button 
+                onClick={handleSignOut} 
+                className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg transition-colors text-sm font-bold shadow-sm"
+              >
+                <LogOut className="h-4 w-4" />
+                SAIR
               </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="flex-grow max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 w-full">
         <div className="px-4 py-6 sm:px-0">
           
           {isEmergencyActive ? (
@@ -677,10 +682,9 @@ export default function DriverDashboard() {
                 )}
              </div>
           ) : (
-             <div className="flex flex-col items-center justify-center space-y-8">
+             <div className="flex flex-col items-center justify-center space-y-6">
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-900">Painel do Condutor</h2>
-                  <p className="mt-1 text-gray-500">Em caso de emergência, pressione o botão abaixo.</p>
+                  <p className="mt-1 text-gray-500 font-medium">Em caso de emergência, pressione o botão abaixo.</p>
 
                   {/* Monitoramento de Voz Ativo */}
                   <div className="mt-4 flex justify-center">
@@ -707,44 +711,15 @@ export default function DriverDashboard() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleSOS('button')}
-                  className="w-64 h-64 bg-red-600 rounded-full flex flex-col items-center justify-center shadow-lg border-8 border-red-500 hover:bg-red-700 active:bg-red-800 transition-colors"
-                >
-                  <AlertTriangle className="h-24 w-24 text-white mb-2" />
-                  <span className="text-4xl font-bold text-white">SOS</span>
-                </button>
-
-                <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center">
-                  <button 
-                    onClick={() => setShowGeofenceModal(true)}
-                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
-                  >
-                    <MapPin size={18} /> Definir Área de Atuação (Cerca Virtual)
-                  </button>
-                  
-                  <button 
-                    onClick={handleProfile}
-                    className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-4 py-2 rounded-full border border-blue-200"
-                  >
-                    <User size={18} /> Meu Cadastro
-                  </button>
-
-                  <button 
-                    onClick={handleVoiceConfig}
-                    className="w-full flex items-center justify-center gap-2 text-purple-600 hover:text-purple-800 font-medium bg-purple-50 px-4 py-2 rounded-full border border-purple-200"
-                  >
-                    <Clock size={18} /> Configurar Voz
-                  </button>
-
-                  <button 
-                    onClick={handleHealth}
-                    className="w-full flex items-center justify-center gap-2 text-red-600 hover:text-red-800 font-medium bg-red-50 px-4 py-2 rounded-full border border-red-200"
-                  >
-                    <HeartPulse size={18} /> Minha Saúde
-                  </button>
+                <div className="my-2">
+                    <SOSButton onClick={() => handleSOS('button')} />
                 </div>
 
+                <p className="text-sm text-gray-500 text-center -mt-2">
+                    Seu áudio só é transmitido em caso de emergência.
+                </p>
+
+                {/* Card de Localização */}
                 <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -755,12 +730,10 @@ export default function DriverDashboard() {
                     </span>
                   </div>
                   
-                  {/* Mapa Visível - Altura reduzida (1/3) */}
                   <div className="h-32 w-full relative bg-gray-100 z-0">
                      <TrackingMap lat={currentLocation.lat} lng={currentLocation.lng} />
                   </div>
 
-                  {/* Botão de Compartilhamento */}
                   <div className="p-4 bg-white border-t border-gray-100">
                       <button 
                           onClick={handleShareLocation}
@@ -768,10 +741,39 @@ export default function DriverDashboard() {
                       >
                           <Share2 size={18} /> Compartilhar Geolocalização
                       </button>
-                      <p className="text-[10px] text-gray-400 text-center mt-2">
-                          Compartilhe com um contato de emergência ou adicione um novo.
-                      </p>
                   </div>
+                </div>
+
+                {/* Botões do Menu */}
+                <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center pb-8">
+                  <GeofenceButton 
+                    status="CONFIGURED" 
+                    onClick={() => setShowGeofenceModal(true)} 
+                  />
+                  
+                  <MenuButton 
+                    icon={User}
+                    title="Meu Cadastro"
+                    subtitle="Gerenciar dados pessoais"
+                    onClick={handleProfile}
+                    animationType="none" 
+                  />
+
+                  <MenuButton 
+                    icon={Clock}
+                    title="Configurar Voz"
+                    subtitle="Ajustar frase de emergência"
+                    onClick={handleVoiceConfig}
+                    animationType="voice-wave"
+                  />
+
+                  <MenuButton 
+                    icon={HeartPulse}
+                    title="Minha Saúde"
+                    subtitle="Ficha médica e contatos"
+                    onClick={handleHealth}
+                    animationType="heartbeat"
+                  />
                 </div>
 
                 {/* Painel IRA-SUSI Fixo - STATUS */}
@@ -906,6 +908,11 @@ export default function DriverDashboard() {
           )}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-[#00509d] text-white py-4 text-center text-xs mt-auto">
+        <p>Todos os direitos reservados para a empresa AgilizeTecnologia. www.agilizetecnologia.com.br</p>
+      </footer>
 
       {/* Modal de Cerca Virtual */}
       <GeofenceModal 

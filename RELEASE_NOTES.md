@@ -1,3 +1,33 @@
+# Release Notes - v3.33 (Blue Theme & Audio Live)
+
+## 🎨 Nova Identidade Visual (Blue Theme) & Audio Live
+
+Esta versão unifica a identidade visual de todos os painéis (Condutor, Passageiro, Profissional) com o novo tema Azul (#00509d) e introduz o streaming de áudio em tempo real para emergências.
+
+### Alterações Principais:
+
+#### 1. Identidade Visual Unificada (Blue Theme)
+*   **Cabeçalho e Rodapé Padronizados**: Todos os painéis agora utilizam a cor `#00509d` para reforçar a identidade da marca SUSE-DF.
+*   **Animações Interativas**: Novos ícones animados nos botões de ação rápida:
+    *   📍 **Cerca Virtual**: Pin com movimento aleatório (`jitter`).
+    *   👤 **Meu Cadastro**: Rosto com olhos e boca animados.
+    *   🎙️ **Configurar Voz**: Onda sonora (`wave`).
+    *   ❤️ **Minha Saúde**: Batimento cardíaco (`heartbeat`).
+
+#### 2. Audio Live (Streaming de Emergência)
+*   **Transmissão em Tempo Real**: O áudio do ambiente é transmitido para a central de monitoramento assim que uma emergência é ativada.
+*   **Black Box Local**: Gravação local de backup para garantir evidências mesmo em caso de falha de rede.
+
+#### 3. Melhorias de UX
+*   **Botão SOS Reposicionado**: Agora localizado estrategicamente abaixo das instruções de emergência.
+*   **Feedback de Voz**: Visualização de transcrição aprimorada no painel do passageiro.
+
+### Versões dos Componentes:
+*   **App Web**: v3.33
+*   **IRA-SUSI Engine**: v2.0
+
+---
+
 # Release Notes - v1.3.7 (Map Expansion & Strict IRA v1.2)
 
 ## 🗺️ Geolocalização Expandida & IRA-SUSI v1.2
