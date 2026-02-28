@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.21 - Forced Deploy (NoResponseTimeout Fix)");
+  console.log("SUSE-DF PassengerDashboard V1.3.22 - Restore Semantic UI");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -486,7 +486,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.21</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.22</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -736,28 +736,7 @@ export default function PassengerDashboard() {
                      {/* Barra de Monitoramento com Níveis Fixos e Marcador Móvel - v3.0 */}
                      <div className="mt-4 mb-4">
                          {/* --- NOVO: MONITOR DE VOZ EM TEMPO REAL (IRA-SUSE AI MONITOR) --- */}
-                         {iraData?.voiceDebug && (
-                             <div className="mb-3 bg-gray-800/80 rounded p-2 border border-blue-500/50 animate-in fade-in slide-in-from-bottom-2 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
-                                 <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-blue-300 mb-1">
-                                     <span className="font-bold flex items-center gap-1"><Activity size={12}/> Análise Semântica</span>
-                                     <span className={iraData.voiceDebug.match ? "text-green-400 font-bold" : "text-gray-400"}>
-                                         Match: {(iraData.voiceDebug.similarity * 100).toFixed(0)}%
-                                     </span>
-                                 </div>
-                                 <div className="font-mono text-[11px] text-gray-300 truncate mb-1">
-                                     Ouvido: <span className="text-white font-bold">"{iraData.voiceDebug.text}"</span>
-                                 </div>
-                                 <div className="flex justify-between text-[9px] text-gray-500 mb-1">
-                                    <span>Alvo: "{iraData.voiceDebug.target}"</span>
-                                 </div>
-                                 <div className="w-full bg-gray-700 h-2 mt-1 rounded-full overflow-hidden">
-                                     <div 
-                                         className={`h-full transition-all duration-300 ${iraData.voiceDebug.match ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-blue-500'}`}
-                                         style={{ width: `${Math.min(100, iraData.voiceDebug.similarity * 100)}%` }}
-                                     />
-                                 </div>
-                             </div>
-                         )}
+                         
                          {/* --------------------------------------------------------------- */}
 
                          <div className="flex justify-between text-[10px] text-gray-500 mb-1 font-bold uppercase">
@@ -822,6 +801,28 @@ export default function PassengerDashboard() {
                              }`}>
                                  {((1 - (iraData?.features?.jitter || 0)) * 100).toFixed(0)}%
                              </span>
+                         </div>
+                         
+                         {/* Análise Semântica (Embed) - Restaurado Posição Original v1.3.14 */}
+                         <div className="col-span-3 bg-gray-800/80 rounded p-2 border border-blue-500/50 mt-1 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                             <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-blue-300 mb-1">
+                                 <span className="font-bold flex items-center gap-1"><Activity size={12}/> Análise Semântica</span>
+                                 <span className={iraData?.voiceDebug?.match ? "text-green-400 font-bold" : "text-gray-400"}>
+                                     Match: {((iraData?.voiceDebug?.similarity || 0) * 100).toFixed(0)}%
+                                 </span>
+                             </div>
+                             <div className="font-mono text-[11px] text-gray-300 truncate mb-1">
+                                 Ouvido: <span className="text-white font-bold">"{iraData?.voiceDebug?.text || '...'}"</span>
+                             </div>
+                             <div className="flex justify-between text-[9px] text-gray-500 mb-1">
+                                <span>Alvo: "{iraData?.voiceDebug?.target || '...'}"</span>
+                             </div>
+                             <div className="w-full bg-gray-700 h-2 mt-1 rounded-full overflow-hidden">
+                                 <div 
+                                     className={`h-full transition-all duration-300 ${iraData?.voiceDebug?.match ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-blue-500'}`}
+                                     style={{ width: `${Math.min(100, (iraData?.voiceDebug?.similarity || 0) * 100)}%` }}
+                                 />
+                             </div>
                          </div>
 
                          {/* Linha 2: Sensores Físicos (Adicionado v2.3) */}
