@@ -32,7 +32,7 @@ app.add_middleware(
 
 # Configuração Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
 supabase = None
 if SUPABASE_URL and SUPABASE_KEY:
