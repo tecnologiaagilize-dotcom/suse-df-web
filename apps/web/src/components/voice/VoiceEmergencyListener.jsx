@@ -542,6 +542,19 @@ export default function VoiceEmergencyListener({
             setIsAnalyzing(true);
             isAnalyzingRef.current = true;
 
+            // --- FAIL-SAFE: Permitir acionamento se biometria não estiver configurada (Dev/First Use) ---
+            // Verifica SE existe baseline configurado
+            const hasBaseline = !!VoiceBiometryService._userBaseline;
+            
+            if (!hasBaseline) {
+                console.warn("[IRA-SUSI Security] Biometria não configurada (Baseline ausente).");
+                console.warn("[IRA-SUSI Security] Aceitando comando por texto (Fallback de Inicialização).");
+                onEmergencyDetected("COMANDO_VOZ_VALIDADO_BYPASS");
+                setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 3000);
+                return;
+            }
+            // -------------------------------------------------------------------------------------------
+
             // Captura snapshot de áudio para análise espectral e biométrica
             const audioBlob = RingBufferService.getWavBlob(5); 
             
@@ -583,13 +596,14 @@ export default function VoiceEmergencyListener({
             }
 
             // --- FAIL-SAFE: Permitir acionamento se biometria não estiver configurada (Dev/First Use) ---
+            // Código duplicado removido para evitar execução dupla
+            /*
             if (!biometryVerified && localBiometry.reason === "Dados insuficientes") {
                 console.warn("[IRA-SUSI Security] Biometria não configurada (Baseline ausente).");
                 console.warn("[IRA-SUSI Security] Aceitando comando por texto (Fallback de Inicialização).");
-                // Em produção, isso pode ser opcional ou exigir 2FA.
-                // Para o usuário atual que espera o funcionamento, ativamos.
                 biometryVerified = true; 
             }
+            */
             // -------------------------------------------------------------------------------------------
 
             if (biometryVerified) {
