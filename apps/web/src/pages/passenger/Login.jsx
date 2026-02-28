@@ -46,13 +46,30 @@ export default function PassengerLogin() {
   const handleFaceVerified = (verified) => {
     if (verified) {
       console.log('Face reconhecida com sucesso.');
+      // Simulando recuperação de token salvo ou sessão
+      // Na prática, a verificação facial retornaria um token de sessão do backend
       navigate('/passenger/dashboard');
     }
   };
 
+  // Efeito para sugerir biometria se já tiver usado antes
+  React.useEffect(() => {
+      const bioEnabled = localStorage.getItem('bio_enabled_passenger');
+      if (bioEnabled === 'true') {
+          setUseFaceLogin(true);
+      }
+  }, []);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg relative">
+        <button 
+            onClick={() => navigate('/')} 
+            className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1"
+        >
+            ← Voltar
+        </button>
+
         <div className="text-center">
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Login Passageiro

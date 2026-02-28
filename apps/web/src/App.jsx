@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/common/ErrorBoundary'; // Módulo 10.4.4
 
+import RoleSelection from './pages/RoleSelection';
+
 // Driver Pages
 import DriverLogin from './pages/driver/Login';
 import DriverRegister from './pages/driver/Register';
@@ -242,8 +244,8 @@ function App() {
           } />
           
           {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/passenger/login" replace />} />
-          <Route path="*" element={<Navigate to="/passenger/login" replace />} />
+          <Route path="/" element={<RoleSelection />} />
+          <Route path="*" element={<RoleSelection />} />
           </Routes>
         </Router>
       </AuthProvider>
