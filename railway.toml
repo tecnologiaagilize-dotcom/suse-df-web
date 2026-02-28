@@ -1,5 +1,4 @@
 [build]
-builder = "docker"
 dockerfilePath = "apps/signaling-server/Dockerfile"
 context = "apps/signaling-server"
 
