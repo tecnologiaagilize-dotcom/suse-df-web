@@ -148,9 +148,9 @@ export const MenuButton = ({
     <button
       onClick={onClick}
       className={`
-        w-full relative overflow-hidden rounded-[20px] p-4 flex items-center justify-between 
+        w-full relative overflow-hidden rounded-[20px] p-4 flex items-center justify-between select-none
         ${isIncomplete 
-          ? 'bg-gradient-to-br from-yellow-500 to-orange-500 shadow-[0_8px_18px_rgba(234,179,8,0.35)]' 
+          ? 'bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] shadow-[0_8px_18px_rgba(30,58,138,0.35)]' 
           : 'bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] shadow-[0_8px_18px_rgba(30,58,138,0.35)]'
         }
         h-[72px] sm:h-[88px] transition-all duration-300 active:scale-[0.98] group
