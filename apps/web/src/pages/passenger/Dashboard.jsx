@@ -11,9 +11,10 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
+import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons'; // Novo Componente
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.24 - Mic Fix");
+  console.log("SUSE-DF PassengerDashboard V1.3.26 - Voice Mode Buttons");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -493,6 +494,22 @@ export default function PassengerDashboard() {
     setIraData(prev => ({...prev, ...data}));
   };
 
+  // Estado para Modo de Voz (OFF | AUTO | ACTIVE)
+  const [voiceMode, setVoiceMode] = useState('AUTO');
+
+  // Efeito para sincronizar voiceMode com isActive do Listener
+  const isVoiceListenerActive = voiceMode !== 'OFF';
+
+  const handleVoiceModeChange = (newMode) => {
+      setVoiceMode(newMode);
+      console.log(`Modo de Voz alterado para: ${newMode}`);
+      if (newMode === 'OFF') {
+          if (navigator.vibrate) navigator.vibrate(50);
+      } else if (newMode === 'ACTIVE') {
+          if (navigator.vibrate) navigator.vibrate([50, 50]);
+      }
+  };
+
   return (
     <div className={`min-h-screen ${isEmergencyActive ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <DashboardStyles />
@@ -504,7 +521,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.24</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.26</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -629,7 +646,7 @@ export default function PassengerDashboard() {
                   <div className="mt-4 flex justify-center">
                     <VoiceEmergencyListener 
                       emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive} 
+                      isActive={!isEmergencyActive && voiceMode !== 'OFF'} 
                       onTranscriptChange={(text) => setVoiceTranscript(text)}
                       onAnalysisUpdate={handleAnalysisUpdate} // Usa função estável
                       showDebugPanel={false} 
@@ -640,12 +657,20 @@ export default function PassengerDashboard() {
                       }}
                     />
                     
-                    {voiceTranscript && !isEmergencyActive && (
+                    {voiceTranscript && !isEmergencyActive && voiceMode !== 'OFF' && (
                         <div className="mt-2 text-xs text-center text-gray-500 italic animate-pulse">
                             Ouvindo: "{voiceTranscript}..."
                         </div>
                     )}
                   </div>
+                </div>
+
+                {/* Painel de Controle de Voz (3 Botões) */}
+                <div className="w-full max-w-md px-2">
+                    <VoiceModeButtons currentMode={voiceMode} setMode={handleVoiceModeChange} />
+                    <p className="text-[10px] text-gray-400 text-center mb-4">
+                        Seu áudio só é transmitido em caso de emergência.
+                    </p>
                 </div>
 
                 <SOSButton onClick={() => handleSOS('button')} />
@@ -723,9 +748,9 @@ export default function PassengerDashboard() {
                         </h4>
                         {/* Indicador de Atividade do Microfone */}
                         <div className="flex items-center gap-2">
-                            <span className={`h-2 w-2 rounded-full ${iraData ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            <span className={`h-2 w-2 rounded-full ${voiceMode !== 'OFF' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
                             <span className="text-[10px] text-gray-500 font-mono">
-                                {iraData ? 'MIC ON' : 'MIC OFF'}
+                                {voiceMode !== 'OFF' ? 'MIC ON' : 'MIC OFF'}
                             </span>
                         </div>
                      </div>
