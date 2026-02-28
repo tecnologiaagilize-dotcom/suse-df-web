@@ -9,7 +9,18 @@ import asyncio
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+if not SUPABASE_URL:
+    print("CRITICAL ERROR: SUPABASE_URL environment variable is not set.")
+if not SUPABASE_KEY:
+    print("CRITICAL ERROR: SUPABASE_SERVICE_ROLE_KEY environment variable is not set.")
+
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to initialize Supabase client: {e}")
+    # Não vamos crashar aqui para permitir que o servidor suba e mostre logs,
+    # mas as funcionalidades que dependem do Supabase falharão.
+    supabase = None
 
 # Servidor Socket.IO (WebRTC Signaling)
 sio = socketio.AsyncServer(async_mode='aiohttp', cors_allowed_origins='*')

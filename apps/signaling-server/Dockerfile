@@ -1,6 +1,8 @@
 # Configuração do Docker para Railway (Monorepo context)
 FROM python:3.9-slim
 
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 # Instalar dependências do sistema (incluindo dependências do PyAV/FFmpeg)
