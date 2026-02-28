@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse, Copy, Share2 } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Check, CheckCircle, Home, User, Activity, HeartPulse, Copy, Share2, Mic } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -13,7 +13,7 @@ import GeofenceModal from '../../components/GeofenceModal';
 import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.23 - Forced Update UI");
+  console.log("SUSE-DF PassengerDashboard V1.3.24 - Mic Fix");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -504,7 +504,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.23</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.24</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
