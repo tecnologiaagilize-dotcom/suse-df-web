@@ -3,13 +3,23 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema
+# Instalar dependências do sistema (incluindo dependências do PyAV/FFmpeg)
 RUN apt-get update && apt-get install -y \
     build-essential \
     python3-dev \
     libssl-dev \
     libffi-dev \
     net-tools \
+    pkg-config \
+    libavformat-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libswresample-dev \
+    libavfilter-dev \
+    libopus-dev \
+    libvpx-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements.txt a partir da raiz do contexto
