@@ -11,7 +11,7 @@ import OfflineQueueService from '../../services/OfflineQueueService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.18 - IRA Status + Semântica");
+  console.log("SUSE-DF PassengerDashboard V1.3.19 - IRA Status + Semântica (v1.3.14 Style)");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -486,7 +486,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.18</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.19</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -733,31 +733,9 @@ export default function PassengerDashboard() {
                          </div>
                      </div>
 
-                     {/* Análise Semântica Embutida no Card de Status */}
-                     <div className="mt-3 bg-black/40 rounded-md p-2 border border-gray-700/50">
-                        <div className="flex justify-between items-center text-[10px] uppercase text-gray-400 mb-1">
-                            <span>Análise Semântica</span>
-                            <span className={iraData?.voiceDebug?.match ? "text-green-400 font-bold" : "text-gray-500"}>
-                                Match: {(iraData?.voiceDebug?.similarity * 100 || 0).toFixed(0)}%
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-end">
-                            <div className="flex-1 truncate pr-2">
-                                <p className="text-[9px] text-gray-500">Ouvido:</p>
-                                <p className="text-xs font-mono text-white truncate">"{iraData?.voiceDebug?.text || '...'}"</p>
-                            </div>
-                            <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden mb-1">
-                                <div 
-                                    className={`h-full transition-all duration-300 ${iraData?.voiceDebug?.match ? 'bg-green-500' : 'bg-blue-500'}`}
-                                    style={{ width: `${Math.min(100, (iraData?.voiceDebug?.similarity || 0) * 100)}%` }}
-                                />
-                            </div>
-                        </div>
-                     </div>
-
                      {/* Barra de Monitoramento com Níveis Fixos e Marcador Móvel - v3.0 */}
                      <div className="mt-4 mb-4">
-                         {/* --- NOVO: MONITOR DE VOZ EM TEMPO REAL (IRA-SUSI AI MONITOR) --- */}
+                         {/* --- NOVO: MONITOR DE VOZ EM TEMPO REAL (IRA-SUSE AI MONITOR) --- */}
                          {iraData?.voiceDebug && (
                              <div className="mb-3 bg-gray-800/80 rounded p-2 border border-blue-500/50 animate-in fade-in slide-in-from-bottom-2 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
                                  <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-blue-300 mb-1">
