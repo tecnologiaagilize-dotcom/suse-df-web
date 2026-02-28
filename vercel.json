@@ -1,8 +1,8 @@
 {
   "version": 2,
   "public": true,
-  "buildCommand": "cd apps/web && npm install && npm run build",
-  "outputDirectory": "apps/web/dist",
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
     {

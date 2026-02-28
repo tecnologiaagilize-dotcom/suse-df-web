@@ -23,6 +23,9 @@ export default function PassengerDashboard() {
   const [isVoiceConfigured, setIsVoiceConfigured] = useState(false);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   
+  // Estados para Monitoramento IRA-SUSI (Visualização Fixa)
+  const [iraData, setIraData] = useState(null);
+  
   // 0. Verificação LGPD (Bloqueio de Funcionalidades)
   useEffect(() => {
     const checkLegal = async () => {
@@ -100,8 +103,10 @@ export default function PassengerDashboard() {
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Estado para Monitoramento IRA-SUSI (Visualização Fixa)
-  const [iraData, setIraData] = useState(null);
+  // Callback estabilizado para evitar recriação do listener
+  // const handleAnalysisUpdate = (data) => {
+  //   setIraData(prev => ({...prev, ...data}));
+  // };
 
   // Função auxiliar para copiar token
   const handleCopyToken = () => {
