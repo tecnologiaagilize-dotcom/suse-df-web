@@ -10,6 +10,7 @@ import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
 
 import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
+import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
   console.log("SUSE-DF DriverDashboard V1.3.11 - Visual AI Monitor & Robust Voice");
@@ -18,6 +19,7 @@ export default function DriverDashboard() {
 
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
+  const [iraData, setIraData] = useState(null);
 
   // Estados de Emergência e Alerta
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
