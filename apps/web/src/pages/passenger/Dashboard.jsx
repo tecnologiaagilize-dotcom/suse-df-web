@@ -14,9 +14,21 @@ import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../co
 import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons'; // Novo Componente
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.29 - Critical Voice Fix");
+  console.log("SUSE-DF PassengerDashboard V1.3.30 - Final Deployment");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  
+  // --- VERIFICAÇÃO DE BIOMETRIA (IMPLANTAÇÃO FINAL) ---
+  const [isVoiceConfigured, setIsVoiceConfigured] = useState(false);
+  
+  useEffect(() => {
+      if (user?.user_metadata?.voice_config_completed) {
+          setIsVoiceConfigured(true);
+      } else {
+          setIsVoiceConfigured(false);
+      }
+  }, [user]);
+  // ----------------------------------------------------
 
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
@@ -521,7 +533,7 @@ export default function PassengerDashboard() {
                 <ShieldAlert className="text-red-600" />
                 SUSE - Passageiro
               </h1>
-              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.29</span>
+              <span className="text-xs text-gray-500 font-mono ml-8">v1.3.30</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500 mr-4">{user?.email}</span>
@@ -535,6 +547,36 @@ export default function PassengerDashboard() {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          
+          {/* ALERTA DE CONFIGURAÇÃO DE VOZ PENDENTE (IMPLANTAÇÃO FINAL) */}
+          {!isVoiceConfigured && !isEmergencyActive && (
+              <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm animate-pulse">
+                  <div className="flex">
+                      <div className="flex-shrink-0">
+                          <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                      </div>
+                      <div className="ml-3">
+                          <h3 className="text-sm font-bold text-yellow-800">
+                              Configuração de Voz Obrigatória
+                          </h3>
+                          <div className="mt-2 text-sm text-yellow-700">
+                              <p>
+                                  Para ativar o sistema IRA-SUSE™ e a biometria de voz, você precisa gravar suas frases de segurança.
+                              </p>
+                          </div>
+                          <div className="mt-4">
+                              <button
+                                  type="button"
+                                  onClick={() => navigate('/passenger/voice-config')}
+                                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                              >
+                                  Configurar Agora
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
           
           {isEmergencyActive ? (
              <div className="flex flex-col items-center justify-center space-y-8 h-[60vh]">

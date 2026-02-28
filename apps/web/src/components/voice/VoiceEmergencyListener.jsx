@@ -542,15 +542,19 @@ export default function VoiceEmergencyListener({
             setIsAnalyzing(true);
             isAnalyzingRef.current = true;
 
-            // --- FAIL-SAFE: Permitir acionamento se biometria não estiver configurada (Dev/First Use) ---
+            // --- STRICT MODE (IMPLANTAÇÃO FINAL) ---
             // Verifica SE existe baseline configurado
             const hasBaseline = !!VoiceBiometryService._userBaseline;
             
             if (!hasBaseline) {
-                console.warn("[IRA-SUSI Security] Biometria não configurada (Baseline ausente).");
-                console.warn("[IRA-SUSI Security] Aceitando comando por texto (Fallback de Inicialização).");
-                onEmergencyDetected("COMANDO_VOZ_VALIDADO_BYPASS");
-                setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 3000);
+                console.warn("[IRA-SUSI Security] ERRO CRÍTICO: Biometria não configurada (Baseline ausente).");
+                console.warn("[IRA-SUSI Security] Bloqueando acionamento por voz (Protocolo de Segurança Ativo).");
+                // Em produção final, não permitimos bypass. O usuário DEVE configurar a voz.
+                if (onEmergencyDetected) {
+                    // Opcional: Notificar UI que a configuração é necessária
+                    // Mas não dispara emergência real.
+                }
+                setTimeout(() => { if (isMountedRef.current) { setIsAnalyzing(false); isAnalyzingRef.current = false; } }, 1000);
                 return;
             }
             // -------------------------------------------------------------------------------------------
