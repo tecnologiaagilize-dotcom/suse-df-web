@@ -8,6 +8,7 @@ import VoiceActivityService from '../../services/VoiceActivityService';
 import AudioFeatureExtractor from '../../services/AudioFeatureExtractor';
 import IraSusiCore from '../../services/IraSusiCore';
 import SensorContextService from '../../services/SensorContextService';
+import AudioStreamingService from '../../services/AudioStreamingService';
 import IraDebugPanel from '../debug/IraDebugPanel';
 import stringSimilarity from 'string-similarity'; // Comparação fonética
 
@@ -123,6 +124,10 @@ export default function VoiceEmergencyListener({
                       sampleRate: 16000
                   } 
               });
+
+              // [AUDIO LIVE] Injetar stream no serviço de transmissão
+              AudioStreamingService.setStream(stream);
+
           } catch (err) {
               console.error("Erro ao obter media stream:", err);
               setError("Erro ao acessar microfone: " + err.message);

@@ -8,13 +8,14 @@ import TrackingMap from '../../components/map/TrackingMap';
 import VoiceEmergencyListener from '../../components/voice/VoiceEmergencyListener';
 import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
+import AudioStreamingService from '../../services/AudioStreamingService';
 import GeofenceModal from '../../components/GeofenceModal';
 
 import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
 import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons'; // Novo Componente
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.33 - Realtime Transcript Fix");
+  console.log("SUSE-DF PassengerDashboard V1.3.34 - Audio Live Integrated");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -218,6 +219,8 @@ export default function PassengerDashboard() {
             setTerminationStatus('idle');
             setActiveAlertId(null);
             
+            AudioStreamingService.stopStreaming();
+
             // Parar rastreamento
             setTrackingId(prevId => {
                 if (prevId) clearInterval(prevId);
@@ -274,6 +277,8 @@ export default function PassengerDashboard() {
                       setTerminationStatus('idle');
                       setActiveAlertId(null);
                       
+                      AudioStreamingService.stopStreaming();
+
                       setTrackingId(prev => {
                           if (prev) clearInterval(prev);
                           return null;
@@ -378,6 +383,9 @@ export default function PassengerDashboard() {
           setActiveAlertId(result.alert.id);
           setIsEmergencyActive(true);
           setTerminationStatus('idle');
+
+          // [AUDIO LIVE] Reconectar transmissão se necessário
+          AudioStreamingService.startStreaming(result.alert.id);
           
           if (trackingId) clearInterval(trackingId);
           const interval = setInterval(() => sendLocationUpdate(result.alert.id), 5000);
@@ -391,6 +399,9 @@ export default function PassengerDashboard() {
       setActiveAlertId(data.id);
       setIsEmergencyActive(true);
       setTerminationStatus('idle');
+
+      // [AUDIO LIVE] Iniciar transmissão ao vivo para a central
+      AudioStreamingService.startStreaming(data.id);
       
       const interval = setInterval(() => sendLocationUpdate(data.id), 5000);
       setTrackingId(interval);
@@ -607,10 +618,11 @@ export default function PassengerDashboard() {
                                 <div className="my-6">
                                     <button 
                                         onClick={() => {
-                                            setIsEmergencyActive(false);
-                                            setTerminationStatus('idle');
-                                            setActiveAlertId(null);
-                                        }}
+                                        setIsEmergencyActive(false);
+                                        setTerminationStatus('idle');
+                                        setActiveAlertId(null);
+                                        AudioStreamingService.stopStreaming();
+                                    }}
                                         className="w-full py-5 px-6 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3"
                                     >
                                         <Home size={24} /> Voltar para o painel
