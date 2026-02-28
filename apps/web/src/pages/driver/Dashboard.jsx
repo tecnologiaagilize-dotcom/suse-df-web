@@ -47,6 +47,28 @@ export default function DriverDashboard() {
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const [isVoiceConfigured, setIsVoiceConfigured] = useState(false);
 
+  // 0. Verificação LGPD (Bloqueio de Funcionalidades)
+  useEffect(() => {
+    const checkLegal = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase.rpc('check_user_accepted_latest_terms', { p_user_id: user.id });
+      
+      if (error) {
+          console.error("Erro ao verificar LGPD:", error);
+          // Fallback seguro: se der erro, assume que aceitou ou deixa passar para não bloquear em erro de rede
+          return;
+      }
+      
+      if (data === false) {
+          console.warn("LGPD não aceito. Redirecionando...");
+          navigate('/driver/legal-terms');
+      }
+    };
+    
+    checkLegal();
+  }, [user]);
+
   useEffect(() => {
     if (user) {
         // Verifica metadados do usuário para status dos botões

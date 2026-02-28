@@ -23,6 +23,27 @@ export default function PassengerDashboard() {
   const [isVoiceConfigured, setIsVoiceConfigured] = useState(false);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   
+  // 0. Verificação LGPD (Bloqueio de Funcionalidades)
+  useEffect(() => {
+    const checkLegal = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase.rpc('check_user_accepted_latest_terms', { p_user_id: user.id });
+      
+      if (error) {
+          console.error("Erro ao verificar LGPD:", error);
+          return;
+      }
+      
+      if (data === false) {
+          console.warn("LGPD não aceito. Redirecionando...");
+          navigate('/passenger/legal-terms');
+      }
+    };
+    
+    checkLegal();
+  }, [user]);
+  
   useEffect(() => {
       if (user?.user_metadata) {
           setIsVoiceConfigured(!!user.user_metadata.voice_config_completed);

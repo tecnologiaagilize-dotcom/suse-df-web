@@ -10,6 +10,7 @@ import DriverDashboard from './pages/driver/Dashboard';
 import ForgotPassword from './pages/driver/ForgotPassword';
 import VoiceConfig from './pages/driver/VoiceConfig';
 import DriverProfile from './pages/driver/Profile';
+import LegalTerms from './pages/driver/LegalTerms';
 
 // Passenger Pages
 import PassengerLogin from './pages/passenger/Login';
@@ -192,6 +193,12 @@ function App() {
             </PrivateRoute>
           } />
 
+          <Route path="/driver/legal-terms" element={
+            <PrivateRoute role="driver">
+              <LegalTerms />
+            </PrivateRoute>
+          } />
+
           {/* Protected Passenger Routes */}
           <Route path="/passenger/login" element={<PassengerLogin />} />
           <Route path="/passenger/register" element={<PassengerRegister />} />
@@ -199,6 +206,12 @@ function App() {
           <Route path="/passenger/dashboard" element={
             <PrivateRoute role="passenger">
               <PassengerDashboard />
+            </PrivateRoute>
+          } />
+
+          <Route path="/passenger/legal-terms" element={
+            <PrivateRoute role="passenger">
+              <LegalTerms />
             </PrivateRoute>
           } />
 
