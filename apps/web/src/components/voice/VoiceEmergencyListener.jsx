@@ -210,23 +210,49 @@ export default function VoiceEmergencyListener({
                   }
 
                   // Loop de Análise Contínua (Sem Frase)
-                  // v3.0: Strict Compliance IRA v1.2
+                  // v3.1: Strict Compliance IRA v1.3
                   // Regra 1: "Impacto crítico + silêncio/grito -> Central"
                   const isCriticalImpact = context?.impactDetected; // ImpactFlag >= 0.85 (25m/s²)
                   const isStressDetected = result.ira > 0.70; // Stress/Grito (Base para fusão)
                   const isSilencePostImpact = isCriticalImpact && features.dbfs < -50; // Silêncio absoluto pós-batida
                   
+                  // --- INOVAÇÃO IRA v1.3: Temporizador de Silêncio (NoResponseTimeout) ---
+                  // Se detectarmos impacto crítico, iniciamos um contador de "silêncio sustentado".
+                  // Apenas se o silêncio persistir por X segundos (ex: 5s) validamos o NoResponseTimeout.
+                  
+                  // Lógica de Estado Global para Timeout (via useRef para não re-renderizar)
+                  if (isCriticalImpact) {
+                      if (!window.iraImpactTimestamp) {
+                          window.iraImpactTimestamp = Date.now();
+                          console.log("IRA-SUSI: Impacto detectado. Iniciando cronômetro de resposta...");
+                      }
+                      
+                      // Se houver voz normal (IRA baixo e volume normal), CANCELA o alerta
+                      if (features.dbfs > -40 && result.ira < 0.5) {
+                          if (window.iraImpactTimestamp) {
+                              console.log("IRA-SUSI: Voz normal detectada pós-impacto. Cancelando alerta automático.");
+                              window.iraImpactTimestamp = null; // Reset
+                          }
+                      }
+                  }
+
+                  // Verifica se passou o tempo de silêncio (ex: 5000ms)
+                  const silenceDuration = window.iraImpactTimestamp ? Date.now() - window.iraImpactTimestamp : 0;
+                  const isNoResponseTimeout = silenceDuration > 5000; 
+
                   // Regra 2: "Risco Extremo (IRA > 92%) -> Central" (Acoustic Only - Risk Bar > 70%)
                   // Conforme solicitado: "só ira realizar uma chamada automatica sem a frase de emergencia quando o marcardor 'Em risco' utltrapassar a metrica de 70%"
                   // Considerando Risk inicia em ~0.75, 70% da escala de risco nos leva a ~0.92.
                   const isExtremeAcousticRisk = result.ira > 0.92;
 
                   if (!isAnalyzingRef.current) {
-                      if (isCriticalImpact && (isStressDetected || isSilencePostImpact)) {
-                          const cause = isStressDetected ? "IMPACTO_CRITICO_COM_STRESS" : "IMPACTO_CRITICO_COM_SILENCIO";
-                          console.warn(`IRA-SUSI: Emergência Automática (Matriz Final). Motivo: ${cause}`);
+                      // Nova Lógica de Fusão Tripla (Impacto + Silêncio Sustentado + Stress/Silêncio)
+                      if (isCriticalImpact && isNoResponseTimeout && (isStressDetected || isSilencePostImpact)) {
+                          const cause = isStressDetected ? "IMPACTO_CRITICO_COM_STRESS" : "IMPACTO_CRITICO_COM_SILENCIO_SUSTENTADO";
+                          console.warn(`IRA-SUSI: Emergência Automática (Matriz Final v1.3). Motivo: ${cause}`);
                           if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
                           onEmergencyDetected(cause);
+                          window.iraImpactTimestamp = null; // Reset após acionar
                       }
                       else if (isExtremeAcousticRisk) {
                           console.warn("IRA-SUSI: Emergência Automática (Risco Acústico Extremo > 92%). Motivo: Grito/Pânico Confirmado.");
