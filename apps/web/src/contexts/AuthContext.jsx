@@ -94,12 +94,16 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // 3. Fallback to Metadata
-      if (currentUser.user_metadata?.role) {
-        setUserRole(currentUser.user_metadata.role);
-      } else {
-        setUserRole('driver'); // Default
-      }
+      // 3. Check LGPD Acceptance (Redirect if not accepted)
+    // Isso é uma verificação global para direcionar o usuário corretamente logo após o login
+    // Mas o redirecionamento final é feito pelos Dashboards (ver Dashboard.jsx)
+    
+    // 4. Fallback to Metadata
+    if (currentUser.user_metadata?.role) {
+      setUserRole(currentUser.user_metadata.role);
+    } else {
+      setUserRole('driver'); // Default
+    }
 
     } catch (error) {
       console.error('Error fetching role:', error);
