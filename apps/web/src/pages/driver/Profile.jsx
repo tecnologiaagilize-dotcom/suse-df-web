@@ -232,8 +232,38 @@ export default function DriverProfile() {
       if (error) throw error;
       
       // Se houver foto nova (base64), faria upload pro Storage e pegaria a URL pública
+      if (profile.photo_url && profile.photo_url.startsWith('data:image')) {
+        const fileExt = 'jpg';
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        // Converte base64 para Blob
+        const res = await fetch(profile.photo_url);
+        const blob = await res.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, blob);
+
+        if (uploadError) {
+             // Tenta criar bucket se não existir (apenas para dev, em prod idealmente já existe)
+             if (uploadError.message.includes('bucket') && uploadError.message.includes('not found')) {
+                 console.warn("Bucket 'avatars' não encontrado. Tentando criar via RPC ou alertar admin.");
+                 // Em client-side puro não dá pra criar bucket sem policy. 
+                 // Vamos apenas alertar e prosseguir sem foto ou usar foto anterior
+             }
+             throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        // Atualiza URL no perfil
+        await supabase.from('users').update({ photo_url: publicUrl }).eq('id', user.id);
+      }
       
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulação
+      // await new Promise(resolve => setTimeout(resolve, 1000)); // Simulação (Removido)
       alert('Perfil atualizado com sucesso!');
       navigate('/driver/dashboard'); // Redirecionar após salvar
     } catch (error) {
