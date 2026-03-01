@@ -537,6 +537,12 @@ export default function VoiceEmergencyListener({
         if (result && result.semantic_analysis) {
             const { match_percentage, risk_level, transcription } = result.semantic_analysis;
             
+            // Debug visível na tela (Toast temporário)
+            if (showDebugPanel) {
+                // Se quiser forçar um log visual
+                console.log(`[UI] Texto: ${transcription} | Risco: ${risk_level} (${match_percentage}%)`);
+            }
+
             // Atualizar UI com dados reais do backend
             if (onAnalysisUpdate) {
                 onAnalysisUpdate({

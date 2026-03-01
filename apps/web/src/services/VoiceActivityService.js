@@ -10,8 +10,9 @@ class VoiceActivityService {
         this.isListening = false;
         this.onSpeechStart = null;
         this.onSpeechEnd = null;
-        // URL do backend Railway
-        this.apiEndpoint = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:8000';
+        // URL do backend Railway (Hardcoded para garantir produção)
+        // FIX: Usar URL direta para evitar problemas de env em produção
+        this.apiEndpoint = 'https://suse-df-web-production.up.railway.app';
     }
 
     async start(onSpeechStart, onSpeechEnd) {
