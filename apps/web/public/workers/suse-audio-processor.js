@@ -5,30 +5,35 @@
 class SuseAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
-    this._bufferSize = 128; // Padrão do AudioWorklet
+    this._bufferSize = 4096; // Acumular mais dados para processar em blocos maiores
+    this._buffer = new Float32Array(this._bufferSize);
+    this._bufferIndex = 0;
     this._isActive = true;
   }
 
   process(inputs, outputs, parameters) {
     if (!this._isActive) return true;
 
-    // input[0] é o primeiro input, input[0][0] é o primeiro canal (mono/left)
     const input = inputs[0];
-    
-    // Se houver áudio entrando
     if (input && input.length > 0) {
       const channelData = input[0];
       
-      // Envia os dados brutos (Float32Array) para a thread principal
-      // Em uma implementação completa (Passo 2), escreveremos direto no SharedArrayBuffer
-      // Por enquanto (POC), usamos postMessage para validar o fluxo.
-      this.port.postMessage({
-        eventType: 'audio_data',
-        audioBuffer: channelData
-      });
+      // Acumular dados no buffer interno
+      for (let i = 0; i < channelData.length; i++) {
+        this._buffer[this._bufferIndex++] = channelData[i];
+        
+        // Quando buffer encher, envia para Main Thread
+        if (this._bufferIndex >= this._bufferSize) {
+          this.port.postMessage({
+            eventType: 'audio_data',
+            audioBuffer: this._buffer.slice() // Envia cópia
+          });
+          this._bufferIndex = 0; // Reset
+        }
+      }
     }
 
-    return true; // Mantém o processador vivo
+    return true;
   }
 }
 
