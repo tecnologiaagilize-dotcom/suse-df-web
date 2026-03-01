@@ -35,7 +35,27 @@ export default function DriverDashboard() {
   const [isTerminating, setIsTerminating] = useState(false);
   const [terminationData, setTerminationData] = useState({ photo: null, reason: '' });
   
-  // Estados de Voz e Token de Segurança
+  // Otimização INP: Remover listeners de 'scroll' e 'resize' pesados se houver.
+  // Neste arquivo não há listeners explícitos de scroll/resize bloqueantes.
+  // O problema de INP (Interaction to Next Paint) geralmente vem de tarefas longas na main thread.
+  // VoiceEmergencyListener pode estar processando áudio na main thread.
+  // Vamos adicionar um Log para monitorar.
+  useEffect(() => {
+     // Performance Observer para detectar Long Tasks (INP Debug)
+     if ('PerformanceObserver' in window) {
+         try {
+             const observer = new PerformanceObserver((list) => {
+                 for (const entry of list.getEntries()) {
+                     if (entry.duration > 50) { // Tarefas > 50ms
+                        // console.warn('[Performance] Long Task detectada:', entry.duration, 'ms');
+                     }
+                 }
+             });
+             observer.observe({entryTypes: ['longtask']});
+             return () => observer.disconnect();
+         } catch(e) {}
+     }
+  }, []);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
@@ -372,7 +392,9 @@ export default function DriverDashboard() {
              return;
         }
 
-        return await handleSOSFallback(trigger, latitude, longitude, notes);
+        // --- CORREÇÃO: Remover "await" desnecessário e garantir que a função existe ---
+        // handleSOSFallback já está definida no escopo do componente
+        return handleSOSFallback(trigger, latitude, longitude, notes);
       }
       
       // ... (restante do código de sucesso)
