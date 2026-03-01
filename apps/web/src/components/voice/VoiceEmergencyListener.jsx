@@ -107,48 +107,7 @@ export default function VoiceEmergencyListener({
           );
           console.log("[VoiceEmergencyListener] VAD Iniciado.");
 
-          // --- NOVO: Listener para eventos de análise do backend (via VoiceActivityService) ---
-          // Este listener precisa estar fora do initAudioCore para ser removível corretamente,
-          // ou se estiver dentro, precisa ser gerenciado com cuidado. 
-          // Para simplificar e evitar memory leaks, vamos movê-lo para o useEffect principal
-          // e deixar o initAudioCore focado apenas na inicialização do hardware.
-          
-          // ... (restante do código)
-              const result = event.detail;
-              console.log("[VoiceEmergencyListener] Resultado Recebido do Backend:", result);
-              
-              if (result && result.semantic_analysis) {
-                  const { match_percentage, risk_level, transcription } = result.semantic_analysis;
-                  
-                  // Atualizar UI com dados reais do backend
-                  if (onAnalysisUpdate) {
-                      onAnalysisUpdate({
-                          voiceDebug: {
-                              text: transcription || result.transcription,
-                              target: "Análise Semântica AI",
-                              similarity: match_percentage / 100, // Normalizar 0-1
-                              match: risk_level === 'CRÍTICO',
-                              timestamp: Date.now(),
-                              riskLevel: risk_level // Novo campo
-                          }
-                      });
-                  }
-
-                  // Atualizar transcrição visível
-                  if (onTranscriptChange && (transcription || result.transcription)) {
-                      onTranscriptChange((transcription || result.transcription).slice(-100));
-                  }
-
-                  // Disparar Emergência se Risco Crítico
-                  if (risk_level === 'CRÍTICO' || match_percentage > 80) {
-                       console.warn("🚨 Risco Crítico Detectado via Backend AI! Acionando...");
-                       onEmergencyDetected("RISCO_SEMANTICO_BACKEND");
-                  }
-              }
-          };
-
-          window.addEventListener('voice-analysis-result', handleVoiceAnalysisResult);
-          // --------------------------------------------------------------------------------
+          // Listener removido daqui. Configurado no useEffect principal.
 
           setIsOfflineMode(true); 
 
@@ -158,11 +117,7 @@ export default function VoiceEmergencyListener({
 
           // ... (restante do código)
 
-          return () => {
-              window.removeEventListener('voice-analysis-result', handleVoiceAnalysisResult);
-              stopAudioCore();
-          };
-  // }, [isActive]); // Remover fechamento errado do hook
+          // Cleanup removido de initAudioCore (deve ser gerenciado pelo useEffect)
           
           // --- FIX: Resume AudioContext se estiver suspenso (Autoplay Policy) ---
           if (ctx.state === 'suspended') {
