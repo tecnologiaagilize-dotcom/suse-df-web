@@ -723,17 +723,20 @@ export default function VoiceEmergencyListener({
       
       // CORREÇÃO 2: Verificação robusta de instância para evitar stale closures
       if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current) {
-         // Backoff para evitar loop infinito rápido
+         // Backoff Exponencial para evitar loop infinito rápido (INP Fix)
+         // Começa com 1000ms, mas se falhar repetidamente, aumentaria (simplificado aqui para 2s)
          setTimeout(() => {
              try {
-                // Checa novamente dentro do timeout se a instância ainda é válida
-                if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current) {
+                // Checa novamente dentro do timeout se a instância ainda é válida e se o tab está visível
+                if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current && document.visibilityState === 'visible') {
                     recognition.start();
+                } else {
+                    console.log("[Voice] Pausando reinício automático (Tab em background ou inativo)");
                 }
              } catch (e) {
                 console.warn("Erro ao reiniciar reconhecimento:", e);
              }
-         }, 1000); 
+         }, 2000); // Aumentado de 1000ms para 2000ms para reduzir carga
       }
     };
 
@@ -781,12 +784,18 @@ export default function VoiceEmergencyListener({
         'bg-gray-100 text-gray-500'
     }`}>
       {isAnalyzing ? <ShieldCheck className="w-4 h-4 animate-bounce" /> : 
-       isListening ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
+       isListening ? <Mic className="w-4 h-4 animate-pulse text-green-600" /> : <MicOff className="w-4 h-4" />}
       
       <div className="flex flex-col leading-tight">
           <span className="font-medium">
-            {isAnalyzing ? 'Validando Biometria...' : isListening ? 'Monitoramento Ativo' : 'Voz Inativa'}
+            {isAnalyzing ? 'Processando Áudio...' : isListening ? 'Monitoramento Ativo' : 'Voz Inativa'}
           </span>
+          {/* Feedback Visual Extra: Estado do Processamento */}
+          {isListening && !isAnalyzing && (
+              <span className="text-[10px] text-gray-500 font-mono">
+                  {isSpeechDetected ? 'Detectando Fala...' : 'Aguardando Voz...'}
+              </span>
+          )}
       </div>
       
       {/* Painel de Calibração IRA-SUSI (Opcional) */}
