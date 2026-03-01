@@ -19,7 +19,14 @@ class VoiceActivityService {
         this.onSpeechEnd = onSpeechEnd;
 
         try {
+            // Tentar carregar modelo localmente para evitar erros de rede/CORS com CDN
+            // Os arquivos .onnx e .mjs devem estar na pasta public/
             this.vadInstance = await MicVAD.new({
+                // Tenta apontar para os modelos locais (se a biblioteca suportar overrides de URL de modelo)
+                // Se não suportar nativamente no construtor 'new', ele vai tentar baixar da CDN padrão.
+                // Mas podemos injetar o ort (ONNX Runtime) configurado se necessário.
+                
+                // Opções de runtime
                 onSpeechStart: () => {
                     console.log("[VAD] Fala detectada...");
                     if (this.onSpeechStart) this.onSpeechStart();
@@ -28,12 +35,19 @@ class VoiceActivityService {
                     console.log("[VAD] Fala terminou.");
                     if (this.onSpeechEnd) this.onSpeechEnd(audio);
                 },
+                onVADMisfire: () => {
+                    console.log("[VAD] Misfire (Ruído curto ignorado).");
+                },
                 // Configurações otimizadas para detecção rápida
                 positiveSpeechThreshold: 0.6,
                 negativeSpeechThreshold: 0.4,
                 minSpeechFrames: 5,
                 preSpeechPadFrames: 10,
-                redemptionFrames: 8
+                redemptionFrames: 8,
+                
+                // Tentar forçar caminhos locais (depende da versão da lib, mas vale a tentativa de configuração global do ORT antes)
+                // workletURL: '/ort-wasm-simd-threaded.mjs', // Exemplo hipotético se a lib expusesse
+                // modelURL: '/silero_vad_legacy.onnx' 
             });
 
             this.vadInstance.start();

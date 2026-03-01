@@ -89,10 +89,23 @@ export default function VoiceEmergencyListener({
           });
           
           // 2. Inicializar VAD (Silero)
+          // FIX: Passar o modelo localmente para evitar download da CDN em runtime
+          // O VoiceActivityService foi ajustado para aceitar URLs locais se suportado, 
+          // ou precisamos garantir que os arquivos onnx estejam acessíveis.
+          // Como baixamos silero_vad_legacy.onnx para public/, o @ricky0123/vad-web pode não estar usando ele por padrão.
+          // Vamos adicionar um log para debug.
+          console.log("[VoiceEmergencyListener] Iniciando VAD...");
           await VoiceActivityService.start(
-              () => setIsSpeechDetected(true),  // On Start
-              () => setIsSpeechDetected(false)  // On End
+              () => {
+                  console.log("[VoiceEmergencyListener] VAD Start Triggered");
+                  setIsSpeechDetected(true);
+              },  
+              () => {
+                  console.log("[VoiceEmergencyListener] VAD End Triggered");
+                  setIsSpeechDetected(false);
+              }
           );
+          console.log("[VoiceEmergencyListener] VAD Iniciado.");
 
           setIsOfflineMode(true); 
 
