@@ -16,7 +16,7 @@ import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../co
 import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons'; // Novo Componente
 
 export default function PassengerDashboard() {
-  console.log("SUSE-DF PassengerDashboard V1.3.34 - Audio Live Integrated");
+  console.log("SUSE-DF PassengerDashboard V1.3.35 - Audio Live Integrated");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
@@ -597,7 +597,7 @@ export default function PassengerDashboard() {
                 PAINEL DO PASSAGEIRO
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.34
+                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.35
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0

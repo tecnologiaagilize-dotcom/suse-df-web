@@ -13,7 +13,7 @@ import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../co
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.12 - Visual AI Monitor & Robust Voice (Deploy Trigger)");
+  console.log("SUSE-DF DriverDashboard V1.3.35 - Visual AI Monitor & Robust Voice (Deploy Trigger)");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -618,7 +618,7 @@ export default function DriverDashboard() {
                 PAINEL DO CONDUTOR
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.34
+                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.35
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0

@@ -72,7 +72,7 @@ export default function ProfessionalDashboard() {
                 PORTAL DO PROFISSIONAL
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SUSE™ v1.3.34 – Sistema Unificado de Suporte e Emergência do D.F.
+                SUSE™ v1.3.35 – Sistema Unificado de Suporte e Emergência do D.F.
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0
