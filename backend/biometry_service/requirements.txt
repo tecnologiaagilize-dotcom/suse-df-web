@@ -10,3 +10,5 @@ speechbrain==0.5.16
 transformers==4.36.2
 supabase==2.3.0
 python-dotenv==1.0.0
+openai-whisper==20231117
+requests==2.31.0
