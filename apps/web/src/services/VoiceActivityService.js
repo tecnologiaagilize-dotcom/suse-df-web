@@ -10,6 +10,8 @@ class VoiceActivityService {
         this.isListening = false;
         this.onSpeechStart = null;
         this.onSpeechEnd = null;
+        // URL do backend Railway
+        this.apiEndpoint = import.meta.env.VITE_VOICE_API_URL || 'http://localhost:8000';
     }
 
     async start(onSpeechStart, onSpeechEnd) {
@@ -22,17 +24,20 @@ class VoiceActivityService {
             // Tentar carregar modelo localmente para evitar erros de rede/CORS com CDN
             // Os arquivos .onnx e .mjs devem estar na pasta public/
             this.vadInstance = await MicVAD.new({
-                // Tenta apontar para os modelos locais (se a biblioteca suportar overrides de URL de modelo)
-                // Se não suportar nativamente no construtor 'new', ele vai tentar baixar da CDN padrão.
-                // Mas podemos injetar o ort (ONNX Runtime) configurado se necessário.
-                
                 // Opções de runtime
                 onSpeechStart: () => {
                     console.log("[VAD] Fala detectada...");
                     if (this.onSpeechStart) this.onSpeechStart();
                 },
-                onSpeechEnd: (audio) => {
-                    console.log("[VAD] Fala terminou.");
+                onSpeechEnd: async (audio) => {
+                    console.log("[VAD] Fala terminou. Enviando para análise...");
+                    
+                    // Converter Float32Array (audio) para Base64 WAV
+                    const base64Audio = await this.audioBufferToBase64(audio);
+                    
+                    // Enviar para o Backend
+                    this.analyzeAudio(base64Audio);
+                    
                     if (this.onSpeechEnd) this.onSpeechEnd(audio);
                 },
                 onVADMisfire: () => {
@@ -44,10 +49,6 @@ class VoiceActivityService {
                 minSpeechFrames: 5,
                 preSpeechPadFrames: 10,
                 redemptionFrames: 8,
-                
-                // Tentar forçar caminhos locais (depende da versão da lib, mas vale a tentativa de configuração global do ORT antes)
-                // workletURL: '/ort-wasm-simd-threaded.mjs', // Exemplo hipotético se a lib expusesse
-                // modelURL: '/silero_vad_legacy.onnx' 
             });
 
             this.vadInstance.start();
@@ -65,6 +66,88 @@ class VoiceActivityService {
         }
         this.isListening = false;
     }
+
+    async analyzeAudio(base64Audio) {
+        try {
+            const response = await fetch(`${this.apiEndpoint}/analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    audio_base64: base64Audio,
+                    user_id: null // TODO: Injetar ID do usuário logado se necessário para biometria
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erro API: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log("[VAD] Resultado da Análise:", result);
+            
+            // Disparar evento customizado para a UI atualizar (ou usar callback)
+            const event = new CustomEvent('voice-analysis-result', { detail: result });
+            window.dispatchEvent(event);
+
+        } catch (error) {
+            console.error("[VAD] Erro ao enviar áudio:", error);
+        }
+    }
+
+    // Utilitário para converter Float32Array do VAD para WAV Base64
+    async audioBufferToBase64(audioData) {
+        // Criar WAV header + PCM data
+        const sampleRate = 16000; // VAD usa 16kHz
+        const buffer = this.encodeWAV(audioData, sampleRate);
+        const blob = new Blob([buffer], { type: 'audio/wav' });
+        
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    encodeWAV(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+
+        const writeString = (view, offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+
+        const floatTo16BitPCM = (output, offset, input) => {
+            for (let i = 0; i < input.length; i++, offset += 2) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+        };
+
+        floatTo16BitPCM(view, 44, samples);
+        return view;
+    }
 }
+
 
 export default new VoiceActivityService();
