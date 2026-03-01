@@ -468,7 +468,10 @@ export default function VoiceEmergencyListener({
       }
   };
 
+    }; // Fim initAudioCore
+
   // MÓDULO 10 - PATCH 4.2: Watchdogs (Transcrição 12s)
+  // FIX: Movido para fora de initAudioCore para respeitar Regras de Hooks
   useEffect(() => {
       if (!isListening || isAnalyzing) return;
 
@@ -485,8 +488,6 @@ export default function VoiceEmergencyListener({
 
       return () => clearTimeout(watchdogTimer);
   }, [transcript, isListening, isAnalyzing]);
-
-    }; // Fim initAudioCore
 
     const handleVoiceAnalysisResult = (event) => {
         const result = event.detail;
