@@ -108,7 +108,12 @@ export default function VoiceEmergencyListener({
           console.log("[VoiceEmergencyListener] VAD Iniciado.");
 
           // --- NOVO: Listener para eventos de análise do backend (via VoiceActivityService) ---
-          const handleVoiceAnalysisResult = (event) => {
+          // Este listener precisa estar fora do initAudioCore para ser removível corretamente,
+          // ou se estiver dentro, precisa ser gerenciado com cuidado. 
+          // Para simplificar e evitar memory leaks, vamos movê-lo para o useEffect principal
+          // e deixar o initAudioCore focado apenas na inicialização do hardware.
+          
+          // ... (restante do código)
               const result = event.detail;
               console.log("[VoiceEmergencyListener] Resultado Recebido do Backend:", result);
               
@@ -525,8 +530,6 @@ export default function VoiceEmergencyListener({
 
       return () => clearTimeout(watchdogTimer);
   }, [transcript, isListening, isAnalyzing]);
-
-          // ... (restante do código)
 
     }; // Fim initAudioCore
 
