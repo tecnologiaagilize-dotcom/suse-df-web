@@ -466,9 +466,7 @@ export default function VoiceEmergencyListener({
               }
           }, 3000);
       }
-  };
-
-    }; // Fim initAudioCore
+  }; // Closes handleWakeWordTrigger
 
   // MÓDULO 10 - PATCH 4.2: Watchdogs (Transcrição 12s)
   // FIX: Movido para fora de initAudioCore para respeitar Regras de Hooks
