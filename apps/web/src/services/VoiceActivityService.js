@@ -24,7 +24,14 @@ class VoiceActivityService {
         try {
             // Tentar carregar modelo localmente para evitar erros de rede/CORS com CDN
             // Os arquivos .onnx e .mjs devem estar na pasta public/
+            // FIX: Garantir URL base correta para production
+            const baseUrl = window.location.origin;
+            
             this.vadInstance = await MicVAD.new({
+                // Tenta forçar caminhos locais
+                workletURL: `${baseUrl}/ort-wasm-simd-threaded.mjs`,
+                modelURL: `${baseUrl}/silero_vad_legacy.onnx`,
+                
                 // Opções de runtime
                 onSpeechStart: () => {
                     console.log("[VAD] Fala detectada...");
