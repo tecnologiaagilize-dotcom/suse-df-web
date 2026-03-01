@@ -158,6 +158,12 @@ function App() {
               <ProfessionalDashboard />
             </PrivateRoute>
           } />
+          <Route path="/professional/legal-terms" element={
+            <PrivateRoute role="professional">
+              <LegalTerms />
+            </PrivateRoute>
+          } />
+          
           <Route path="/professional/scan" element={
             <PrivateRoute role="professional">
               <ProfessionalQRScanner />

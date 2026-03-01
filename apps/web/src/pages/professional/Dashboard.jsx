@@ -18,6 +18,32 @@ export default function ProfessionalDashboard() {
   });
 
   useEffect(() => {
+    const checkLegal = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase.rpc('check_user_accepted_latest_terms', { p_user_id: user.id });
+      
+      if (error) {
+          console.error("Erro ao verificar LGPD:", error);
+          return;
+      }
+      
+      if (data === false) {
+          console.warn("LGPD não aceito. Redirecionando para aceite obrigatório...");
+          navigate('/professional/legal-terms');
+      }
+    };
+    
+    // Check immediately
+    checkLegal();
+
+    // Re-check on focus to prevent bypassing
+    const onFocus = () => checkLegal();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user]);
+
+  useEffect(() => {
     // Simular carregamento de estatísticas
     // Futuro: Buscar via RPC
     setTimeout(() => {
