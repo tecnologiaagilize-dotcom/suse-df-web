@@ -13,7 +13,7 @@ import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../co
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
-  console.log("SUSE-DF DriverDashboard V1.3.11 - Visual AI Monitor & Robust Voice");
+  console.log("SUSE-DF DriverDashboard V1.3.12 - Visual AI Monitor & Robust Voice (Deploy Trigger)");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
