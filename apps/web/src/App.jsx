@@ -12,7 +12,7 @@ import DriverDashboard from './pages/driver/Dashboard';
 import ForgotPassword from './pages/driver/ForgotPassword';
 import VoiceConfig from './pages/driver/VoiceConfig';
 import DriverProfile from './pages/driver/Profile';
-import LegalTerms from './pages/driver/LegalTerms';
+import LegalTerms from './pages/LegalTerms';
 
 // Passenger Pages
 import PassengerLogin from './pages/passenger/Login';
