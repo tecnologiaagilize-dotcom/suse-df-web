@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ShieldCheck, ScrollText, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
 
+// v1.1 - Force Deploy Check
 export default function LegalTerms() {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
