@@ -37,7 +37,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,mjs,onnx}'],
         runtimeCaching: [
           {
             // Cache para tiles do mapa (OpenStreetMap) para funcionar offline
