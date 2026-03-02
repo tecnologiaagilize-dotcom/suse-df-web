@@ -33,7 +33,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024, // 12MB para acomodar WASM de 11MB
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
