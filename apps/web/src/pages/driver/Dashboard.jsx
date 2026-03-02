@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse, Share2 } from 'lucide-react';
+import { LogOut, AlertTriangle, MapPin, Camera, ShieldAlert, X, Upload, Clock, Copy, Check, CheckCircle, Home, User, HeartPulse, Share2, Mic, MicOff, Activity } from 'lucide-react';
 import TokenTimer from '../../components/common/TokenTimer';
 import { supabase } from '../../lib/supabase';
 import TrackingMap from '../../components/map/TrackingMap';
@@ -10,6 +10,7 @@ import IraDebugPanel from '../../components/debug/IraDebugPanel';
 import OfflineQueueService from '../../services/OfflineQueueService';
 
 import { GeofenceButton, MenuButton, SOSButton, DashboardStyles } from '../../components/dashboard/DashboardButtons';
+import { VoiceModeButtons } from '../../components/dashboard/VoiceModeButtons';
 import GeofenceModal from '../../components/GeofenceModal';
 
 export default function DriverDashboard() {
@@ -20,6 +21,19 @@ export default function DriverDashboard() {
   // Estado para Modal de Cerca Virtual
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
   const [iraData, setIraData] = useState(null);
+
+  // Estado para Modo de Voz (OFF | AUTO | ACTIVE)
+  const [voiceMode, setVoiceMode] = useState('AUTO');
+
+  const handleVoiceModeChange = (newMode) => {
+      setVoiceMode(newMode);
+      console.log(`Modo de Voz alterado para: ${newMode}`);
+      if (newMode === 'OFF') {
+          if (navigator.vibrate) navigator.vibrate(50);
+      } else if (newMode === 'ACTIVE') {
+          if (navigator.vibrate) navigator.vibrate([50, 50]);
+      }
+  };
 
   // Estados de Emergência e Alerta
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
@@ -759,44 +773,73 @@ export default function DriverDashboard() {
              </div>
           ) : (
              <div className="flex flex-col items-center justify-center space-y-6">
-                <div className="text-center">
+                <div className="text-center w-full max-w-md">
                   <p className="mt-1 text-gray-500 font-medium">Em caso de emergência, pressione o botão abaixo.</p>
 
-                  {/* Monitoramento de Voz Ativo */}
-                  <div className="mt-4 flex justify-center">
-                    <VoiceEmergencyListener 
-                      emergencyPhrase={emergencyPhrase}
-                      isActive={!isEmergencyActive} // Só escuta se não estiver em emergência
-                      onTranscriptChange={(text) => setVoiceTranscript(text)}
-                      onAnalysisUpdate={(data) => setIraData(data)} // Atualiza o painel fixo
-                      showDebugPanel={false} // Esconde o painel flutuante
-                      onEmergencyDetected={(reason) => {
-                        // Feedback imediato antes mesmo de chamar o backend
-                        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                        console.log(`Emergência por voz detectada! Motivo: ${reason || 'Desconhecido'}`);
-                        handleSOS('voice', reason);
-                      }}
-                    />
-                    
-                    {/* Exibir o que está sendo ouvido (Feedback Visual) */}
-                    {voiceTranscript && !isEmergencyActive && (
-                        <div className="mt-2 text-xs text-center text-gray-500 italic animate-pulse">
-                            Ouvindo: "{voiceTranscript}..."
+                  {/* SOS Button Positioned Here */}
+                  <div className="mt-6 flex justify-center">
+                      <SOSButton onClick={() => handleSOS('button')} />
+                  </div>
+
+                  <div className="mt-8 flex justify-center w-full">
+                    {/* Exibição de Transcrição em Tempo Real (Substituindo VoiceEmergencyListener visível) */}
+                    <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-gray-200 p-4 min-h-[80px] flex flex-col items-center justify-center relative overflow-hidden">
+                        
+                        {/* Componente Lógico (Invisível mas ativo) */}
+                        <div className="absolute opacity-0 pointer-events-none">
+                            <VoiceEmergencyListener 
+                              emergencyPhrase={emergencyPhrase}
+                              isActive={!isEmergencyActive && voiceMode !== 'OFF'} 
+                              onTranscriptChange={(text) => setVoiceTranscript(text)}
+                              onAnalysisUpdate={(data) => setIraData(data)} 
+                              showDebugPanel={false} 
+                              onEmergencyDetected={(reason) => {
+                                console.log("Emergência detectada via voz:", reason);
+                                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                                handleSOS('voice', reason);
+                              }}
+                            />
                         </div>
-                    )}
+
+                        {/* UI de Transcrição */}
+                        {voiceMode === 'OFF' ? (
+                            <div className="text-gray-400 text-sm flex items-center gap-2">
+                                <MicOff size={16} /> Microfone Desligado
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-1 font-bold w-full text-left flex justify-between">
+                                    <span>Monitorando Áudio</span>
+                                    <span className="text-blue-500 animate-pulse">● Gravando</span>
+                                </div>
+                                <div className="w-full text-center">
+                                    {voiceTranscript ? (
+                                        <p className="text-gray-800 text-lg font-medium leading-tight animate-in fade-in slide-in-from-bottom-2">
+                                            "{voiceTranscript}"
+                                        </p>
+                                    ) : (
+                                        <p className="text-gray-300 text-sm italic">
+                                            Aguardando fala...
+                                        </p>
+                                    )}
+                                </div>
+                                {/* Waveform decorativo */}
+                                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-blue-500/0"></div>
+                            </>
+                        )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="my-2">
-                    <SOSButton onClick={() => handleSOS('button')} />
-                </div>
-
-                <p className="text-sm text-gray-500 text-center -mt-2">
-                    Seu áudio só é transmitido em caso de emergência.
-                </p>
-
-                {/* Card de Localização */}
-                <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
+                {/* Painel de Controle de Voz (3 Botões) */}
+                <div className="w-full max-w-md px-2">
+                    <VoiceModeButtons currentMode={voiceMode} setMode={handleVoiceModeChange} />
+                    <p className="text-[10px] text-gray-400 text-center mb-4">
+                        Seu áudio só é transmitido em caso de emergência.
+                    </p>
+                
+                    {/* Card de Localização */}
+                    <div className="w-full bg-white rounded-lg shadow-lg overflow-hidden flex flex-col border border-gray-200">
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                       <MapPin className="text-blue-600" size={20} /> Localização Atual
@@ -956,6 +999,28 @@ export default function DriverDashboard() {
                              </span>
                          </div>
                          
+                         {/* Análise Semântica (Embed) - Restaurado Posição Original v1.3.14 */}
+                         <div className="col-span-3 bg-gray-800/80 rounded p-2 border border-blue-500/50 mt-1 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                             <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-blue-300 mb-1">
+                                 <span className="font-bold flex items-center gap-1"><Activity size={12}/> Análise Semântica</span>
+                                 <span className={iraData?.voiceDebug?.match ? "text-green-400 font-bold" : "text-gray-400"}>
+                                     Match: {((iraData?.voiceDebug?.similarity || 0) * 100).toFixed(0)}%
+                                 </span>
+                             </div>
+                             <div className="font-mono text-[11px] text-gray-300 truncate mb-1">
+                                 Ouvido: <span className="text-white font-bold">"{iraData?.voiceDebug?.text || '...'}"</span>
+                             </div>
+                             <div className="flex justify-between text-[9px] text-gray-500 mb-1">
+                                <span>Alvo: "{iraData?.voiceDebug?.target || '...'}"</span>
+                             </div>
+                             <div className="w-full bg-gray-700 h-2 mt-1 rounded-full overflow-hidden">
+                                 <div 
+                                     className={`h-full transition-all duration-300 ${iraData?.voiceDebug?.match ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-blue-500'}`}
+                                     style={{ width: `${Math.min(100, (iraData?.voiceDebug?.similarity || 0) * 100)}%` }}
+                                 />
+                             </div>
+                         </div>
+
                          {/* Linha 2: Sensores Físicos (Adicionado v2.3) */}
                          <div className={`bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center ${iraData?.context?.impactDetected ? 'bg-red-900/50 border-red-500 animate-pulse' : ''}`}>
                              <span className="text-[9px] text-gray-400 uppercase tracking-wider">Colisão</span>
