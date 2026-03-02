@@ -862,6 +862,7 @@ export default function DriverDashboard() {
                       </button>
                   </div>
                 </div>
+                </div>
 
                 {/* Botões do Menu */}
                 <div className="w-full max-w-md flex flex-col gap-3 justify-center items-center pb-8">
