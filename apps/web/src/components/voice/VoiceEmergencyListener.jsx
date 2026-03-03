@@ -83,6 +83,14 @@ export default function VoiceEmergencyListener({
 
     // Inicializar AudioWorklet (Core v2) e Wake Word
     const initAudioCore = async () => {
+        // --- SAFETY TIMEOUT: Garante que Web Speech inicie mesmo se Audio Core travar ---
+        const safetyTimer = setTimeout(() => {
+            if (!audioCoreReady) {
+                console.warn("[VoiceEmergencyListener] Audio Core demorou muito. Forçando início do Web Speech API.");
+                setAudioCoreReady(true);
+            }
+        }, 4000); // 4 segundos de tolerância
+
         try {
             // Garantir que o buffer esteja limpo antes de começar
             RingBufferService.clear();
@@ -335,11 +343,13 @@ export default function VoiceEmergencyListener({
           
           workletNodeRef.current = workletNode;
           console.log("Audio Core v2 (Worklet + WakeWord + VAD + IRA-SUSI) iniciado.");
+          clearTimeout(safetyTimer); // Cancela timeout se sucesso
           setAudioCoreReady(true); // Libera SpeechRecognition
 
       } catch (err) {
           console.error("Falha ao iniciar Audio Core v2:", err);
           setError("Erro no módulo de áudio: " + err.message);
+          clearTimeout(safetyTimer); // Cancela timeout se erro tratado
           setAudioCoreReady(true); // Libera SpeechRecognition mesmo com erro no Core (Fallback)
       }
   };
