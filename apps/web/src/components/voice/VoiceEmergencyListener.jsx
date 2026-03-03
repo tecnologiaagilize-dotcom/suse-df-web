@@ -39,6 +39,7 @@ export default function VoiceEmergencyListener({
   const [error, setError] = useState('');
   const [transcript, setTranscript] = useState('');
   const [debugData, setDebugData] = useState(null); // Dados para o painel de calibração
+  const [audioCoreReady, setAudioCoreReady] = useState(false); // Sequenciamento de inicialização
 
   const recognitionRef = useRef(null);
   const isAnalyzingRef = useRef(isAnalyzing);
@@ -334,10 +335,12 @@ export default function VoiceEmergencyListener({
           
           workletNodeRef.current = workletNode;
           console.log("Audio Core v2 (Worklet + WakeWord + VAD + IRA-SUSI) iniciado.");
+          setAudioCoreReady(true); // Libera SpeechRecognition
 
       } catch (err) {
           console.error("Falha ao iniciar Audio Core v2:", err);
           setError("Erro no módulo de áudio: " + err.message);
+          setAudioCoreReady(true); // Libera SpeechRecognition mesmo com erro no Core (Fallback)
       }
   };
 
@@ -540,6 +543,7 @@ export default function VoiceEmergencyListener({
     // Hook para inicializar/parar baseado em isActive e registrar listener
     useEffect(() => {
         if (isActive) {
+            setAudioCoreReady(false); // Reset flag
             initAudioCore();
             window.addEventListener('voice-analysis-result', handleVoiceAnalysisResult);
         } else {
@@ -783,10 +787,16 @@ export default function VoiceEmergencyListener({
     };
 
     if (isActive) {
-      try {
-        recognition.start();
-      } catch (e) {
-        console.error(e);
+      // Sequenciamento: Só inicia WebSpeech após AudioCore liberar (evita conflito de microfone)
+      if (audioCoreReady) {
+          try {
+            console.log("[Voice] Iniciando Web Speech API...");
+            recognition.start();
+          } catch (e) {
+            console.error("[Voice] Erro ao iniciar recognition:", e);
+          }
+      } else {
+          console.log("[Voice] Aguardando Audio Core para iniciar Web Speech...");
       }
     }
 
@@ -797,7 +807,7 @@ export default function VoiceEmergencyListener({
       }
     };
     // --- FIX: Adicionar onTranscriptChange nas dependências para evitar stale closure ---
-  }, [isActive, emergencyPhrase, onEmergencyDetected]); // Removed onTranscriptChange/onAnalysisUpdate to prevent restart loop
+  }, [isActive, emergencyPhrase, onEmergencyDetected, audioCoreReady]); // Removed onTranscriptChange/onAnalysisUpdate to prevent restart loop
 
   if (error) {
     return <div className="text-xs text-red-500 mt-2 bg-red-50 p-1 rounded border border-red-200">{error}</div>;
