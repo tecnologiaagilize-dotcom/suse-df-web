@@ -70,6 +70,7 @@ export default function DriverDashboard() {
          } catch(e) {}
      }
   }, []);
+  const [voiceStatus, setVoiceStatus] = useState({ isListening: false, isAnalyzing: false, error: null });
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [emergencyPhrase, setEmergencyPhrase] = useState('socorro'); // Inicializa com padrão, depois busca do banco
   const [securityToken, setSecurityToken] = useState(null);
@@ -632,7 +633,7 @@ export default function DriverDashboard() {
                 PAINEL DO CONDUTOR
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.35
+                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.36
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0
@@ -792,6 +793,7 @@ export default function DriverDashboard() {
                               isActive={!isEmergencyActive && voiceMode !== 'OFF'} 
                               onTranscriptChange={(text) => setVoiceTranscript(text)}
                               onAnalysisUpdate={(data) => setIraData(data)} 
+                              onStatusChange={setVoiceStatus}
                               showDebugPanel={false} 
                               onEmergencyDetected={(reason) => {
                                 console.log("Emergência detectada via voz:", reason);
@@ -810,10 +812,16 @@ export default function DriverDashboard() {
                             <>
                                 <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-1 font-bold w-full text-left flex justify-between">
                                     <span>Monitorando Áudio</span>
-                                    <span className="text-blue-500 animate-pulse">● Gravando</span>
+                                    <span className={`animate-pulse ${voiceStatus.error ? 'text-red-500' : voiceStatus.isListening ? 'text-green-500' : 'text-yellow-500'}`}>
+                                        {voiceStatus.error ? 'ERRO MIC' : voiceStatus.isAnalyzing ? '● PROCESSANDO' : voiceStatus.isListening ? '● GRAVANDO' : '● INICIANDO...'}
+                                    </span>
                                 </div>
                                 <div className="w-full text-center">
-                                    {voiceTranscript ? (
+                                    {voiceStatus.error ? (
+                                        <p className="text-red-400 text-xs font-bold mt-1">
+                                            {voiceStatus.error}
+                                        </p>
+                                    ) : voiceTranscript ? (
                                         <p className="text-gray-800 text-lg font-medium leading-tight animate-in fade-in slide-in-from-bottom-2">
                                             "{voiceTranscript}"
                                         </p>

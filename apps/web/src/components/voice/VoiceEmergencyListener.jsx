@@ -28,6 +28,7 @@ export default function VoiceEmergencyListener({
     isActive = true, 
     onTranscriptChange,
     onAnalysisUpdate, // Callback para expor dados do IRA-SUSI
+    onStatusChange, // Callback para status do listener (listening, analyzing, error)
     showDebugPanel = true // Se true, mostra o painel flutuante interno
 }) {
   const { user } = useAuth(); // Hook para acessar metadados do usuário
@@ -48,6 +49,15 @@ export default function VoiceEmergencyListener({
   const audioContextRef = useRef(null);
   const workletNodeRef = useRef(null);
   const streamRef = useRef(null);
+  
+  // Callback Refs (para evitar reinício do efeito)
+  const onTranscriptChangeRef = useRef(onTranscriptChange);
+  const onAnalysisUpdateRef = useRef(onAnalysisUpdate);
+  
+  useEffect(() => {
+      onTranscriptChangeRef.current = onTranscriptChange;
+      onAnalysisUpdateRef.current = onAnalysisUpdate;
+  }, [onTranscriptChange, onAnalysisUpdate]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -235,7 +245,7 @@ export default function VoiceEmergencyListener({
                   const fullData = { ...result, features, context };
                   
                   // Atualiza callback externo (se houver) em tempo real
-                  if (onAnalysisUpdate) onAnalysisUpdate(fullData);
+                  if (onAnalysisUpdateRef.current) onAnalysisUpdateRef.current(fullData);
 
                   // Atualiza dados de debug interno (com throttle para não matar a UI)
                   // FIX: Reduzido o throttle para 0.5 (50%) para ver atualizações mais frequentes
@@ -501,8 +511,8 @@ export default function VoiceEmergencyListener({
             }
 
             // Atualizar UI com dados reais do backend
-            if (onAnalysisUpdate) {
-                onAnalysisUpdate({
+            if (onAnalysisUpdateRef.current) {
+                onAnalysisUpdateRef.current({
                     voiceDebug: {
                         text: transcription || result.transcription,
                         target: "Análise Semântica AI",
@@ -515,8 +525,8 @@ export default function VoiceEmergencyListener({
             }
 
             // Atualizar transcrição visível
-            if (onTranscriptChange && (transcription || result.transcription)) {
-                onTranscriptChange((transcription || result.transcription).slice(-100));
+            if (onTranscriptChangeRef.current && (transcription || result.transcription)) {
+                onTranscriptChangeRef.current((transcription || result.transcription).slice(-100));
             }
 
             // Disparar Emergência se Risco Crítico
@@ -542,6 +552,17 @@ export default function VoiceEmergencyListener({
             stopAudioCore();
         };
     }, [isActive]);
+
+  // Notificar pai sobre mudanças de status
+  useEffect(() => {
+      if (onStatusChange) {
+          onStatusChange({
+              isListening,
+              isAnalyzing,
+              error
+          });
+      }
+  }, [isListening, isAnalyzing, error, onStatusChange]);
 
   // Sync ref with state
   useEffect(() => {
@@ -582,6 +603,9 @@ export default function VoiceEmergencyListener({
     recognitionRef.current = recognition;
 
     recognition.onresult = async (event) => {
+      // Debug explícito para verificar se o reconhecimento está ativo e gerando resultados
+      // console.log("[VoiceEmergencyListener] onresult disparado. Resultados:", event.results.length);
+      
       if (isAnalyzingRef.current) return; // Ignora se já estiver analisando
 
       let interimTranscript = '';
@@ -590,9 +614,10 @@ export default function VoiceEmergencyListener({
         if (event.results[i].isFinal) {
           setTranscript(prev => {
               const newText = (prev + ' ' + transcriptSegment).trim().slice(-200); // Mantém contexto
+              console.log("[Voice] Texto Final:", newText);
               checkEmergencyPhrase(newText);
               // Reportar texto final para UI
-              if (onTranscriptChange) onTranscriptChange(newText);
+              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(newText);
               return newText;
           });
         } else {
@@ -605,8 +630,9 @@ export default function VoiceEmergencyListener({
           // --- CORREÇÃO: Usar callback funcional para garantir estado atualizado ---
           setTranscript(prev => {
               const fullText = prev + ' ' + interimTranscript;
+              // console.log("[Voice] Interim:", interimTranscript);
               // --- FIX: Forçar atualização visual IMEDIATA ---
-              if (onTranscriptChange) onTranscriptChange(fullText.trim().slice(-100));
+              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(fullText.trim().slice(-100));
               checkEmergencyPhrase(fullText);
               return prev; // Não salva interim no estado persistente, apenas usa
           });
@@ -652,8 +678,8 @@ export default function VoiceEmergencyListener({
 
          // --- EXPORTAR DADOS DE DEBUG PARA UI (v2.0) ---
          // Envia dados para o componente pai exibir visualmente
-         if (onAnalysisUpdate) {
-             onAnalysisUpdate({
+         if (onAnalysisUpdateRef.current) {
+             onAnalysisUpdateRef.current({
                  voiceDebug: {
                      text: normalizedText.slice(-50), // Últimos caracteres
                      target: normalizedPhrase,
@@ -665,7 +691,7 @@ export default function VoiceEmergencyListener({
          }
          
          // Reportar Texto para UI Principal (Redundância para garantir exibição)
-         if (onTranscriptChange) onTranscriptChange(normalizedText.slice(-100));
+         if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(normalizedText.slice(-100));
 
          if (match) {
             console.log("!!! PADRÃO DE EMERGÊNCIA DETECTADO (MATCH 100%) !!!");
@@ -770,8 +796,8 @@ export default function VoiceEmergencyListener({
         recognitionRef.current = null;
       }
     };
-    // --- FIX: Adicionar onAnalysisUpdate nas dependências para evitar stale closure ---
-  }, [isActive, emergencyPhrase, onEmergencyDetected, onAnalysisUpdate]);
+    // --- FIX: Adicionar onTranscriptChange nas dependências para evitar stale closure ---
+  }, [isActive, emergencyPhrase, onEmergencyDetected]); // Removed onTranscriptChange/onAnalysisUpdate to prevent restart loop
 
   if (error) {
     return <div className="text-xs text-red-500 mt-2 bg-red-50 p-1 rounded border border-red-200">{error}</div>;
