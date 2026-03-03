@@ -97,6 +97,8 @@ export default function VoiceEmergencyListener({
 
             if (audioContextRef.current?.state === 'running') {
                  console.log("AudioContext já rodando. Ignorando re-init.");
+                 clearTimeout(safetyTimer);
+                 setAudioCoreReady(true);
                  return;
             }
 
@@ -118,6 +120,8 @@ export default function VoiceEmergencyListener({
               () => {
                   console.log("[VoiceEmergencyListener] VAD Start Triggered");
                   setIsSpeechDetected(true);
+                  // RECOMENDAÇÃO: Trigger WebSpeech se estiver pausado (Mobile)
+                  // Mas como usamos Continuous no Desktop, apenas logamos.
               },  
               () => {
                   console.log("[VoiceEmergencyListener] VAD End Triggered");
@@ -629,9 +633,13 @@ export default function VoiceEmergencyListener({
           setTranscript(prev => {
               const newText = (prev + ' ' + transcriptSegment).trim().slice(-200); // Mantém contexto
               console.log("[Voice] Texto Final:", newText);
+              
+              // MÓDULO 10: Normalização Estrita
+              const normalizedText = normalizePhrase(newText);
+              // Reportar texto final para UI (NORMALIZADO)
+              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(normalizedText);
+
               checkEmergencyPhrase(newText);
-              // Reportar texto final para UI
-              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(newText);
               return newText;
           });
         } else {
@@ -644,9 +652,11 @@ export default function VoiceEmergencyListener({
           // --- CORREÇÃO: Usar callback funcional para garantir estado atualizado ---
           setTranscript(prev => {
               const fullText = prev + ' ' + interimTranscript;
-              // console.log("[Voice] Interim:", interimTranscript);
+              // MÓDULO 10: Normalização Estrita
+              const normalizedFullText = normalizePhrase(fullText);
+              
               // --- FIX: Forçar atualização visual IMEDIATA ---
-              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(fullText.trim().slice(-100));
+              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(normalizedFullText.trim().slice(-100));
               checkEmergencyPhrase(fullText);
               return prev; // Não salva interim no estado persistente, apenas usa
           });
