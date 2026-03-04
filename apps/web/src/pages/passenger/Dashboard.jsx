@@ -597,7 +597,7 @@ export default function PassengerDashboard() {
                 PAINEL DO PASSAGEIRO
               </h1>
               <span className="text-xs font-mono text-blue-100 opacity-90">
-                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.36
+                SISTEMA UNIFICADO DE SUPORTE E EMERGÊNCIA - SUSE™ v1.3.38
               </span>
               <span className="text-[10px] font-bold text-blue-200 mt-0.5 tracking-widest">
                 INDICADOR DE RISCO ACÚSTICO IRA™ V.2.0

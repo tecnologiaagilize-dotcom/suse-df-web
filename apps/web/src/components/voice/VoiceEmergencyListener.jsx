@@ -595,7 +595,8 @@ export default function VoiceEmergencyListener({
           try {
              // Tenta iniciar se ainda estivermos no estado correto
              if (!isAnalyzingRef.current && recognitionRef.current) {
-                recognitionRef.current.start();
+                // recognitionRef.current.start(); // --- DESATIVADO PARA TESTE DE CONFLITO ---
+                console.log("[Voice] Reinício automático bloqueado (Modo Teste v1.3.38)");
              }
           } catch (e) {
              // Ignora erro se já estiver rodando
@@ -779,7 +780,8 @@ export default function VoiceEmergencyListener({
              try {
                 // Checa novamente dentro do timeout se a instância ainda é válida e se o tab está visível
                 if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current && document.visibilityState === 'visible') {
-                    recognition.start();
+                    // recognition.start(); // --- DESATIVADO PARA TESTE DE CONFLITO ---
+                    console.log("[Voice] Reinício onend bloqueado (Modo Teste v1.3.38)");
                 } else {
                     console.log("[Voice] Pausando reinício automático (Tab em background ou inativo)");
                 }
@@ -810,8 +812,12 @@ export default function VoiceEmergencyListener({
       // Sequenciamento: Só inicia WebSpeech após AudioCore liberar (evita conflito de microfone)
       if (audioCoreReady) {
           try {
-            console.log("[Voice] Iniciando Web Speech API...");
-            recognition.start();
+            console.log("[Voice] Iniciando Web Speech API... (DESATIVADO PARA TESTE v1.3.38)");
+            // recognition.start(); // --- DESATIVADO PARA TESTE DE CONFLITO ---
+            
+            // Simula estado ativo para UI não ficar quebrada
+            setIsListening(true);
+            
           } catch (e) {
             console.error("[Voice] Erro ao iniciar recognition:", e);
           }
@@ -849,7 +855,7 @@ export default function VoiceEmergencyListener({
           {/* Feedback Visual Extra: Estado do Processamento */}
           {isListening && !isAnalyzing && (
               <span className="text-[10px] text-gray-500 font-mono">
-                  {isSpeechDetected ? 'Detectando Fala...' : 'Aguardando Voz...'}
+                  {isSpeechDetected ? 'Detectando Fala (VAD)...' : 'Modo Acústico (Sem Transcrição)...'}
               </span>
           )}
       </div>
