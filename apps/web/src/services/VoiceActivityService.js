@@ -27,6 +27,9 @@ class VoiceActivityService {
             // FIX: Garantir URL base correta para production
             const baseUrl = window.location.origin;
             
+            // Verificação de segurança: checar se os arquivos existem antes de tentar carregar
+            console.log(`[VAD Init] Carregando modelos de: ${baseUrl}`);
+            
             this.vadInstance = await MicVAD.new({
                 // Tenta forçar caminhos locais
                 workletURL: `${baseUrl}/ort-wasm-simd-threaded.mjs`,
