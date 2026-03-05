@@ -31,9 +31,9 @@ class VoiceActivityService {
             console.log(`[VAD Init] Carregando modelos de: ${baseUrl}`);
             
             this.vadInstance = await MicVAD.new({
-                // Tenta forçar caminhos locais
-                workletURL: `${baseUrl}/ort-wasm-simd-threaded.mjs`,
-                modelURL: `${baseUrl}/silero_vad_legacy.onnx`,
+                // Tenta forçar caminhos locais e ABSOLUTOS
+                workletURL: `/ort-wasm-simd-threaded.mjs`, // Caminho absoluto para evitar /passenger/ort...
+                modelURL: `/silero_vad_legacy.onnx`, // Caminho absoluto para evitar /passenger/silero...
                 
                 // Opções de runtime
                 onSpeechStart: () => {
