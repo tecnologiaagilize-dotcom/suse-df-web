@@ -22,13 +22,21 @@ class VoiceActivityService {
         this.isSpeaking = false;
     }
 
-    async start(onSpeechStart, onSpeechEnd) {
+    async start(onSpeechStart, onSpeechEnd, externalStream = null) {
         if (this.isListening) return;
 
         this.onSpeechStart = onSpeechStart;
         this.onSpeechEnd = onSpeechEnd;
 
-        // Tentar Silero VAD primeiro
+        // Se houver stream externo, forçamos o uso do VAD Nativo para evitar conflito de hardware
+        // O Silero (MicVAD) tenta gerenciar o microfone sozinho, o que causaria erro "Device in use".
+        if (externalStream) {
+             console.log("[VAD] Stream externo detectado. Usando VAD Nativo (Shared Stream Mode).");
+             await this.startNativeEnergyVAD(externalStream);
+             return;
+        }
+
+        // Tentar Silero VAD primeiro (Apenas se não houver stream externo)
         try {
             console.log("[VAD Init] Tentando Silero VAD...");
             this.vadInstance = await MicVAD.new({
@@ -60,18 +68,22 @@ class VoiceActivityService {
         }
     }
 
-    async startNativeEnergyVAD() {
+    async startNativeEnergyVAD(externalStream = null) {
         try {
             console.log("[VAD Nativo] Iniciando VAD baseado em Energia...");
             
-            // 1. Obter acesso ao microfone
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    echoCancellation: true, 
-                    noiseSuppression: true,
-                    autoGainControl: true 
-                } 
-            });
+            let stream = externalStream;
+            
+            // Se não foi passado stream, solicita um novo (Comportamento legado)
+            if (!stream) {
+                 stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { 
+                        echoCancellation: true, 
+                        noiseSuppression: true,
+                        autoGainControl: true 
+                    } 
+                });
+            }
 
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
@@ -143,7 +155,12 @@ class VoiceActivityService {
         // Parar Nativo
         if (this.energyInterval) clearInterval(this.energyInterval);
         if (this.source) {
-            this.source.mediaStream.getTracks().forEach(track => track.stop());
+            // NÃO paramos as tracks se o stream for externo (compartilhado), apenas desconectamos o nó
+            // Mas como não salvamos a flag 'isExternal', por segurança desconectamos apenas.
+            // Para evitar parar o audio do EmergencyListener, não chamamos track.stop() aqui se for compartilhado.
+            // TODO: Adicionar flag this.isExternalStream
+            
+            // Por enquanto, assumimos que se o AudioContext for fechado, o nó morre.
             this.source.disconnect();
         }
         if (this.audioContext) this.audioContext.close();

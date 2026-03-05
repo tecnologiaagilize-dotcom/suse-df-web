@@ -109,65 +109,13 @@ export default function VoiceEmergencyListener({
               handleWakeWordTrigger();
           });
           
-              // 2. Inicializar VAD (Silero)
-              // console.log("[VoiceEmergencyListener] Iniciando VAD..."); // REMOVIDO LOG EXCESSIVO
-              await VoiceActivityService.start(
-                  () => {
-                      console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
-                      setIsSpeechDetected(true);
-                      
-                          // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
-                          if (recognitionRef.current && !isAnalyzingRef.current) {
-                              try { 
-                                  // Apenas tenta iniciar se não estiver ouvindo.
-                                  // Se já estiver ouvindo, apenas renova o timestamp.
-                                  if (!isListening) {
-                                      console.log("Iniciando reconhecimento de fala...");
-                                      recognitionRef.current.start();
-                                  } else {
-                                      // console.log("Reconhecimento já ativo. Renovando timestamp."); // REMOVIDO LOG EXCESSIVO
-                                  }
-                                  window.lastSpeechTimestamp = Date.now();
-                                  
-                                  // Watchdog Inteligente: Desliga se houver 10s de silêncio absoluto (AUMENTADO de 5s)
-                                  if (window.silenceCheckInterval) clearInterval(window.silenceCheckInterval);
-                                  window.silenceCheckInterval = setInterval(() => {
-                                      if (!isListening) { clearInterval(window.silenceCheckInterval); return; }
-                                      
-                                      const timeSinceLastSpeech = Date.now() - (window.lastSpeechTimestamp || 0);
-                                      // Janela estendida para 10 segundos
-                                      if (timeSinceLastSpeech > 10000) {
-                                          console.log("[VAD Timeout] Desligando Web Speech (10s sem fala).");
-                                          if (recognitionRef.current) recognitionRef.current.stop();
-                                          clearInterval(window.silenceCheckInterval);
-                                      }
-                                  }, 1000);
-                                  
-                              } catch(e) {
-                                  // Se já estiver rodando, ignora
-                                  console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
-                              }
-                          }
-                  },  
-                  () => {
-                      // console.log("[VAD End] Silêncio detectado."); // REMOVIDO LOG EXCESSIVO
-                      setIsSpeechDetected(false);
-                  }
-              );
-          console.log("[VoiceEmergencyListener] VAD Iniciado.");
-
-          // Listener removido daqui. Configurado no useEffect principal.
-
           setIsOfflineMode(true); 
 
           const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioContext({ sampleRate: 16000 }); 
+          // Ajuste fino para Mobile: latencyHint 'interactive'
+          const ctx = new AudioContext({ sampleRate: 16000, latencyHint: 'interactive' }); 
           audioContextRef.current = ctx;
 
-          // ... (restante do código)
-
-          // Cleanup removido de initAudioCore (deve ser gerenciado pelo useEffect)
-          
           // --- FIX: Resume AudioContext se estiver suspenso (Autoplay Policy) ---
           if (ctx.state === 'suspended') {
               console.log("VoiceEmergencyListener: AudioContext suspenso, tentando retomar...");
@@ -177,20 +125,10 @@ export default function VoiceEmergencyListener({
                   console.warn("Autoplay bloqueado. Aguardando interação do usuário.");
               }
           }
-          // ---------------------------------------------------------------------
-
-          // Carregar módulo AudioWorklet com tratamento de erro
-          try {
-              await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
-              console.log("AudioWorklet: Módulo carregado com sucesso");
-          } catch (e) {
-              console.error("AudioWorklet: Falha crítica ao carregar módulo:", e);
-              // Fallback ou retry?
-              // Vamos deixar seguir pois o Meyda ainda pode funcionar sem o Worklet
-          }
-
-          // --- MELHORIA DE CAPTAÇÃO: Noise Suppression & Echo Cancellation ---
-          // FIX: Usar 48kHz para conformidade com WebRTC/Opus e melhor qualidade semântica
+          
+          // --- MELHORIA DE CAPTAÇÃO: UNIFIED STREAM (v1.3.40) ---
+          // Capturamos o stream UMA VEZ e compartilhamos com todos os serviços (VAD, Meyda, Streaming)
+          // Isso resolve conflitos de hardware em Android/iOS onde apenas 1 processo pode acessar o mic.
           let stream;
           try {
               stream = await navigator.mediaDevices.getUserMedia({ 
@@ -202,6 +140,9 @@ export default function VoiceEmergencyListener({
                       sampleRate: 48000 // Otimização para Análise Semântica
                   } 
               });
+              
+              streamRef.current = stream;
+              console.log("[VoiceEmergencyListener] Stream de áudio unificado capturado.");
 
               // [AUDIO LIVE] Injetar stream no serviço de transmissão
               AudioStreamingService.setStream(stream);
@@ -211,9 +152,59 @@ export default function VoiceEmergencyListener({
               setError("Erro ao acessar microfone: " + err.message);
               return;
           }
+
+          // 2. Inicializar VAD (Silero/Native) com STREAM COMPARTILHADO
+          // Passamos o stream para evitar que o VAD tente abrir outro mic (causando erro)
+          await VoiceActivityService.start(
+              () => {
+                  console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
+                  setIsSpeechDetected(true);
+                  
+                      // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
+                      if (recognitionRef.current && !isAnalyzingRef.current) {
+                          try { 
+                              // Apenas tenta iniciar se não estiver ouvindo.
+                              if (!isListening) {
+                                  console.log("Iniciando reconhecimento de fala...");
+                                  recognitionRef.current.start();
+                              } 
+                              window.lastSpeechTimestamp = Date.now();
+                              
+                              // Watchdog Inteligente: Desliga se houver 10s de silêncio absoluto
+                              if (window.silenceCheckInterval) clearInterval(window.silenceCheckInterval);
+                              window.silenceCheckInterval = setInterval(() => {
+                                  if (!isListening) { clearInterval(window.silenceCheckInterval); return; }
+                                  
+                                  const timeSinceLastSpeech = Date.now() - (window.lastSpeechTimestamp || 0);
+                                  if (timeSinceLastSpeech > 10000) {
+                                      console.log("[VAD Timeout] Desligando Web Speech (10s sem fala).");
+                                      if (recognitionRef.current) recognitionRef.current.stop();
+                                      clearInterval(window.silenceCheckInterval);
+                                  }
+                              }, 1000);
+                              
+                          } catch(e) {
+                              console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
+                          }
+                      }
+              },  
+              () => {
+                  setIsSpeechDetected(false);
+              },
+              stream // <--- INJEÇÃO DE DEPENDÊNCIA: Stream Unificado
+          );
+          console.log("[VoiceEmergencyListener] VAD Iniciado (Modo Compartilhado).");
           
-          streamRef.current = stream;
+          // --- PIPELINE DE PROCESSAMENTO DE ÁUDIO ---
           const source = ctx.createMediaStreamSource(stream);
+          
+          // Carregar módulo AudioWorklet (movido para depois do AudioContext estar pronto)
+          try {
+              await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
+              console.log("AudioWorklet: Módulo carregado com sucesso");
+          } catch (e) {
+              console.error("AudioWorklet: Falha crítica ao carregar módulo:", e);
+          }
 
           // DIAGNÓSTICO: Monitorar fluxo de áudio na entrada
           const analyser = ctx.createAnalyser();

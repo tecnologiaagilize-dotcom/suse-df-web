@@ -1,5 +1,5 @@
 # SUSE-DF Project Master Plan & Handover Documentation
-**Versão Atual:** v1.3.39 (Audio Core Optimization)
+**Versão Atual:** v1.3.40 (Unified Stream Architecture)
 **Data:** 03/03/2026
 **Contexto:** Ponto de controle para evitar regressão em novas sessões.
 
@@ -15,17 +15,16 @@ O **SUSE-DF** é um sistema de monitoramento e emergência para motoristas de ap
 ## 2. Módulos Críticos (Estado da Arte)
 Estes módulos estão **estabilizados**. Qualquer alteração deve ser feita com extremo cuidado para não reintroduzir bugs de performance (INP) ou lógica.
 
-### A. Monitoramento de Voz (IRA-SUSI v1.3.39)
+### A. Monitoramento de Voz (IRA-SUSI v1.3.40)
 *   **Arquivo Principal:** `apps/web/src/components/voice/VoiceEmergencyListener.jsx`
 *   **Processador de Áudio:** `apps/web/public/workers/suse-audio-processor.js`
+*   **Melhorias v1.3.40 (Unified Stream):**
+    *   **Arquitetura de Stream Único:** O `getUserMedia` é chamado apenas uma vez no `VoiceEmergencyListener`. O objeto `MediaStream` resultante é injetado no `VoiceActivityService` (VAD) e no `AudioStreamingService`.
+    *   **Benefício:** Elimina conflitos de hardware em Android/iOS ("Device in use") onde múltiplos processos tentando acessar o microfone causavam falha no VAD ou no reconhecimento de fala.
 *   **Melhorias v1.3.39 (Compliance):**
-    *   **Sample Rate 48kHz:** Otimizado para qualidade de análise semântica (antes 16kHz).
-    *   **Sliding Window Match:** Implementada busca por janela deslizante (20 palavras) para encontrar a frase de emergência mesmo em frases longas, corrigindo o erro de "não alcançar o alvo".
-    *   **VAD Threshold Ajustado:** Aumentado para **45** (antes 25) no `VoiceActivityService.js` para reduzir falsos positivos e "ativação muito rápida".
-    *   **Debounce de Silêncio:** Aumentado para **1.5s** para evitar cortes na fala.
-*   **Lógica Atual:**
-    *   Usa **AudioWorklet** para capturar áudio fora da Main Thread.
-    *   **Buffer Circular:** Implementado via ScriptProcessor (Shadow Recording) para capturar evidências.
+    *   **Sample Rate 48kHz:** Otimizado para qualidade de análise semântica.
+    *   **Sliding Window Match:** Busca por janela deslizante (20 palavras).
+    *   **VAD Threshold:** 45 (Nativo).
 
 ### B. Painel do Motorista & SOS
 *   **Arquivo:** `apps/web/src/pages/driver/Dashboard.jsx`
@@ -52,24 +51,22 @@ Para que o deploy funcione corretamente, as seguintes regras devem ser seguidas:
 ---
 
 ## 4. Problemas Resolvidos (Histórico de Correções)
-*   **Match Semântico Falho:** Resolvido com Sliding Window (Janela Deslizante).
+*   **Conflito de Microfone (Mobile/Android):** Resolvido com Unified Stream Architecture (v1.3.40).
+*   **Build Error (processedSource):** Resolvido removendo declaração duplicada.
+*   **Match Semântico Falho:** Resolvido com Sliding Window.
 *   **Falsos Positivos VAD:** Resolvido aumentando o threshold de energia.
-*   **Erro de Sintaxe `Unexpected "}"`:** Resolvido.
-*   **INP (Interface Travando):** Resolvido com AudioWorklet buffer 4096.
 
 ---
 
 ## 5. Próximos Passos (Roadmap Técnico)
 Para a próxima tarefa, seguir esta ordem sem quebrar o anterior:
 
-1.  **Refatoração para VAD Híbrido:**
-    *   Mover a detecção de silêncio (VAD) para dentro do `suse-audio-processor.js` (Worklet).
-2.  **Backend Python (Railway):**
+1.  **Backend Python (Railway):**
     *   Conectar o fluxo de áudio para validação biométrica secundária.
-3.  **Testes E2E:**
+2.  **Testes E2E:**
     *   Criar testes automatizados.
 
 ---
 
 **Instrução para a IA na Próxima Sessão:**
-"LEIA ESTE ARQUIVO (`MASTER_PROJECT_STATE.md`) ANTES DE QUALQUER AÇÃO. O sistema de voz e SOS está na versão v1.3.39 (Otimizada). Não reverta para thresholds baixos de VAD nem remova a lógica de Sliding Window."
+"LEIA ESTE ARQUIVO (`MASTER_PROJECT_STATE.md`) ANTES DE QUALQUER AÇÃO. O sistema de voz usa Arquitetura de Stream Unificado (v1.3.40). NÃO adicione chamadas extras de `getUserMedia` no VAD ou Listener."
