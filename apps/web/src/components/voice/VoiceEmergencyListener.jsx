@@ -402,32 +402,41 @@ export default function VoiceEmergencyListener({
           const ringBufferSize = 48000 * 30; 
           
           // AudioWorkletNode para processamento em thread separada
-          await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
-          const workletNode = new AudioWorkletNode(ctx, 'suse-audio-processor');
+          try {
+              await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
+              const workletNode = new AudioWorkletNode(ctx, 'suse-audio-processor');
+              
+              // Substituição do ScriptProcessor (Deprecado) por AudioWorklet MessagePort
+              workletNode.port.onmessage = (e) => {
+                  if (!isActive) return;
+                  const inputData = e.data; // Float32Array do worklet
+                  RingBufferService.write(inputData);
+              };
+              
+              processedSource.connect(workletNode);
+              workletNode.connect(ctx.destination); // Necessário para manter o processador vivo
+              
+              workletNode.onprocessorerror = (err) => {
+                  console.error("[AudioWorklet] Erro no processador:", err);
+                  setError("Erro crítico no processamento de áudio.");
+              }; 
+              
+              workletNodeRef.current = workletNode;
+              console.log("Audio Core v2 (Worklet + WakeWord + VAD + IRA-SUSI) iniciado.");
+          } catch (workletErr) {
+              console.error("Falha ao carregar AudioWorklet, tentando fallback...", workletErr);
+              // Fallback para ScriptProcessor se Worklet falhar (compatibilidade)
+              const recorderNode = ctx.createScriptProcessor(4096, 1, 1);
+              recorderNode.onaudioprocess = (e) => {
+                  if (!isActive) return;
+                  const inputData = e.inputBuffer.getChannelData(0);
+                  RingBufferService.write(inputData);
+              };
+              processedSource.connect(recorderNode);
+              recorderNode.connect(ctx.destination);
+              console.log("Audio Core v2 (ScriptProcessor Fallback) iniciado.");
+          }
           
-          // Ring Buffer Implementation (Client-Side Memory)
-          // -------------------------------------------------------------
-          // Cria um ScriptProcessor apenas para capturar dados raw para o buffer circular
-          // (Meyda e VAD usarão o fluxo principal)
-          const recorderNode = ctx.createScriptProcessor(4096, 1, 1);
-          recorderNode.onaudioprocess = (e) => {
-              if (!isActive) return;
-              const inputData = e.inputBuffer.getChannelData(0);
-              // Escrever no RingBufferService (Singleton global)
-              RingBufferService.write(inputData);
-          };
-          processedSource.connect(recorderNode);
-          recorderNode.connect(ctx.destination); // Necessário para manter o processador vivo
-          // ------------------------------------------------------------- 
-          
-          // DIAGNÓSTICO WORKLET: Verificar se o processador está vivo
-          workletNode.onprocessorerror = (err) => {
-              console.error("[AudioWorklet] Erro no processador:", err);
-              setError("Erro crítico no processamento de áudio.");
-          }; 
-          
-          workletNodeRef.current = workletNode;
-          console.log("Audio Core v2 (Worklet + WakeWord + VAD + IRA-SUSI) iniciado.");
           clearTimeout(safetyTimer); // Cancela timeout se sucesso
           setAudioCoreReady(true); // Libera SpeechRecognition
           setIsListening(true); // [FIX] Define como ouvindo pois o Audio Core está ativo (Modo Acústico)
