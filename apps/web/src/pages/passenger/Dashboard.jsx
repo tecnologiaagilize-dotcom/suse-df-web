@@ -26,6 +26,7 @@ export default function PassengerDashboard() {
   
   // Estados para Monitoramento IRA-SUSI (Visualização Fixa)
   const [iraData, setIraData] = useState(null);
+  const [voiceStatus, setVoiceStatus] = useState({ isListening: false, isAnalyzing: false, error: null });
   
   // 0. Verificação LGPD (Bloqueio de Funcionalidades)
   useEffect(() => {
@@ -780,6 +781,7 @@ export default function PassengerDashboard() {
                               isActive={!isEmergencyActive && voiceMode !== 'OFF'} 
                               onTranscriptChange={(text) => setVoiceTranscript(text)}
                               onAnalysisUpdate={handleAnalysisUpdate} 
+                              onStatusChange={setVoiceStatus}
                               showDebugPanel={false} 
                               onEmergencyDetected={(reason) => {
                                 console.log("Emergência detectada via voz:", reason);
