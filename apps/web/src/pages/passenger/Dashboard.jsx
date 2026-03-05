@@ -1001,27 +1001,7 @@ export default function PassengerDashboard() {
                              </span>
                          </div>
                          
-                         {/* Análise Semântica (Embed) - Restaurado Posição Original v1.3.14 */}
-                         <div className="col-span-3 bg-gray-800/80 rounded p-2 border border-blue-500/50 mt-1 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
-                             <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-blue-300 mb-1">
-                                 <span className="font-bold flex items-center gap-1"><Activity size={12}/> Análise Semântica</span>
-                                 <span className={iraData?.voiceDebug?.match ? "text-green-400 font-bold" : "text-gray-400"}>
-                                     Match: {((iraData?.voiceDebug?.similarity || 0) * 100).toFixed(0)}%
-                                 </span>
-                             </div>
-                             <div className="font-mono text-[11px] text-gray-300 truncate mb-1">
-                                 Ouvido: <span className="text-white font-bold">"{iraData?.voiceDebug?.text || '...'}"</span>
-                             </div>
-                             <div className="flex justify-between text-[9px] text-gray-500 mb-1">
-                                <span>Alvo: "{iraData?.voiceDebug?.target || '...'}"</span>
-                             </div>
-                             <div className="w-full bg-gray-700 h-2 mt-1 rounded-full overflow-hidden">
-                                 <div 
-                                     className={`h-full transition-all duration-300 ${iraData?.voiceDebug?.match ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-blue-500'}`}
-                                     style={{ width: `${Math.min(100, (iraData?.voiceDebug?.similarity || 0) * 100)}%` }}
-                                 />
-                             </div>
-                         </div>
+                         {/* Análise Semântica (REMOVIDO DEFINITIVAMENTE a pedido) */}
 
                          {/* Linha 2: Sensores Físicos (Adicionado v2.3) */}
                          <div className={`bg-gray-800/50 p-2 rounded border border-gray-600/50 flex flex-col items-center ${iraData?.context?.impactDetected ? 'bg-red-900/50 border-red-500 animate-pulse' : ''}`}>

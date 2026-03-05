@@ -157,9 +157,10 @@ export default function VoiceEmergencyListener({
           // Passamos o stream para evitar que o VAD tente abrir outro mic (causando erro)
           await VoiceActivityService.start(
               () => {
-                  console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
+                  console.log("[VAD Trigger] Voz detectada! (Web Speech Desativado - Modo Acústico)");
                   setIsSpeechDetected(true);
                   
+                  /*
                       // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
                       if (recognitionRef.current && !isAnalyzingRef.current) {
                           try { 
@@ -187,6 +188,7 @@ export default function VoiceEmergencyListener({
                               console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
                           }
                       }
+                  */
               },  
               () => {
                   setIsSpeechDetected(false);
@@ -651,6 +653,12 @@ export default function VoiceEmergencyListener({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAnalyzing, isActive]); // Não incluímos isListening para evitar conflito com onend
 
+  /* 
+  // --- WEB SPEECH API (SEMANTIC ANALYSIS) ---
+  // REMOVIDO TEMPORARIAMENTE A PEDIDO DO USUÁRIO ("retire a analise semantica")
+  // Motivo: Conflito com AudioCore/VAD e instabilidade.
+  // O sistema agora opera em modo "Acoustic Only" (IRA-SUSI).
+  
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -889,6 +897,7 @@ export default function VoiceEmergencyListener({
     };
     // --- FIX: Adicionar onTranscriptChange nas dependências para evitar stale closure ---
   }, [isActive, emergencyPhrase, onEmergencyDetected, audioCoreReady]); // Removed onTranscriptChange/onAnalysisUpdate to prevent restart loop
+  */
 
   if (error) {
     return <div className="text-xs text-red-500 mt-2 bg-red-50 p-1 rounded border border-red-200">{error}</div>;
@@ -897,20 +906,20 @@ export default function VoiceEmergencyListener({
   return (
     <div className={`flex items-center space-x-2 text-sm p-2 rounded-full transition-all duration-300 ${
         isAnalyzing ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
-        isListening ? 'bg-green-100 text-green-800 border border-green-200' : 
+        audioCoreReady ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
         'bg-gray-100 text-gray-500'
     }`}>
       {isAnalyzing ? <ShieldCheck className="w-4 h-4 animate-bounce" /> : 
-       isListening ? <Mic className="w-4 h-4 animate-pulse text-green-600" /> : <MicOff className="w-4 h-4" />}
+       audioCoreReady ? <Activity className="w-4 h-4 animate-pulse text-blue-600" /> : <MicOff className="w-4 h-4" />}
       
       <div className="flex flex-col leading-tight">
           <span className="font-medium">
-            {isAnalyzing ? 'Processando Áudio...' : isListening ? 'Monitoramento Ativo' : 'Voz Inativa'}
+            {isAnalyzing ? 'Processando Áudio...' : audioCoreReady ? 'Monitoramento Acústico' : 'Voz Inativa'}
           </span>
           {/* Feedback Visual Extra: Estado do Processamento */}
-          {isListening && !isAnalyzing && (
+          {audioCoreReady && !isAnalyzing && (
               <span className="text-[10px] text-gray-500 font-mono">
-                  {isSpeechDetected ? 'Detectando Fala (VAD)...' : 'Modo Acústico (Sem Transcrição)...'}
+                  {isSpeechDetected ? 'Voz Detectada (IRA)' : 'Modo Acústico (IRA-SUSI)'}
               </span>
           )}
       </div>
