@@ -470,11 +470,15 @@ export default function VoiceEmergencyListener({
           streamRef.current = null;
       }
 
-      // 4. Fechar AudioContext
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      // 4. Fechar AudioContext (Se não estiver já fechado)
+      if (audioContextRef.current) {
           try {
-            await audioContextRef.current.close();
-          } catch(e) { console.warn("Erro ao fechar AudioContext:", e); }
+              if (audioContextRef.current.state !== 'closed') {
+                  await audioContextRef.current.close();
+              }
+          } catch(e) { 
+              console.warn("Erro ao fechar AudioContext (já fechado?):", e); 
+          }
           audioContextRef.current = null;
       }
       
