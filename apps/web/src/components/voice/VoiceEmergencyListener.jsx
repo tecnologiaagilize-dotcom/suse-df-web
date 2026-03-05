@@ -109,37 +109,37 @@ export default function VoiceEmergencyListener({
               handleWakeWordTrigger();
           });
           
-          // 2. Inicializar VAD (Silero)
-          console.log("[VoiceEmergencyListener] Iniciando VAD...");
-          await VoiceActivityService.start(
-              () => {
-                  console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
-                  setIsSpeechDetected(true);
-                  
-                  // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
-                  if (recognitionRef.current && !isAnalyzingRef.current) {
-                      try { 
-                          // Apenas tenta iniciar se não estiver ouvindo.
-                          // Se já estiver ouvindo, apenas renova o timestamp.
-                          if (!isListening) {
-                              console.log("Iniciando reconhecimento de fala...");
-                              recognitionRef.current.start();
-                          } else {
-                              console.log("Reconhecimento já ativo. Renovando timestamp.");
+              // 2. Inicializar VAD (Silero)
+              // console.log("[VoiceEmergencyListener] Iniciando VAD..."); // REMOVIDO LOG EXCESSIVO
+              await VoiceActivityService.start(
+                  () => {
+                      console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
+                      setIsSpeechDetected(true);
+                      
+                      // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
+                      if (recognitionRef.current && !isAnalyzingRef.current) {
+                          try { 
+                              // Apenas tenta iniciar se não estiver ouvindo.
+                              // Se já estiver ouvindo, apenas renova o timestamp.
+                              if (!isListening) {
+                                  console.log("Iniciando reconhecimento de fala...");
+                                  recognitionRef.current.start();
+                              } else {
+                                  // console.log("Reconhecimento já ativo. Renovando timestamp."); // REMOVIDO LOG EXCESSIVO
+                              }
+                              window.lastSpeechTimestamp = Date.now();
+                              
+                          } catch(e) {
+                              // Se já estiver rodando, ignora
+                              console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
                           }
-                          window.lastSpeechTimestamp = Date.now();
-                          
-                      } catch(e) {
-                          // Se já estiver rodando, ignora
-                          console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
                       }
+                  },  
+                  () => {
+                      // console.log("[VAD End] Silêncio detectado."); // REMOVIDO LOG EXCESSIVO
+                      setIsSpeechDetected(false);
                   }
-              },  
-              () => {
-                  console.log("[VAD End] Silêncio detectado.");
-                  setIsSpeechDetected(false);
-              }
-          );
+              );
           console.log("[VoiceEmergencyListener] VAD Iniciado.");
 
           // Listener removido daqui. Configurado no useEffect principal.
@@ -669,23 +669,21 @@ export default function VoiceEmergencyListener({
       if (isAnalyzingRef.current) return;
 
       let interimTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcriptSegment = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          setTranscript(prev => {
-              const newText = (prev + ' ' + transcriptSegment).trim().slice(-200); // Mantém contexto
-              console.log("[Voice] Texto Final:", newText);
-              
-              // MÓDULO 10: Normalização Estrita
-              const normalizedText = normalizePhrase(newText);
-              // Reportar texto final para UI (NORMALIZADO)
-              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(normalizedText);
+      let finalTranscript = '';
 
-              checkEmergencyPhrase(newText);
-              return newText;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript.toLowerCase().trim();
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+          // FIX: Atualizar UI com o que foi ouvido (Análise Semântica)
+          setTranscript(prev => {
+             const newText = (prev + ' ' + transcript).trim().slice(-200); 
+             if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(normalizePhrase(newText));
+             checkEmergencyPhrase(newText);
+             return newText;
           });
         } else {
-          interimTranscript += transcriptSegment;
+          interimTranscript += transcript;
         }
       }
       
