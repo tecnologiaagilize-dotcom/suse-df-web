@@ -377,10 +377,6 @@ export default function VoiceEmergencyListener({
           await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
           const workletNode = new AudioWorkletNode(ctx, 'suse-audio-processor');
           
-          // Configurar processador DSP (Meyda) para extração de features
-          // DSP deve rodar ANTES do VAD para alimentar o buffer com dados limpos
-          const processedSource = compressor; // Sinal processado (HighPass + Compressor)
-          
           // Ring Buffer Implementation (Client-Side Memory)
           // -------------------------------------------------------------
           // Cria um ScriptProcessor apenas para capturar dados raw para o buffer circular
