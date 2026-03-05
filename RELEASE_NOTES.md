@@ -1,3 +1,28 @@
+# Release Notes - v1.3.39 (Audio Core Optimization & Compliance)
+
+## 🎙️ Otimização do Núcleo de Áudio & Compliance Técnico
+
+Esta versão foca na estabilização da captura de voz e na precisão da análise semântica, atendendo aos requisitos dos cadernos técnicos `audiov1.3.39` e `audiocomplv1.3.39`.
+
+### Alterações Principais:
+
+#### 1. Qualidade de Áudio (48kHz)
+*   **High Fidelity Capture**: A taxa de amostragem foi elevada de 16kHz para **48kHz** (padrão Opus/WebRTC). Isso melhora significativamente a clareza para a transcrição e a precisão da análise biométrica.
+
+#### 2. Análise Semântica "Sliding Window"
+*   **Correção de Match**: Implementada lógica de **Janela Deslizante (Sliding Window)** que analisa as últimas 20 palavras faladas em busca da frase de emergência.
+*   **Benefício**: Resolve o problema onde a frase não era detectada se o usuário falasse algo *após* a senha (ex: "Socorro agora por favor"). Antes, o sistema olhava apenas o final exato.
+
+#### 3. VAD Nativo Calibrado
+*   **Redução de Falsos Positivos**: O limiar de detecção de voz (Energy Threshold) foi aumentado de 25 para **45**.
+*   **Estabilidade**: O tempo de espera para considerar "fim da fala" (debounce) subiu de 800ms para **1.5s**, evitando que o sistema corte o áudio durante pausas naturais na respiração.
+
+### Versões dos Componentes:
+*   **App Web**: v1.3.39
+*   **IRA-SUSI Engine**: v1.3 (Sliding Window Logic)
+
+---
+
 # Release Notes - v3.33 (Blue Theme & Audio Live)
 
 ## 🎨 Nova Identidade Visual (Blue Theme) & Audio Live

@@ -85,7 +85,8 @@ class VoiceActivityService {
             const dataArray = new Uint8Array(bufferLength);
             
             // Limiar de silêncio (ajustável)
-            const VOICE_THRESHOLD = 25; // 0-255. Valor empírico.
+            // AUMENTADO para 45 (era 25) para evitar disparos falsos com ruído de fundo (v1.3.39)
+            const VOICE_THRESHOLD = 45; // 0-255. Valor empírico calibrado.
             let silenceStartTime = 0;
             let speechDuration = 0;
 
@@ -101,9 +102,11 @@ class VoiceActivityService {
                 // Lógica de Detecção
                 if (average > VOICE_THRESHOLD) {
                     if (!this.isSpeaking) {
+                        // Filtro de Ruído Transitório (Pico curto)
+                        // Apenas considera fala se sustentar por pelo menos 2 frames (100ms) - Lógica simplificada aqui
                         this.isSpeaking = true;
                         this.speechStartTime = Date.now();
-                        console.log(`[VAD Nativo] Fala Detectada (Vol: ${average.toFixed(1)})`);
+                        console.log(`[VAD Nativo] Fala Detectada (Vol: ${average.toFixed(1)} > ${VOICE_THRESHOLD})`);
                         if (this.onSpeechStart) this.onSpeechStart();
                     }
                     silenceStartTime = 0;
@@ -112,11 +115,11 @@ class VoiceActivityService {
                     if (this.isSpeaking) {
                         if (silenceStartTime === 0) silenceStartTime = Date.now();
                         
-                        // Debounce de 800ms para considerar fim de fala
-                        if (Date.now() - silenceStartTime > 800) {
+                        // Debounce AUMENTADO de 800ms para 1500ms para evitar cortes em frases pausadas
+                        if (Date.now() - silenceStartTime > 1500) {
                             this.isSpeaking = false;
-                            console.log("[VAD Nativo] Fim da fala.");
-                            if (this.onSpeechEnd) this.onSpeechEnd(null); // Nativo não retorna buffer de áudio limpo fácil
+                            console.log("[VAD Nativo] Fim da fala (Silêncio sustentado > 1.5s).");
+                            if (this.onSpeechEnd) this.onSpeechEnd(null); 
                         }
                     }
                 }

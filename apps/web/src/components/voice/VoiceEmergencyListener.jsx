@@ -190,7 +190,7 @@ export default function VoiceEmergencyListener({
           }
 
           // --- MELHORIA DE CAPTAÇÃO: Noise Suppression & Echo Cancellation ---
-          // FIX: Usar um stream único se possível ou garantir que não conflite
+          // FIX: Usar 48kHz para conformidade com WebRTC/Opus e melhor qualidade semântica
           let stream;
           try {
               stream = await navigator.mediaDevices.getUserMedia({ 
@@ -199,7 +199,7 @@ export default function VoiceEmergencyListener({
                       noiseSuppression: true,
                       autoGainControl: true,
                       channelCount: 1,
-                      sampleRate: 16000
+                      sampleRate: 48000 // Otimização para Análise Semântica
                   } 
               });
 
@@ -370,28 +370,31 @@ export default function VoiceEmergencyListener({
           };
           analysisLoopRef.current = requestAnimationFrame(analyzeFrame);
 
+          // Buffer Circular (RingBuffer) - 30s de contexto (48kHz * 30)
+          const ringBufferSize = 48000 * 30; 
+          
+          // AudioWorkletNode para processamento em thread separada
+          await ctx.audioWorklet.addModule('/workers/suse-audio-processor.js');
           const workletNode = new AudioWorkletNode(ctx, 'suse-audio-processor');
           
-          // Receber dados da thread separada
-          workletNode.port.onmessage = (event) => {
-              if (event.data.eventType === 'audio_data') {
-                  const audioData = event.data.audioBuffer;
-                  // Gravação contínua no RingBuffer (Prioridade Crítica)
-                  RingBufferService.write(audioData);
-                  
-                  // Verificação de saúde do stream (Detecta silêncio digital ou falha de hardware)
-                  if (Math.random() > 0.99) { // Amostragem ~1% para não floodar
-                      const rms = Math.sqrt(audioData.reduce((acc, val) => acc + val * val, 0) / audioData.length);
-                      if (rms < 0.0001) {
-                          console.warn("[IRA-SUSI Health] Alerta: Entrada de áudio muito baixa ou muda (Silêncio Digital). Verifique o microfone.");
-                      }
-                  }
-              }
+          // Configurar processador DSP (Meyda) para extração de features
+          // DSP deve rodar ANTES do VAD para alimentar o buffer com dados limpos
+          const processedSource = compressor; // Sinal processado (HighPass + Compressor)
+          
+          // Ring Buffer Implementation (Client-Side Memory)
+          // -------------------------------------------------------------
+          // Cria um ScriptProcessor apenas para capturar dados raw para o buffer circular
+          // (Meyda e VAD usarão o fluxo principal)
+          const recorderNode = ctx.createScriptProcessor(4096, 1, 1);
+          recorderNode.onaudioprocess = (e) => {
+              if (!isActive) return;
+              const inputData = e.inputBuffer.getChannelData(0);
+              // Escrever no RingBufferService (Singleton global)
+              RingBufferService.write(inputData);
           };
-
-          // Conectar sinal PROCESSADO ao Worklet (RingBuffer e VAD)
-          processedSource.connect(workletNode);
-          workletNode.connect(ctx.destination); 
+          processedSource.connect(recorderNode);
+          recorderNode.connect(ctx.destination); // Necessário para manter o processador vivo
+          // ------------------------------------------------------------- 
           
           // DIAGNÓSTICO WORKLET: Verificar se o processador está vivo
           workletNode.onprocessorerror = (err) => {
@@ -742,18 +745,36 @@ export default function VoiceEmergencyListener({
          } else {
              // 2. Fuzzy Logic (Rede Neural Simulada via String Similarity)
              const words = normalizedText.split(' ');
-             const phraseLength = normalizedPhrase.split(' ').length;
+             const phraseWords = normalizedPhrase.split(' ');
+             const phraseLength = phraseWords.length;
              
-             if (words.length >= phraseLength) {
-                 const recentPhrase = words.slice(-phraseLength).join(' ');
-                 similarity = stringSimilarity.compareTwoStrings(recentPhrase, normalizedPhrase);
-                 
-                 console.log(`[IRA-SUSI AI Monitor] Similaridade Semântica: ${similarity.toFixed(4)}`);
-                 
-                 // Mantém o limiar de alta confiança (0.85) para evitar falsos positivos em escala
-                 if (similarity >= 0.85) { 
-                     match = true;
+             // SLIDING WINDOW SEARCH (v1.3.39)
+             // Em vez de olhar apenas o final, procuramos a melhor correspondência em toda a janela recente.
+             // Isso corrige o erro "nao alcança o alvo" se o usuário falar algo depois da senha.
+             
+             let bestSimilarity = 0;
+             
+             // Janela de busca: Analisa os últimos 20 palavras (contexto suficiente)
+             const searchWindowSize = 20;
+             const startIdx = Math.max(0, words.length - searchWindowSize);
+             const searchContext = words.slice(startIdx);
+             
+             // Percorre a janela procurando a sequência que melhor bate com a frase alvo
+             for (let i = 0; i <= searchContext.length - phraseLength; i++) {
+                 const snippet = searchContext.slice(i, i + phraseLength).join(' ');
+                 const currentSim = stringSimilarity.compareTwoStrings(snippet, normalizedPhrase);
+                 if (currentSim > bestSimilarity) {
+                     bestSimilarity = currentSim;
                  }
+             }
+             
+             similarity = bestSimilarity;
+                 
+             console.log(`[IRA-SUSI AI Monitor] Melhor Similaridade na Janela: ${similarity.toFixed(4)}`);
+                 
+             // Mantém o limiar de alta confiança (0.85)
+             if (similarity >= 0.85) { 
+                 match = true;
              }
          }
 
