@@ -116,24 +116,38 @@ export default function VoiceEmergencyListener({
                       console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
                       setIsSpeechDetected(true);
                       
-                      // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
-                      if (recognitionRef.current && !isAnalyzingRef.current) {
-                          try { 
-                              // Apenas tenta iniciar se não estiver ouvindo.
-                              // Se já estiver ouvindo, apenas renova o timestamp.
-                              if (!isListening) {
-                                  console.log("Iniciando reconhecimento de fala...");
-                                  recognitionRef.current.start();
-                              } else {
-                                  // console.log("Reconhecimento já ativo. Renovando timestamp."); // REMOVIDO LOG EXCESSIVO
+                          // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
+                          if (recognitionRef.current && !isAnalyzingRef.current) {
+                              try { 
+                                  // Apenas tenta iniciar se não estiver ouvindo.
+                                  // Se já estiver ouvindo, apenas renova o timestamp.
+                                  if (!isListening) {
+                                      console.log("Iniciando reconhecimento de fala...");
+                                      recognitionRef.current.start();
+                                  } else {
+                                      // console.log("Reconhecimento já ativo. Renovando timestamp."); // REMOVIDO LOG EXCESSIVO
+                                  }
+                                  window.lastSpeechTimestamp = Date.now();
+                                  
+                                  // Watchdog Inteligente: Desliga se houver 10s de silêncio absoluto (AUMENTADO de 5s)
+                                  if (window.silenceCheckInterval) clearInterval(window.silenceCheckInterval);
+                                  window.silenceCheckInterval = setInterval(() => {
+                                      if (!isListening) { clearInterval(window.silenceCheckInterval); return; }
+                                      
+                                      const timeSinceLastSpeech = Date.now() - (window.lastSpeechTimestamp || 0);
+                                      // Janela estendida para 10 segundos
+                                      if (timeSinceLastSpeech > 10000) {
+                                          console.log("[VAD Timeout] Desligando Web Speech (10s sem fala).");
+                                          if (recognitionRef.current) recognitionRef.current.stop();
+                                          clearInterval(window.silenceCheckInterval);
+                                      }
+                                  }, 1000);
+                                  
+                              } catch(e) {
+                                  // Se já estiver rodando, ignora
+                                  console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
                               }
-                              window.lastSpeechTimestamp = Date.now();
-                              
-                          } catch(e) {
-                              // Se já estiver rodando, ignora
-                              console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
                           }
-                      }
                   },  
                   () => {
                       // console.log("[VAD End] Silêncio detectado."); // REMOVIDO LOG EXCESSIVO
@@ -673,9 +687,12 @@ export default function VoiceEmergencyListener({
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript.toLowerCase().trim();
+        // Feedback Visual Imediato (Mesmo se for Interim)
+        setTranscript(transcript);
+
         if (event.results[i].isFinal) {
           finalTranscript += transcript + ' ';
-          // FIX: Atualizar UI com o que foi ouvido (Análise Semântica)
+          // Confirmação final
           setTranscript(prev => {
              const newText = (prev + ' ' + transcript).trim().slice(-200); 
              if (onTranscriptChangeRef.current) onTranscriptChangeRef.current(normalizePhrase(newText));
