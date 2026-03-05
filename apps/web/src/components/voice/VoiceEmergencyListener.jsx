@@ -124,11 +124,14 @@ export default function VoiceEmergencyListener({
                           if (!isListening) {
                               console.log("Iniciando reconhecimento de fala...");
                               recognitionRef.current.start();
+                          } else {
+                              console.log("Reconhecimento já ativo. Renovando timestamp.");
                           }
                           window.lastSpeechTimestamp = Date.now();
                           
                       } catch(e) {
                           // Se já estiver rodando, ignora
+                          console.warn("Erro ao iniciar WebSpeech no VAD Trigger:", e);
                       }
                   }
               },  
@@ -197,6 +200,28 @@ export default function VoiceEmergencyListener({
           
           streamRef.current = stream;
           const source = ctx.createMediaStreamSource(stream);
+
+          // DIAGNÓSTICO: Monitorar fluxo de áudio na entrada
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          
+          // Loop de verificação de sinal (só roda nos primeiros 5s)
+          let silenceCheckCount = 0;
+          const signalCheckInterval = setInterval(() => {
+              analyser.getByteFrequencyData(dataArray);
+              const volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
+              console.log(`[Mic Signal Check] Volume Médio: ${volume.toFixed(2)}`);
+              
+              if (volume > 10) {
+                  console.log("[Mic Signal Check] Sinal OK detectado.");
+                  clearInterval(signalCheckInterval);
+              }
+              
+              silenceCheckCount++;
+              if (silenceCheckCount > 10) clearInterval(signalCheckInterval); // Para após 10 checks (5s)
+          }, 500);
 
           // Iniciar VAD com o stream já criado (se suportado pelo service) ou deixar o service gerenciar
           // O VoiceActivityService usa vad-web que pede seu próprio stream.
@@ -353,6 +378,12 @@ export default function VoiceEmergencyListener({
           // Conectar sinal PROCESSADO ao Worklet (RingBuffer e VAD)
           processedSource.connect(workletNode);
           workletNode.connect(ctx.destination); 
+          
+          // DIAGNÓSTICO WORKLET: Verificar se o processador está vivo
+          workletNode.onprocessorerror = (err) => {
+              console.error("[AudioWorklet] Erro no processador:", err);
+              setError("Erro crítico no processamento de áudio.");
+          }; 
           
           workletNodeRef.current = workletNode;
           console.log("Audio Core v2 (Worklet + WakeWord + VAD + IRA-SUSI) iniciado.");
