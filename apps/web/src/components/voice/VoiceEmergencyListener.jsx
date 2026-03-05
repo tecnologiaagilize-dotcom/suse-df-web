@@ -117,29 +117,48 @@ export default function VoiceEmergencyListener({
           audioContextRef.current = ctx;
 
           // --- FIX: Resume AudioContext se estiver suspenso (Autoplay Policy) ---
+          // Estratégia "Persistent Auto-Resume": Tenta forçar a ativação repetidamente e adiciona listeners de interação
           if (ctx.state === 'suspended') {
-              console.log("VoiceEmergencyListener: AudioContext suspenso, tentando retomar...");
-              try {
-                  await ctx.resume();
-                  console.log("AudioContext retomado com sucesso.");
-              } catch(e) {
-                  console.warn("Autoplay bloqueado. Aguardando interação do usuário.");
-                  // Adicionar listener global para destravar na primeira interação
-                  const unlockAudio = async () => {
-                      if (ctx.state === 'suspended') {
-                          try {
-                              await ctx.resume();
-                              console.log("AudioContext desbloqueado por interação do usuário.");
+              console.log("VoiceEmergencyListener: AudioContext suspenso. Iniciando protocolo de ativação forçada...");
+              
+              // 1. Tentar imediatamente (pode funcionar se tiver user activation prévia)
+              try { await ctx.resume(); } catch(e) {}
+
+              // 2. Loop de persistência (Polling) - Tenta a cada 1s caso o navegador libere tardiamente
+              const resumeInterval = setInterval(async () => {
+                  if (ctx.state === 'running') {
+                      console.log("AudioContext ativado via Polling!");
+                      clearInterval(resumeInterval);
+                      return;
+                  }
+                  try { await ctx.resume(); } catch(e) {}
+              }, 1000);
+
+              // 3. Listeners de Interação Global (Fallback Garantido)
+              const unlockAudio = async () => {
+                  if (ctx.state === 'suspended') {
+                      try {
+                          await ctx.resume();
+                          console.log("AudioContext desbloqueado por interação do usuário.");
+                          // Remove listeners apenas se tiver sucesso real
+                          if (ctx.state === 'running') {
                               window.removeEventListener('click', unlockAudio);
                               window.removeEventListener('touchstart', unlockAudio);
-                          } catch(err) {
-                              console.warn("Falha ao desbloquear áudio:", err);
+                              window.removeEventListener('keydown', unlockAudio);
+                              window.removeEventListener('scroll', unlockAudio);
+                              clearInterval(resumeInterval);
                           }
+                      } catch(err) {
+                          console.warn("Falha ao desbloquear áudio:", err);
                       }
-                  };
-                  window.addEventListener('click', unlockAudio);
-                  window.addEventListener('touchstart', unlockAudio);
-              }
+                  }
+              };
+              
+              // Captura qualquer tipo de interação possível
+              window.addEventListener('click', unlockAudio);
+              window.addEventListener('touchstart', unlockAudio);
+              window.addEventListener('keydown', unlockAudio);
+              window.addEventListener('scroll', unlockAudio);
           }
           
           // --- MELHORIA DE CAPTAÇÃO: UNIFIED STREAM (v1.3.40) ---
