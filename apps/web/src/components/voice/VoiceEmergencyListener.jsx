@@ -121,8 +121,24 @@ export default function VoiceEmergencyListener({
               console.log("VoiceEmergencyListener: AudioContext suspenso, tentando retomar...");
               try {
                   await ctx.resume();
+                  console.log("AudioContext retomado com sucesso.");
               } catch(e) {
                   console.warn("Autoplay bloqueado. Aguardando interação do usuário.");
+                  // Adicionar listener global para destravar na primeira interação
+                  const unlockAudio = async () => {
+                      if (ctx.state === 'suspended') {
+                          try {
+                              await ctx.resume();
+                              console.log("AudioContext desbloqueado por interação do usuário.");
+                              window.removeEventListener('click', unlockAudio);
+                              window.removeEventListener('touchstart', unlockAudio);
+                          } catch(err) {
+                              console.warn("Falha ao desbloquear áudio:", err);
+                          }
+                      }
+                  };
+                  window.addEventListener('click', unlockAudio);
+                  window.addEventListener('touchstart', unlockAudio);
               }
           }
           
