@@ -110,21 +110,30 @@ export default function VoiceEmergencyListener({
           });
           
           // 2. Inicializar VAD (Silero)
-          // FIX: Passar o modelo localmente para evitar download da CDN em runtime
-          // O VoiceActivityService foi ajustado para aceitar URLs locais se suportado, 
-          // ou precisamos garantir que os arquivos onnx estejam acessíveis.
-          // Como baixamos silero_vad_legacy.onnx para public/, o @ricky0123/vad-web pode não estar usando ele por padrão.
-          // Vamos adicionar um log para debug.
           console.log("[VoiceEmergencyListener] Iniciando VAD...");
           await VoiceActivityService.start(
               () => {
-                  console.log("[VoiceEmergencyListener] VAD Start Triggered");
+                  console.log("[VAD Trigger] Voz detectada! Ativando Web Speech...");
                   setIsSpeechDetected(true);
-                  // RECOMENDAÇÃO: Trigger WebSpeech se estiver pausado (Mobile)
-                  // Mas como usamos Continuous no Desktop, apenas logamos.
+                  
+                  // GATILHO VAD-FIRST: Inicia Web Speech temporariamente
+                  if (recognitionRef.current && !isAnalyzingRef.current) {
+                      try { 
+                          // Apenas tenta iniciar se não estiver ouvindo.
+                          // Se já estiver ouvindo, apenas renova o timestamp.
+                          if (!isListening) {
+                              console.log("Iniciando reconhecimento de fala...");
+                              recognitionRef.current.start();
+                          }
+                          window.lastSpeechTimestamp = Date.now();
+                          
+                      } catch(e) {
+                          // Se já estiver rodando, ignora
+                      }
+                  }
               },  
               () => {
-                  console.log("[VoiceEmergencyListener] VAD End Triggered");
+                  console.log("[VAD End] Silêncio detectado.");
                   setIsSpeechDetected(false);
               }
           );
@@ -622,10 +631,11 @@ export default function VoiceEmergencyListener({
     recognitionRef.current = recognition;
 
     recognition.onresult = async (event) => {
-      // Debug explícito para verificar se o reconhecimento está ativo e gerando resultados
-      // console.log("[VoiceEmergencyListener] onresult disparado. Resultados:", event.results.length);
+      // Atualiza timestamp da última atividade de fala
+      window.lastSpeechTimestamp = Date.now();
+      setIsSpeechDetected(true);
       
-      if (isAnalyzingRef.current) return; // Ignora se já estiver analisando
+      if (isAnalyzingRef.current) return;
 
       let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -767,28 +777,29 @@ export default function VoiceEmergencyListener({
     recognition.onstart = () => {
       setIsListening(true);
       setError('');
+      window.lastSpeechTimestamp = Date.now();
+
+      // Watchdog de Silêncio (Desliga se ficar 5s sem detectar fala)
+      const silenceInterval = setInterval(() => {
+          if (!isMountedRef.current || !recognitionRef.current) {
+              clearInterval(silenceInterval);
+              return;
+          }
+          
+          const timeSinceLastSpeech = Date.now() - (window.lastSpeechTimestamp || 0);
+          if (timeSinceLastSpeech > 5000) {
+               console.log("[VAD Timeout] Desligando Web Speech (5s sem fala).");
+               try { recognitionRef.current.stop(); } catch(e){}
+               clearInterval(silenceInterval);
+          }
+      }, 1000);
     };
 
     recognition.onend = () => {
-      setIsListening(false);
-      
-      // CORREÇÃO 2: Verificação robusta de instância para evitar stale closures
-      if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current) {
-         // Backoff Exponencial para evitar loop infinito rápido (INP Fix)
-         // Começa com 1000ms, mas se falhar repetidamente, aumentaria (simplificado aqui para 2s)
-         setTimeout(() => {
-             try {
-                // Checa novamente dentro do timeout se a instância ainda é válida e se o tab está visível
-                if (isActive && recognitionRef.current === recognition && !isAnalyzingRef.current && document.visibilityState === 'visible') {
-                    // recognition.start(); // --- DESATIVADO PARA TESTE DE CONFLITO ---
-                    console.log("[Voice] Reinício onend bloqueado (Modo Teste v1.3.38)");
-                } else {
-                    console.log("[Voice] Pausando reinício automático (Tab em background ou inativo)");
-                }
-             } catch (e) {
-                console.warn("Erro ao reiniciar reconhecimento:", e);
-             }
-         }, 2000); // Aumentado de 1000ms para 2000ms para reduzir carga
+      // VAD-FIRST: Não reinicia automaticamente. Espera o próximo trigger do VAD.
+      if (isListening) {
+          console.log("[Web Speech] Sessão encerrada (Silêncio ou Timeout).");
+          setIsListening(false);
       }
     };
 
@@ -809,20 +820,10 @@ export default function VoiceEmergencyListener({
     };
 
     if (isActive) {
-      // Sequenciamento: Só inicia WebSpeech após AudioCore liberar (evita conflito de microfone)
+      // Sequenciamento: Só inicia WebSpeech após VAD disparar (VAD-FIRST Architecture)
+      // Removemos o start automático contínuo
       if (audioCoreReady) {
-          try {
-            console.log("[Voice] Iniciando Web Speech API... (DESATIVADO PARA TESTE v1.3.38)");
-            // recognition.start(); // --- DESATIVADO PARA TESTE DE CONFLITO ---
-            
-            // Simula estado ativo para UI não ficar quebrada
-            setIsListening(true);
-            
-          } catch (e) {
-            console.error("[Voice] Erro ao iniciar recognition:", e);
-          }
-      } else {
-          console.log("[Voice] Aguardando Audio Core para iniciar Web Speech...");
+          console.log("[Voice] Audio Core Ativo. Aguardando VAD para iniciar Web Speech...");
       }
     }
 
