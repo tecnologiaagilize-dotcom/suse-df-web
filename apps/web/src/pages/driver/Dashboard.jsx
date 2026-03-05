@@ -813,7 +813,7 @@ export default function DriverDashboard() {
                                 <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-1 font-bold w-full text-left flex justify-between">
                                     <span>Monitorando Áudio</span>
                                     <span className={`animate-pulse ${voiceStatus.error ? 'text-red-500' : voiceStatus.isListening ? 'text-green-500' : 'text-yellow-500'}`}>
-                                        {voiceStatus.error ? 'ERRO MIC' : voiceStatus.isAnalyzing ? '● PROCESSANDO' : voiceStatus.isListening ? '● GRAVANDO' : '● INICIANDO...'}
+                                        {voiceStatus.error ? 'ERRO MIC' : voiceStatus.isAnalyzing ? '● PROCESSANDO' : voiceStatus.isListening ? '● MONITORANDO' : '● INICIANDO...'}
                                     </span>
                                 </div>
                                 <div className="w-full text-center">

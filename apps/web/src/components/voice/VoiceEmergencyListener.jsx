@@ -395,12 +395,14 @@ export default function VoiceEmergencyListener({
           console.log("Audio Core v2 (Worklet + WakeWord + VAD + IRA-SUSI) iniciado.");
           clearTimeout(safetyTimer); // Cancela timeout se sucesso
           setAudioCoreReady(true); // Libera SpeechRecognition
+          setIsListening(true); // [FIX] Define como ouvindo pois o Audio Core está ativo (Modo Acústico)
 
       } catch (err) {
           console.error("Falha ao iniciar Audio Core v2:", err);
           setError("Erro no módulo de áudio: " + err.message);
           clearTimeout(safetyTimer); // Cancela timeout se erro tratado
           setAudioCoreReady(true); // Libera SpeechRecognition mesmo com erro no Core (Fallback)
+          // Em caso de erro, não setamos isListening(true)
       }
   };
 
@@ -578,7 +580,7 @@ export default function VoiceEmergencyListener({
                 onAnalysisUpdateRef.current({
                     voiceDebug: {
                         text: transcription || result.transcription,
-                        target: "Análise Semântica AI",
+                        target: "Monitoramento Acústico",
                         similarity: match_percentage / 100, // Normalizar 0-1
                         match: risk_level === 'CRÍTICO',
                         timestamp: Date.now(),
